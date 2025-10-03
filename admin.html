@@ -1,341 +1,135 @@
-<!doctype html>
-<html lang="pt-br">
-<head>
-  <meta charset="utf-8">
-  <title>Admin – CETESB Credenciais</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link href="style.css" rel="stylesheet">
-</head>
-<body>
+/* =======================================================================
+   CETESB – Credenciais (Frontend)
+   Design tokens inspirados no e-CETESB. Mobile-first. Produção-ready.
+   ======================================================================= */
 
-<header class="header">
-  <div class="container">
-    <div class="brand">
-      <img src="media/cetesb-logo.png" alt="CETESB" onerror="this.style.display='none'">
-      <h1>CETESB – Administração de Credenciais</h1>
-    </div>
-    <div class="actions">
-      <a class="btn" href="consulta.html">Consulta</a>
-      <button id="btnSair" class="btn danger">Sair</button>
-    </div>
-  </div>
-</header>
+:root{
+  --brand:#005AA7; --brand-700:#003e73; --brand-500:#009fda; --brand-600:#058bbf;
+  --page-bg:#f7f9fc; --card:#ffffff; --border:#e5e7eb;
+  --text-strong:#1e293b; --text:#334155; --muted:#64748b;
 
-<main class="container">
-  <div class="grid grid-2">
-    <!-- FORMULÁRIO -->
-    <section class="card pad">
-      <h2 class="card-title">Cadastro</h2>
+  --success-bg:#e8f5e9; --success-bd:#bbf7d0; --success-tx:#166534;
+  --warn-bg:#fff7ed;    --warn-bd:#fed7aa;  --warn-tx:#92400e;
+  --danger-bg:#fef2f2;  --danger-bd:#fecaca;--danger-tx:#991b1b;
 
-      <form class="form" id="formCad" autocomplete="off">
-        <div class="field">
-          <label for="registro" class="req">Registro (6 dígitos)</label>
-          <input id="registro" class="input" placeholder="000001" maxlength="6" pattern="[0-9]{6}" required>
-        </div>
+  --shadow-sm:0 1px 2px rgba(2,6,23,.06);
+  --shadow-md:0 6px 24px rgba(2,6,23,.08);
 
-        <div class="row">
-          <div class="field">
-            <label for="cred_num" class="req">Nº da credencial</label>
-            <input id="cred_num" class="input" placeholder="1234" pattern="[0-9]{4}" required>
-          </div>
-          <div class="field">
-            <label for="status" class="req">Status</label>
-            <select id="status" class="select" required>
-              <option value="Ativo">Ativo</option>
-              <option value="Em andamento">Em andamento</option>
-            </select>
-          </div>
-        </div>
+  --radius:16px; --focus:0 0 0 3px rgba(0,90,167,.25);
+  --font-size:14px; --line:20px;
+}
 
-        <div class="field">
-          <label for="nome" class="req">Nome</label>
-          <input id="nome" class="input" required>
-        </div>
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,'Helvetica Neue',Arial,sans-serif;
+  font-size:var(--font-size); line-height:var(--line); color:var(--text); background:var(--page-bg);
+  -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+}
+img{max-width:100%; display:block}
 
-        <div class="row">
-          <div class="field">
-            <label for="sigla" class="req">Sigla da unidade</label>
-            <select id="sigla" class="select" required>
-              <option value="">Selecione…</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="validade" class="req">Validade da credencial</label>
-            <input id="validade" class="input" type="date" required>
-          </div>
-        </div>
+h1,h2,h3{margin:0;color:var(--text-strong);letter-spacing:.2px}
+h2{font-size:18px}
+p{margin:0 0 10px}
+.small{font-size:12px}
+.muted{color:var(--muted)}
+.hidden{display:none !important}
+.right{justify-content:flex-end}
+.mt-8{margin-top:8px}.mt-12{margin-top:12px}.mt-16{margin-top:16px}.mt-24{margin-top:24px}
 
-        <div class="field">
-          <label for="nome_da_unidade">Nome da unidade</label>
-          <input id="nome_da_unidade" class="input" placeholder="Preenchido pela sigla" readonly>
-        </div>
+.container{max-width:1240px;margin-inline:auto;padding:24px}
+.grid{display:grid;gap:16px}
+.grid-2{grid-template-columns:420px 1fr;gap:24px}
+@media (max-width:980px){ .grid-2{grid-template-columns:1fr} }
 
-        <div class="field">
-          <label for="doe">Diário Oficial do Estado (DOE)</label>
-          <input id="doe" class="input" placeholder="Nº/ano (opcional)">
-        </div>
+/* Header */
+.header{background:linear-gradient(180deg,#ffffff,#f5f8ff);border-bottom:1px solid var(--border)}
+.header .container{display:flex;gap:16px;align-items:center;justify-content:space-between;padding-block:10px}
+.brand{display:flex;gap:12px;align-items:center}
+.brand img{height:34px}
+.brand h1{font-size:18px;color:var(--brand)}
+.header .actions{display:flex;gap:8px;align-items:center}
 
-        <div class="field">
-          <label for="cred_cod" class="req">Código da credencial</label>
-          <select id="cred_cod" class="select" required></select>
-        </div>
+/* Cards */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-md)}
+.card.pad{padding:18px 20px}
+.card-title{font-size:16px;margin:0 0 6px}
 
-        <div class="row row-media">
-          <div class="field">
-            <label for="fotoInput">Foto (upload)</label>
-            <!-- apenas o botão de arquivo, sem caixa ao redor e sem link extra -->
-            <input id="fotoInput" type="file" accept=".jpg,.jpeg,.png">
-          </div>
-          <div class="field">
-            <label>Pré-visualização</label>
-            <img id="preview" class="avatar" alt="Prévia" src="https://via.placeholder.com/120x120?text=pre%CC%81via">
-          </div>
-        </div>
+/* Formulários */
+.form{display:grid;gap:12px}
+.field{display:grid;gap:6px}
+.field label{font-size:12px;color:var(--muted);margin-bottom:4px}
+.req::after{content:" *";color:#ef4444}
+.input,.select{
+  width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:12px;
+  background:#fff;color:var(--text);height:38px;font-size:14px;box-shadow:var(--shadow-sm);
+  transition:border .15s, box-shadow .15s, background .15s;
+}
+.input:focus,.select:focus{outline:none;border-color:var(--brand);box-shadow:var(--focus)}
+.input[readonly]{background:#eef7ff;color:#2c4c69;border-color:#cfe3ff}
+.form .row{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:end}
+.form .row-media{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+@media (max-width:980px){ .form .row,.form .row-media{grid-template-columns:1fr} }
 
-        <div class="row right">
-          <button id="btnNovo" type="button" class="btn">Novo</button>
-          <button id="btnExcluir" type="button" class="btn danger">Excluir</button>
-          <button id="btnQR" type="button" class="btn">Gerar QR</button>
-          <button id="btnSalvar" type="submit" class="btn primary">Salvar</button>
-        </div>
-      </form>
-    </section>
+/* Botões */
+.btn{
+  --bg:#ffffff; --tx:#0f172a; --bd:var(--border);
+  display:inline-flex;align-items:center;gap:8px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);
+  padding:9px 14px;border-radius:10px;cursor:pointer;box-shadow:var(--shadow-sm);
+  text-decoration:none;font-weight:600;transition:transform .02s,background .15s,border .15s,color .15s;
+}
+.btn:active{transform:translateY(1px)}
+.btn:hover{filter:brightness(0.98)}
+.btn:focus{outline:none;box-shadow:var(--focus)}
+.btn.primary{--bg:#009fda;--tx:#fff;--bd:#009fda}
+.btn.danger{--bg:var(--danger-bg);--tx:var(--danger-tx);--bd:#fecaca}
 
-    <!-- LISTA -->
-    <section class="card pad">
-      <h2 class="card-title">Lista e filtros</h2>
+/* Tabelas */
+.table-wrap{overflow:auto;border:1px solid var(--border);border-radius:12px;background:#fff;box-shadow:var(--shadow-sm)}
+table{width:100%;border-collapse:separate;border-spacing:0}
+thead th{
+  text-align:left;font-size:12px;color:#334155;font-weight:700;
+  position:sticky;top:0;z-index:1;background:#f1f5f9;border-bottom:1px solid var(--border);
+  padding:10px 12px;vertical-align:middle;
+}
+thead th.right{text-align:right}
+tbody td{padding:10px 12px;border-bottom:1px solid var(--border);font-size:14px;vertical-align:middle}
+tbody tr:nth-child(2n){background:#fbfdff}
+tbody tr:hover{background:#fafbff}
+tbody tr:last-child td{border-bottom:0}
+.table-actions{display:flex;gap:8px;justify-content:flex-end;align-items:center}
 
-      <div class="row" style="gap:10px;align-items:center;flex-wrap:wrap">
-        <input id="q" class="input" style="flex:1 1 auto" placeholder="Buscar por nome, registro...">
-        <select id="f_sigla" class="select">
-          <option value="">— Sigla —</option>
-        </select>
-        <select id="f_status" class="select">
-          <option value="">— Status —</option>
-          <option value="Ativo">Ativo</option>
-          <option value="Em andamento">Em andamento</option>
-          <option value="Inativo">Inativo</option>
-        </select>
-        <button id="btnReload" class="btn">Recarregar</button>
-      </div>
+/* Chips */
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:12px;border:1px solid rgba(0,0,0,.06);background:#f8fafc;color:#334155}
+.chip.ativo{background:var(--success-bg);border-color:var(--success-bd);color:var(--success-tx)}
+.chip.andamento{background:var(--warn-bg);border-color:var(--warn-bd);color:var(--warn-tx)}
+.chip.inativo{background:var(--danger-bg);border-color:var(--danger-bd);color:var(--danger-tx)}
 
-      <div class="table-wrap mt-12">
-        <table>
-          <thead>
-            <tr>
-              <th>Registro</th>
-              <th>Nome</th>
-              <th>Sigla</th>
-              <th>Validade</th>
-              <th>Status</th>
-              <th class="right">Ações</th>
-            </tr>
-          </thead>
-          <tbody id="tbody"></tbody>
-        </table>
-      </div>
+/* Avatar (tamanho fixo anti-distorção) */
+.avatar{
+  width:120px;height:120px;min-width:120px;min-height:120px;
+  border-radius:12px;object-fit:cover;object-position:center;background:#eef2f7;border:1px solid var(--border)
+}
 
-      <div id="count" class="small muted mt-8">0 registro(s)</div>
-    </section>
-  </div>
+/* Página pública (QR) */
+#card.card.pad{padding:22px 24px;position:relative;z-index:1}
+.qr-card{display:grid;grid-template-columns:120px 1fr;gap:18px}
+@media (max-width:560px){ .qr-card{grid-template-columns:1fr} .avatar{width:100%;height:auto;min-width:0;min-height:0} }
+.qr-card h2{font-size:18px;color:#1e293b;margin:2px 0 4px}
+#desc{color:var(--muted);line-height:1.5}
+#statusChip,#validadeChip{padding:4px 10px;font-size:12px}
+.qr-card .row{display:grid;grid-template-columns:160px 1fr;gap:8px;align-items:baseline}
+.qr-card .label{color:var(--muted);font-size:12px}
+@media (max-width:560px){ .qr-card .row{grid-template-columns:1fr} }
+#unidade{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 
-  <div id="toast" class="toast hidden alert success"><div id="toastMsg">OK</div></div>
-</main>
+main.container.public-center{
+  min-height:calc(100dvh - 140px);
+  display:flex;align-items:flex-start;justify-content:center;
+  padding-bottom:56px; /* espaço para rodapé */
+}
+#card{max-width:920px;width:100%}
+.footer{margin-top:16px;color:#64748b;font-size:12px;position:relative;z-index:0}
 
-<script type="module">
-  const $ = (s)=>document.querySelector(s);
-  const toast = (t, kind='success')=>{
-    const el = $('#toast'); const m = $('#toastMsg');
-    el.className = 'toast alert '+(kind==='error'?'error':kind==='warn'?'warn':'success');
-    m.textContent = t; el.classList.remove('hidden'); setTimeout(()=>el.classList.add('hidden'), 1800);
-  };
-
-  // Sessão local (login por matrícula/senha)
-  const sess = JSON.parse(localStorage.getItem('sessaoUsuario')||'null');
-  if(!sess){ location.href = 'index.html'; throw new Error('sem sessão'); }
-
-  // Config + Supabase
-  let cfg; {
-    const res = await fetch('config.json', { cache:'no-store' });
-    if(!res.ok) { alert('Falha ao carregar config.json'); throw new Error(); }
-    cfg = await res.json();
-  }
-  const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
-  const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
-
-  // Sair
-  $('#btnSair').addEventListener('click', ()=>{
-    localStorage.removeItem('sessaoUsuario');
-    location.href = 'index.html';
-  });
-
-  // Helpers status
-  const todayZero = ()=>{ const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); };
-  const isVigente = (iso)=>{ if(!iso) return false; const [y,m,d]=iso.split('-').map(Number); return new Date(y,m-1,d) >= todayZero(); };
-  const statusDerivado = (row)=>{
-    if (row.status==='Em andamento') return {label:'Em andamento', cls:'andamento'};
-    if (row.status==='Ativo' && isVigente(row.validade)) return {label:'Ativo', cls:'ativo'};
-    return {label:'Inativo', cls:'inativo'};
-  };
-  const fmtBR = (iso)=> !iso ? '—' : (()=>{const [y,m,d]=iso.split('-');return `${d}/${m}/${y}`})();
-
-  // Combos
-  (async ()=>{
-    const { data } = await supabase.from('credenciais').select('cred_cod,descricao').order('cred_cod');
-    if (data){
-      $('#cred_cod').innerHTML = data.map(c=>`<option value="${c.cred_cod}">${c.cred_cod} — ${c.descricao}</option>`).join('');
-    }
-  })();
-  (async ()=>{
-    const { data } = await supabase.from('unidades').select('sigla,nome_da_unidade').order('sigla');
-    if (data){
-      const sel = $('#sigla');
-      sel.innerHTML = '<option value="">Selecione…</option>'+ data.map(u=>`<option value="${u.sigla}">${u.sigla}</option>`).join('');
-      const map = new Map(data.map(u=>[u.sigla.toUpperCase(),u]));
-      sel.addEventListener('change', ()=>{
-        const u = map.get((sel.value||'').toUpperCase());
-        $('#nome_da_unidade').value = u ? (u.nome_da_unidade||'') : '';
-      });
-      // filtro
-      const f = $('#f_sigla');
-      f.innerHTML = '<option value="">— Sigla —</option>'+ data.map(u=>`<option value="${u.sigla}">${u.sigla}</option>`).join('');
-    }
-  })();
-
-  // Prévia de upload
-  $('#fotoInput').addEventListener('change', (ev)=>{
-    const f = ev.target.files?.[0]; if(!f) return;
-    const url = URL.createObjectURL(f);
-    $('#preview').src = url;
-  });
-
-  // CRUD
-  async function carregarLista(){
-    const q = ($('#q').value||'').trim().toLowerCase();
-    const fSigla = $('#f_sigla').value||'';
-    const fStatus = $('#f_status').value||'';
-    let query = supabase.from('empregados')
-      .select('registro,nome,sigla,validade,status', { count:'exact' })
-      .order('registro', { ascending:true });
-
-    if (fSigla) query = query.eq('sigla', fSigla);
-    if (q) query = query.or(`nome.ilike.%${q}%,registro.ilike.%${q}%`);
-    const { data, error } = await query;
-    if (error){ console.error(error); toast('Erro ao carregar lista','error'); return; }
-
-    let rows = data||[];
-    if (fStatus) rows = rows.filter(r=> statusDerivado(r).label === fStatus);
-
-    const tbody = $('#tbody');
-    tbody.innerHTML = rows.map(r=>{
-      const sd = statusDerivado(r);
-      return `<tr>
-        <td>${r.registro}</td>
-        <td>${r.nome||'—'}</td>
-        <td>${r.sigla||'—'}</td>
-        <td>${fmtBR(r.validade)||'—'}</td>
-        <td><span class="chip ${sd.cls}">${sd.label}</span></td>
-        <td class="right table-actions">
-          <button class="btn" data-edit="${r.registro}">Editar</button>
-          <a class="btn" target="_blank" rel="noopener" href="public.html?reg=${r.registro}">Abrir</a>
-        </td>
-      </tr>`;
-    }).join('');
-
-    tbody.querySelectorAll('button[data-edit]').forEach(btn=>{
-      btn.addEventListener('click', ()=> editar(btn.getAttribute('data-edit')));
-    });
-
-    $('#count').textContent = `${rows.length} registro(s)`;
-  }
-
-  async function editar(registro){
-    const { data, error } = await supabase.from('empregados')
-      .select('registro,cred_num,cred_cod,status,nome,sigla,nome_da_unidade,validade,doe,foto_path')
-      .eq('registro', registro).maybeSingle();
-    if (error || !data){ toast('Erro ao abrir','error'); return; }
-
-    $('#formCad').reset();
-    $('#registro').value = data.registro||'';
-    $('#cred_num').value = data.cred_num||'';
-    $('#status').value = data.status||'Ativo';
-    $('#nome').value = data.nome||'';
-    $('#sigla').value = data.sigla||'';
-    $('#validade').value = data.validade||'';
-    $('#nome_da_unidade').value = data.nome_da_unidade||'';
-    $('#doe').value = data.doe||'';
-    $('#cred_cod').value = String(data.cred_cod||'');
-    $('#preview').src = data.foto_path
-      ? `${cfg.supabaseUrl}/storage/v1/object/public/${data.foto_path}`
-      : 'https://via.placeholder.com/120x120?text=pre%CC%81via';
-    toast('Registro carregado');
-  }
-
-  // Ações
-  $('#btnReload').addEventListener('click', carregarLista);
-  $('#q').addEventListener('input', ()=>{ clearTimeout(window._t); window._t=setTimeout(carregarLista,350); });
-  $('#f_sigla').addEventListener('change', carregarLista);
-  $('#f_status').addEventListener('change', carregarLista);
-
-  $('#btnNovo').addEventListener('click', ()=>{
-    $('#formCad').reset();
-    $('#preview').src = 'https://via.placeholder.com/120x120?text=pre%CC%81via';
-    toast('Cadastro limpo');
-  });
-
-  $('#btnExcluir').addEventListener('click', async ()=>{
-    const reg = $('#registro').value.trim();
-    if(!/^[0-9]{6}$/.test(reg)){ alert('Registro inválido'); return; }
-    if(!confirm(`Excluir ${reg}?`)) return;
-    const { error } = await supabase.from('empregados').delete().eq('registro', reg);
-    if(error){ toast('Erro ao excluir','error'); return; }
-    try{ await supabase.storage.from(cfg.storageBucket||'fotos').remove([`fotos/${reg}.jpg`,`fotos/${reg}.png`]); }catch(e){}
-    $('#btnNovo').click(); carregarLista(); toast('Excluído.');
-  });
-
-  $('#btnQR').addEventListener('click', ()=>{
-    const reg = $('#registro').value.trim();
-    if(!/^[0-9]{6}$/.test(reg)){ alert('Informe um registro válido.'); return; }
-    const url = `${cfg.BASE_URL.replace(/\/$/,'')}/${cfg.publicPage||'public.html'}?reg=${reg}`;
-    window.open(`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}`,'_blank','noopener');
-  });
-
-  $('#formCad').addEventListener('submit', async (ev)=>{
-    ev.preventDefault();
-    const registro = $('#registro').value.trim();
-    const cred_num = $('#cred_num').value.trim();
-    const status   = $('#status').value.trim();
-    const nome     = $('#nome').value.trim();
-    const sigla    = $('#sigla').value.trim().toUpperCase();
-    const validade = $('#validade').value || null;
-    const nome_da_unidade = $('#nome_da_unidade').value.trim();
-    const doe      = ($('#doe').value||'').trim() || null;
-    const cred_cod = parseInt($('#cred_cod').value||'0',10) || null;
-
-    if (!/^[0-9]{6}$/.test(registro)){ alert('Registro deve ter 6 dígitos.'); return; }
-    if (!/^[0-9]{4}$/.test(cred_num)){ alert('Nº da credencial deve ter 4 dígitos.'); return; }
-    if (!nome || !sigla || !cred_cod){ alert('Preencha Nome, Sigla e Código da credencial.'); return; }
-
-    const payload = { registro, cred_num, cred_cod, status, nome, sigla, nome_da_unidade, validade, doe };
-    const { error } = await supabase.from('empregados').upsert(payload, { onConflict:'registro' });
-    if (error){ console.error(error); toast('Erro ao salvar','error'); return; }
-
-    const file = $('#fotoInput').files?.[0];
-    if (file){
-      const ext = (file.name.split('.').pop()||'jpg').toLowerCase();
-      const path = `fotos/${registro}.${ext}`;
-      try{ await supabase.storage.from(cfg.storageBucket||'fotos').remove([`fotos/${registro}.jpg`,`fotos/${registro}.png`]); }catch(e){}
-      const up = await supabase.storage.from(cfg.storageBucket||'fotos').upload(path, file, { upsert:true, cacheControl:'3600' });
-      if (!up.error){ await supabase.from('empregados').update({ foto_path: path }).eq('registro', registro); }
-      $('#preview').src = `${cfg.supabaseUrl}/storage/v1/object/public/${path}`;
-    }
-
-    toast('Salvo com sucesso.'); carregarLista();
-  });
-
-  // Start
-  carregarLista();
-</script>
-
-</body>
-</html>
+/* Foco */
+:where(a,button,[role="button"],.btn,.input,.select):focus-visible{outline:none;box-shadow:var(--focus)}
