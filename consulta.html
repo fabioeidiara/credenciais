@@ -83,7 +83,7 @@
   let cfg, supabase, perfil = { nivel:0, root_sigla:'' }, unidades = [];
 
   async function boot(){
-    cfg = await fetch('/config.json',{cache:'no-store'}).then(r=>r.json());
+    cfg = await fetch('config.json',{cache:'no-store'}).then(r=>r.json());
     supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
     // Sessão obrigatória
