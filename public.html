@@ -35,9 +35,6 @@
         </div>
 
         <div class="row mt-12">
-          <span class="badge">Dados essenciais</span>
-        </div>
-        <div class="row">
           <div class="label">Nº da credencial:</div><div id="crednum">—</div>
         </div>
         <div class="row">
@@ -70,6 +67,16 @@
   const show = (el, v=true)=> el.classList.toggle('hidden', !v);
   const fail = (msg)=>{ $('#loading').innerHTML = `<div><strong>${msg}</strong></div>`; };
 
+  const todayZero = ()=>{
+    const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  };
+  const isVigente = (validadeISO)=>{
+    if(!validadeISO) return false;
+    const [y,m,d] = validadeISO.split('-').map(Number);
+    const V = new Date(y, m-1, d);
+    return V >= todayZero();
+  };
+
   try {
     // 1) config.json
     let cfg;
@@ -91,7 +98,7 @@
     const reg = (new URLSearchParams(location.search).get('reg')||'').trim();
     if(!/^\d{6}$/.test(reg)){ fail('Parâmetro inválido. Use ?reg=000001'); return; }
 
-    // 4) consultar empregado (SEM colunas removidas)
+    // 4) consultar empregado
     const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
     const empResp = await supabase.from('empregados')
       .select('registro,cred_num,validade,status,nome,sigla,nome_da_unidade,cred_cod,foto_path')
@@ -108,15 +115,15 @@
       if(!cResp.error && cResp.data) descricao = cResp.data.descricao;
     }
 
-    // 6) status/validade
-    const hoje = new Date(); const H = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
-    let ativo=false, validadeFmt='—';
-    if(emp.validade){
-      const [y,m,d]=emp.validade.split('-').map(Number);
-      const V = new Date(y, m-1, d);
-      validadeFmt = `${String(d).padStart(2,'0')}/${String(m).padStart(2,'0')}/${y}`;
-      ativo = (emp.status==='Ativo') && (V>=H);
-    }
+    // 6) status/validade + rótulo
+    const vigente = isVigente(emp.validade);
+    let label = 'Inativo', cls = 'inativo';
+    if (emp.status === 'Em andamento'){ label = 'Em andamento'; cls = 'andamento'; }
+    else if (emp.status === 'Ativo' && vigente){ label = 'Ativo'; cls = 'ativo'; }
+
+    const validadeFmt = emp.validade
+      ? (()=>{ const [y,m,d]=emp.validade.split('-'); return `${d}/${m}/${y}`; })()
+      : '—';
 
     // 7) preencher UI
     $('#nome').textContent = emp.nome||'—';
@@ -126,8 +133,8 @@
     $('#desc').textContent = descricao||'—';
 
     const st = $('#statusChip');
-    st.textContent = ativo ? 'ATIVO' : 'INATIVO';
-    st.className = 'chip ' + (ativo ? 'ativo' : 'inativo');
+    st.textContent = label;
+    st.className = 'chip ' + cls;
 
     $('#validadeChip').textContent = `Validade: ${validadeFmt}`;
 
