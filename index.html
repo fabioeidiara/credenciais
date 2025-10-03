@@ -45,7 +45,6 @@
         <div class="help">Senha inicial por convite do Supabase. Se esqueceu, peça novo convite ao admin.</div>
       </div>
       <button class="btn primary" type="submit" id="btnLogin">Entrar</button>
-      <button class="btn" type="button" id="btnLoginGithub">Entrar com GitHub</button>
       <button class="btn" type="button" id="btnLogout" style="display:none">Sair</button>
     </form>
 
@@ -125,21 +124,6 @@
       show(a, true);
     }
   }
-
-  // Login com GitHub (OAuth)
-  $('#btnLoginGithub').addEventListener('click', async ()=>{
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'github',
-      options: {
-        redirectTo: window.location.origin + cfg.loginPage // volta ao login para rotear por nível
-      }
-    });
-    if (error) {
-      const a = $('#alert'); const m = $('#alertMsg');
-      m.textContent = error.message || 'Falha no login GitHub.';
-      show(a, true);
-    }
-  });
 
   // Submissão do login
   $('#loginForm').addEventListener('submit', async (e)=>{
