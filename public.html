@@ -16,7 +16,7 @@
       <h1>CETESB – Credencial do Agente</h1>
     </div>
     <div class="actions">
-      <a class="btn ghost" href="index.html">Área restrita</a>
+      <a class="btn" href="index.html">Área restrita</a>
     </div>
   </div>
 </header>
@@ -47,16 +47,8 @@
     </div>
   </div>
 
-  <div id="loading" class="alert mt-16">
-    <div><strong>Carregando…</strong> Aguarde um instante.</div>
-  </div>
-
-  <div id="notfound" class="alert error mt-16 hidden">
-    <div>
-      <strong>Registro não encontrado ou credencial inativa.</strong>
-      <div class="small">Verifique o número ou entre em contato com a CETESB.</div>
-    </div>
-  </div>
+  <div id="loading" class="alert mt-16"><div><strong>Carregando…</strong> Aguarde um instante.</div></div>
+  <div id="notfound" class="alert error mt-16 hidden"><div><strong>Registro não encontrado ou credencial inativa.</strong><div class="small">Verifique o número ou entre em contato com a CETESB.</div></div></div>
 
   <p class="footer">Confirme o domínio: <strong>*.github.io</strong> (piloto) ou <strong>*.cetesb.sp.gov.br</strong> (produção).</p>
 </main>
@@ -67,91 +59,67 @@
   const show = (el, v=true)=> el.classList.toggle('hidden', !v);
   const fail = (msg)=>{ $('#loading').innerHTML = `<div><strong>${msg}</strong></div>`; };
 
-  const todayZero = ()=>{
-    const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  };
-  const isVigente = (validadeISO)=>{
-    if(!validadeISO) return false;
-    const [y,m,d] = validadeISO.split('-').map(Number);
-    const V = new Date(y, m-1, d);
-    return V >= todayZero();
-  };
+  const todayZero = ()=>{ const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); };
+  const isVigente = (iso)=>{ if(!iso) return false; const [y,m,d]=iso.split('-').map(Number); return new Date(y,m-1,d) >= todayZero(); };
 
-  try {
-    // 1) config.json
-    let cfg;
-    try{
-      const res = await fetch('config.json', {cache:'no-store'});
-      if(!res.ok) throw new Error('config.json HTTP '+res.status);
-      cfg = await res.json();
-    }catch(e){ fail('Falha ao carregar configuração (config.json).'); console.error(e); return; }
+  // config
+  let cfg;
+  try{
+    const res = await fetch('config.json', {cache:'no-store'});
+    if(!res.ok) throw new Error('config.json '+res.status);
+    cfg = await res.json();
+  }catch(e){ fail('Falha ao carregar configuração.'); console.error(e); return; }
 
-    // 2) SDK Supabase
-    let createClient;
-    try{
-      ({ createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'));
-    }catch(e2){
-      fail('Falha ao carregar SDK do Supabase.'); console.error(e2); return;
-    }
+  // sdk
+  let createClient;
+  try{
+    ({ createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'));
+  }catch(e2){ fail('Falha ao carregar SDK do Supabase.'); console.error(e2); return; }
 
-    // 3) validar ?reg=
-    const reg = (new URLSearchParams(location.search).get('reg')||'').trim();
-    if(!/^\d{6}$/.test(reg)){ fail('Parâmetro inválido. Use ?reg=000001'); return; }
+  const reg = (new URLSearchParams(location.search).get('reg')||'').trim();
+  if(!/^[0-9]{6}$/.test(reg)){ fail('Parâmetro inválido. Use ?reg=000001'); return; }
 
-    // 4) consultar empregado
-    const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
-    const empResp = await supabase.from('empregados')
-      .select('registro,cred_num,validade,status,nome,sigla,nome_da_unidade,cred_cod,foto_path')
-      .eq('registro', reg).maybeSingle();
+  const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+  const empResp = await supabase.from('empregados')
+    .select('registro,cred_num,validade,status,nome,sigla,nome_da_unidade,cred_cod,foto_path')
+    .eq('registro', reg).maybeSingle();
 
-    if(empResp.error){ fail('Erro ao consultar a credencial.'); console.error(empResp.error); return; }
-    const emp = empResp.data;
-    if(!emp){ show($('#loading'), false); show($('#notfound'), true); return; }
+  if(empResp.error){ fail('Erro ao consultar a credencial.'); console.error(empResp.error); return; }
+  const emp = empResp.data;
+  if(!emp){ show($('#loading'), false); show($('#notfound'), true); return; }
 
-    // 5) buscar descrição da credencial
-    let descricao = '—';
-    if (emp.cred_cod != null){
-      const cResp = await supabase.from('credenciais').select('descricao').eq('cred_cod', emp.cred_cod).maybeSingle();
-      if(!cResp.error && cResp.data) descricao = cResp.data.descricao;
-    }
-
-    // 6) status/validade + rótulo
-    const vigente = isVigente(emp.validade);
-    let label = 'Inativo', cls = 'inativo';
-    if (emp.status === 'Em andamento'){ label = 'Em andamento'; cls = 'andamento'; }
-    else if (emp.status === 'Ativo' && vigente){ label = 'Ativo'; cls = 'ativo'; }
-
-    const validadeFmt = emp.validade
-      ? (()=>{ const [y,m,d]=emp.validade.split('-'); return `${d}/${m}/${y}`; })()
-      : '—';
-
-    // 7) preencher UI
-    $('#nome').textContent = emp.nome||'—';
-    $('#registro').textContent = emp.registro||'—';
-    $('#crednum').textContent = emp.cred_num||'—';
-    $('#unidade').textContent = emp.nome_da_unidade ? `${emp.nome_da_unidade} (${emp.sigla})` : (emp.sigla||'—');
-    $('#desc').textContent = descricao||'—';
-
-    const st = $('#statusChip');
-    st.textContent = label;
-    st.className = 'chip ' + cls;
-
-    $('#validadeChip').textContent = `Validade: ${validadeFmt}`;
-
-    const fotoEl = $('#foto');
-    if(emp.foto_path){
-      fotoEl.src = `${cfg.supabaseUrl}/storage/v1/object/public/${emp.foto_path}`;
-      fotoEl.onerror = ()=>{ fotoEl.src='https://via.placeholder.com/120x120?text=sem+foto'; };
-    } else {
-      fotoEl.src='https://via.placeholder.com/120x120?text=sem+foto';
-    }
-
-    show($('#loading'), false);
-    show($('#card'), true);
-  } catch (err) {
-    console.error(err);
-    fail('Falha inesperada ao renderizar a página.');
+  let descricao = '—';
+  if (emp.cred_cod != null){
+    const cResp = await supabase.from('credenciais').select('descricao').eq('cred_cod', emp.cred_cod).maybeSingle();
+    if(!cResp.error && cResp.data) descricao = cResp.data.descricao;
   }
+
+  const vigente = isVigente(emp.validade);
+  let label = 'Inativo', cls = 'inativo';
+  if (emp.status === 'Em andamento'){ label = 'Em andamento'; cls = 'andamento'; }
+  else if (emp.status === 'Ativo' && vigente){ label = 'Ativo'; cls = 'ativo'; }
+
+  const validadeFmt = emp.validade ? (()=>{ const [y,m,d]=emp.validade.split('-'); return `${d}/${m}/${y}`; })() : '—';
+
+  $('#nome').textContent = emp.nome||'—';
+  $('#registro').textContent = emp.registro||'—';
+  $('#crednum').textContent = emp.cred_num||'—';
+  $('#unidade').textContent = emp.nome_da_unidade ? `${emp.nome_da_unidade} (${emp.sigla})` : (emp.sigla||'—');
+  $('#desc').textContent = descricao||'—';
+
+  const st = $('#statusChip'); st.textContent = label; st.className = 'chip ' + cls;
+  $('#validadeChip').textContent = `Validade: ${validadeFmt}`;
+
+  const fotoEl = $('#foto');
+  if(emp.foto_path){
+    fotoEl.src = `${cfg.supabaseUrl}/storage/v1/object/public/${emp.foto_path}`;
+    fotoEl.onerror = ()=>{ fotoEl.src='https://via.placeholder.com/120x120?text=sem+foto'; };
+  } else {
+    fotoEl.src='https://via.placeholder.com/120x120?text=sem+foto';
+  }
+
+  show($('#loading'), false);
+  show($('#card'), true);
 })();
 </script>
 </body>
