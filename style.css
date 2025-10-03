@@ -128,12 +128,14 @@ p{margin:0 0 10px}
 .input:focus,.select:focus,.textarea:focus{outline:none;border-color:var(--brand);box-shadow:var(--focus)}
 .input[readonly],.input[disabled]{background:#eef7ff;color:#2c4c69;border-color:#cfe3ff}
 
-/* Forçar os títulos dos dois cards da página admin a alinharem na mesma linha-base */
+/* Forçar títulos dos dois cards da página admin a alinharem */
 .grid-2 > .card h2.card-title{ line-height: 1.2; }
 
 /* Disposição de linhas do formulário */
 .form .row{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:end}
 .form .row.right{display:flex;gap:10px;justify-content:flex-end}
+/* Linha específica de mídia (Foto vs Pré-visualização) alinhada ao topo */
+.form .row-media{align-items:start}
 @media (max-width:980px){ .form .row{grid-template-columns:1fr} }
 
 /* ---------- Botões ---------- */
@@ -174,12 +176,17 @@ thead th{
   background:#f1f5f9;
   border-bottom:1px solid var(--border);
   padding:10px 12px;
+  vertical-align:middle;
 }
-tbody td{padding:10px 12px;border-bottom:1px solid var(--border);font-size:14px}
+thead th.right{ text-align:right; }
+tbody td{
+  padding:10px 12px; border-bottom:1px solid var(--border); font-size:14px;
+  vertical-align:middle;
+}
 tbody tr:nth-child(2n){background:#fbfdff}
 tbody tr:hover{background:#fafbff}
 tbody tr:last-child td{border-bottom:0}
-.table-actions{display:flex;gap:8px;justify-content:flex-end}
+.table-actions{display:flex;gap:8px;justify-content:flex-end;align-items:center}
 
 /* ---------- Chips / Badges (cores corrigidas) ---------- */
 .chip{
@@ -245,7 +252,7 @@ tbody tr:last-child td{border-bottom:0}
 #desc{color:var(--muted);line-height:1.5}
 #statusChip,#validadeChip{padding:4px 10px;font-size:12px}
 
-/* linhas do bloco com labels discretas */
+/* Linhas com labels discretas */
 .qr-card .row{display:grid;grid-template-columns:160px 1fr;gap:8px;align-items:baseline}
 .qr-card .label{color:var(--muted);font-size:12px}
 @media (max-width:560px){ .qr-card .row{grid-template-columns:1fr} }
