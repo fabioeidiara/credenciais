@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <title>Cadastro (Admin) – CETESB Credenciais</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link href="/style.css" rel="stylesheet">
+  <meta name="color-scheme" content="light">
+</head>
+<body>
+
+<header class="header">
+  <div class="container">
+    <div class="brand">
+      <img src="/media/cetesb-logo.png" alt="CETESB" onerror="this.style.display='none'">
+      <h1>CETESB – Cadastro de Credenciados (Admin)</h1>
+    </div>
+    <div class="actions">
+      <a class="btn ghost" href="/consulta.html">Consulta</a>
+      <a class="btn ghost" href="/public.html?reg=000001">Página pública (exemplo)</a>
+      <button class="btn" id="btnLogout">Sair</button>
+    </div>
+  </div>
+</header>
+
+<main class="container grid grid-2">
+
+  <!-- LADO ESQUERDO: Formulário -->
+  <section class="card pad">
+    <h2 class="card-title">Cadastro</h2>
+    <p class="card-sub">Preencha os dados. Campos obrigatórios marcados com *.</p>
+
+    <form id="form" class="form">
+      <div class="row">
+        <div class="field" style="flex:1">
+          <label class="req">Registro (6 dígitos)</label>
+          <input id="f_registro" class="input" placeholder="000001" maxlength="6" required>
+          <div class="help">Usado na URL pública (?reg=000001) e no nome do arquivo da foto.</div>
+        </div>
+        <div class="field" style="flex:1">
+          <label>Nº da credencial</label>
+          <input id="f_crednum" class="input" placeholder="2025-000123">
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="req">Nome</label>
+        <input id="f_nome" class="input" required>
+      </div>
+
+      <div class="row">
+        <div class="field" style="flex:1">
+          <label class="req">Cargo</label>
+          <input id="f_cargo" class="input" required>
+        </div>
+        <div class="field" style="flex:1">
+          <label class="req">Status</label>
+          <select id="f_status" class="select" required>
+            <option value="Ativo">Ativo</option>
+            <option value="Em andamento">Em andamento</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field" style="flex:1">
+          <label class="req">Sigla da unidade</label>
+          <input id="f_sigla" class="input" placeholder="ARAS" required list="d_siglas">
+          <datalist id="d_siglas"></datalist>
+          <div class="help">Preencha a <strong>sigla</strong>. Os demais campos de unidade serão sugeridos.</div>
+        </div>
+        <div class="field" style="flex:1">
+          <label class="req">Validade da credencial</label>
+          <input id="f_validade" type="date" class="input" required>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field" style="flex:1">
+          <label class="req">Nome da unidade</label>
+          <input id="f_unidade" class="input" required>
+        </div>
+        <div class="field" style="flex:1">
+          <label class="req">Centro de custo</label>
+          <input id="f_cc" class="input" required>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field" style="flex:1">
+          <label>Diário Oficial do Estado (DOE)</label>
+          <input id="f_doe" class="input" placeholder="Nº/ano (opcional)">
+        </div>
+        <div class="field" style="flex:1">
+          <label class="req">Código da credencial</label>
+          <select id="f_credcod" class="select" required></select>
+          <div class="help small" id="f_credcod_desc"></div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field" style="flex:1">
+          <label>Foto (upload)</label>
+          <input id="f_foto" type="file" accept="image/*" class="input">
+          <div class="help">O arquivo será salvo em <code>fotos/&lt;REGISTRO&gt;.jpg</code> (ou .png). Substitui se já existir.</div>
+        </div>
+        <div class="field" style="width:140px">
+          <label>Pré-visualização</label>
+          <img id="preview" class="avatar" alt="Prévia">
+        </div>
+      </div>
+
+      <div class="row right mt-12">
+        <button type="button" class="btn warn" id="btnNovo">Novo</button>
+        <button type="button" class="btn danger" id="btnExcluir">Excluir</button>
+        <button type="button" class="btn" id="btnQr">Gerar QR</button>
+        <button type="submit" class="btn primary" id="btnSalvar">Salvar</button>
+      </div>
+    </form>
+
+    <div id="alert" class="alert hidden mt-12"><div id="alertMsg"></div></div>
+
+    <!-- Modal QR -->
+    <div class="modal-backdrop" id="mb"></div>
+    <div class="modal" id="md">
+      <h3 class="card-title">QR Code da credencial</h3>
+      <p class="muted">Este QR aponta para a página pública do registro informado.</p>
+      <div class="center pad-20">
+        <canvas id="qrCanvas"></canvas>
+      </div>
+      <div class="row right mt-12">
+        <a id="qrDownload" class="btn" download="qr.png">Baixar PNG</a>
+        <button class="btn primary" id="qrFechar">Fechar</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- LADO DIREITO: Filtros + Lista -->
+  <section class="card pad">
+    <h2 class="card-title">Lista e filtros</h2>
+    <div class="toolbar mt-8">
+      <input id="q" class="input grow" placeholder="Buscar por nome, registro, cargo…">
+      <select id="q_sigla" class="select">
+        <option value="">— Sigla —</option>
+      </select>
+      <select id="q_status" class="select">
+        <option value="">— Status —</option>
+        <option>Ativo</option>
+        <option>Em andamento</option>
+      </select>
+      <button class="btn" id="btnReload">Recarregar</button>
+    </div>
+
+    <div class="table-wrap mt-12">
+      <table>
+        <thead>
+          <tr>
+            <th>Registro</th>
+            <th>Nome</th>
+            <th>Sigla</th>
+            <th>Validade</th>
+            <th>Status</th>
+            <th class="right">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <p class="small muted mt-8" id="count"></p>
+  </section>
+
+</main>
+
+<footer class="container footer">
+  Área restrita. Suas ações são registradas. Dúvidas: ARAS.
+</footer>
+
+<!-- SDKs -->
+<script type="module">
+  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+  import QRCode from "https://esm.sh/qrcode@1.5.3";
+
+  const $ = (s) => document.querySelector(s);
+  const $$ = (s) => document.querySelectorAll(s);
+  const show = (el, v=true)=> el.classList.toggle('hidden', !v);
+
+  // Estado em memória
+  let cfg, supabase, perfil, unidades = [], credmap = new Map(), current = null;
+
+  // Utilidades
+  const fmtDataBR = (iso) => {
+    if(!iso) return '—';
+    const [y,m,d] = iso.split('-');
+    return `${d}/${m}/${y}`;
+  };
+  const toast = (msg, kind='success')=>{
+    const box = $('#alert'), msgEl = $('#alertMsg');
+    box.className = 'alert ' + (kind==='error'?'error':kind==='warn'?'warn':'success');
+    msgEl.textContent = msg;
+    show(box, true);
+    setTimeout(()=> show(box, false), 2500);
+  };
+  const onlyDigits6 = (s)=> (s||'').replace(/\D/g,'').padStart(6,'0').slice(-6);
+
+  // Carrega config e inicia
+  async function boot(){
+    cfg = await fetch('/config.json',{cache:'no-store'}).then(r=>r.json());
+    supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+
+    // Sessão obrigatória
+    const { data: { session } } = await supabase.auth.getSession();
+    if(!session){ window.location.href = cfg.loginPage; return; }
+
+    // Perfil (precisa estar em usuarios_app)
+    const { data: p } = await supabase.from('usuarios_app').select('nivel, root_sigla').eq('user_id', session.user.id).maybeSingle();
+    if(!p || p.nivel !== 2){ window.location.href = cfg.loginPage; return; }
+    perfil = p;
+
+    // Dados de apoio
+    await loadUnidades();
+    await loadCredenciais();
+    fillCombos();
+
+    // Carregar lista inicial
+    await loadLista();
+
+    // Eventos
+    bindEvents();
+  }
+
+  async function loadUnidades(){
+    const { data, error } = await supabase.from('unidades').select('*').order('sigla');
+    if(error){ console.error(error); unidades=[]; return; }
+    unidades = data || [];
+    // datalist
+    $('#d_siglas').innerHTML = unidades.map(u=>`<option value="${u.sigla}">`).join('');
+    // filtro
+    $('#q_sigla').innerHTML = `<option value="">— Sigla —</option>` + unidades.map(u=>`<option>${u.sigla}</option>`).join('');
+  }
+
+  async function loadCredenciais(){
+    const { data, error } = await supabase.from('credenciais').select('*').order('cred_cod');
+    if(error){ console.error(error); return; }
+    credmap.clear();
+    const opts = [];
+    for(const c of data){
+      credmap.set(String(c.cred_cod), c.descricao);
+      opts.push(`<option value="${c.cred_cod}">${c.cred_cod} — ${c.descricao.slice(0,80)}</option>`);
+    }
+    $('#f_credcod').innerHTML = opts.join('');
+    $('#f_credcod').addEventListener('change', ()=>{
+      $('#f_credcod_desc').textContent = credmap.get($('#f_credcod').value) || '';
+    });
+    $('#f_credcod').dispatchEvent(new Event('change'));
+  }
+
+  function fillCombos(){
+    // Autocomplete de unidade a partir da sigla
+    $('#f_sigla').addEventListener('change', ()=>{
+      const s = $('#f_sigla').value.trim().toUpperCase();
+      const u = unidades.find(x=>x.sigla === s);
+      if(u){
+        $('#f_unidade').value = u.nome_da_unidade;
+        $('#f_cc').value = u.centro_de_custo;
+      }
+    });
+    // Preview da foto
+    $('#f_foto').addEventListener('change', (e)=>{
+      const f = e.target.files?.[0];
+      if(!f){ $('#preview').src=''; return; }
+      const url = URL.createObjectURL(f);
+      $('#preview').src = url;
+    });
+  }
+
+  function bindEvents(){
+    // Busca/lista
+    $('#q').addEventListener('input', debounce(loadLista, 300));
+    $('#q_sigla').addEventListener('change', loadLista);
+    $('#q_status').addEventListener('change', loadLista);
+    $('#btnReload').addEventListener('click', loadLista);
+
+    // Form
+    $('#btnNovo').addEventListener('click', clearForm);
+    $('#btnExcluir').addEventListener('click', onExcluir);
+    $('#btnQr').addEventListener('click', onQr);
+    $('#form').addEventListener('submit', onSalvar);
+
+    // Logout
+    $('#btnLogout').addEventListener('click', async ()=>{
+      await supabase.auth.signOut(); window.location.href = cfg.loginPage;
+    });
+
+    // Modal QR
+    $('#qrFechar').addEventListener('click', closeModal);
+    $('#mb').addEventListener('click', closeModal);
+  }
+
+  function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; }
+
+  async function loadLista(){
+    const q = $('#q').value.trim();
+    const qs = $('#q_status').value;
+    const qsigla = $('#q_sigla').value;
+
+    let sel = supabase.from('empregados')
+      .select('registro,nome,sigla,validade,status')
+      .order('registro', { ascending:true });
+
+    if(q){
+      // Busca simples: nome ilike OR registro eq OR cargo ilike (cargo não listado, mas útil)
+      sel = sel.or([
+        `nome.ilike.%${q}%`,
+        `registro.eq.${q}`,
+        `sigla.ilike.%${q}%`
+      ].join(','));
+    }
+    if(qs) sel = sel.eq('status', qs);
+    if(qsigla) sel = sel.eq('sigla', qsigla);
+
+    const { data, error } = await sel;
+    if(error){ console.error(error); toast('Falha ao carregar lista','error'); return; }
+
+    const tbody = $('#tbody');
+    tbody.innerHTML = (data||[]).map(row=>{
+      const ativo = isAtivo(row.status, row.validade);
+      const chip = `<span class="chip ${ativo?'ativo':'inativo'}">${ativo?'ATIVO':'INATIVO'}</span>`;
+      return `
+        <tr>
+          <td>${row.registro}</td>
+          <td>${row.nome}</td>
+          <td>${row.sigla}</td>
+          <td>${fmtDataBR(row.validade)}</td>
+          <td>${chip}</td>
+          <td class="right table-actions">
+            <button class="btn icon" data-edit="${row.registro}">Editar</button>
+            <a class="btn" href="${cfg.publicPage}?reg=${row.registro}" target="_blank">Abrir pública</a>
+          </td>
+        </tr>
+      `;
+    }).join('');
+    $('#count').textContent = `${data?.length||0} registro(s)`;
+
+    // Bind editar
+    $$('#tbody [data-edit]').forEach(btn=>{
+      btn.addEventListener('click', ()=> openForEdit(btn.getAttribute('data-edit')));
+    });
+  }
+
+  function isAtivo(status, validadeISO){
+    if(status!=='Ativo' || !validadeISO) return false;
+    const [y,m,d]=validadeISO.split('-').map(Number);
+    const V = new Date(y, m-1, d);
+    const hoje = new Date(); const H = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+    return V >= H;
+    // Público: INATIVO para "Em andamento" ou vencida
+  }
+
+  function clearForm(){
+    current = null;
+    $('#form').reset();
+    $('#preview').src = '';
+    $('#f_credcod').dispatchEvent(new Event('change'));
+  }
+
+  async function openForEdit(reg){
+    const { data, error } = await supabase
+      .from('empregados')
+      .select('*')
+      .eq('registro', reg)
+      .maybeSingle();
+    if(error || !data){ toast('Registro não encontrado','error'); return; }
+    current = data.registro;
+    $('#f_registro').value = data.registro;
+    $('#f_crednum').value = data.cred_num || '';
+    $('#f_nome').value = data.nome || '';
+    $('#f_cargo').value = data.cargo || '';
+    $('#f_status').value = data.status || 'Ativo';
+    $('#f_sigla').value = data.sigla || '';
+    $('#f_validade').value = data.validade || '';
+    $('#f_unidade').value = data.nome_da_unidade || '';
+    $('#f_cc').value = data.centro_de_custo || '';
+    $('#f_doe').value = data.doe || '';
+    $('#f_credcod').value = String(data.cred_cod||'');
+    $('#f_credcod').dispatchEvent(new Event('change'));
+
+    // preview foto
+    if(data.foto_path){
+      $('#preview').src = `${cfg.supabaseUrl}/storage/v1/object/public/${data.foto_path}`;
+    } else {
+      $('#preview').src = '';
+    }
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+
+  async function onSalvar(e){
+    e.preventDefault();
+
+    // Validar e normalizar
+    const registro = onlyDigits6($('#f_registro').value);
+    if(!/^\d{6}$/.test(registro)){ toast('Registro deve ter 6 dígitos','error'); return; }
+
+    const payload = {
+      registro,
+      cred_num: $('#f_crednum').value.trim() || null,
+      cred_cod: parseInt($('#f_credcod').value,10),
+      status: $('#f_status').value,
+      nome: $('#f_nome').value.trim(),
+      cargo: $('#f_cargo').value.trim(),
+      sigla: $('#f_sigla').value.trim().toUpperCase(),
+      nome_da_unidade: $('#f_unidade').value.trim(),
+      centro_de_custo: $('#f_cc').value.trim(),
+      validade: $('#f_validade').value,
+      doe: $('#f_doe').value.trim() || null
+    };
+
+    if(!payload.nome || !payload.cargo || !payload.sigla || !payload.nome_da_unidade || !payload.centro_de_custo || !payload.validade){
+      toast('Preencha todos os campos obrigatórios','error'); return;
+    }
+
+    // Se tiver arquivo de foto, suba antes e defina foto_path
+    const file = $('#f_foto').files?.[0];
+    if(file){
+      const ext = (file.name.split('.').pop()||'jpg').toLowerCase();
+      const path = `${cfg.storageBucket}/${registro}.${ext}`;
+      // Remove anterior (ignora erro)
+      await supabase.storage.from(cfg.storageBucket).remove([`${registro}.jpg`, `${registro}.png`, `${registro}.jpeg`]).catch(()=>{});
+      const { error: upErr } = await supabase.storage.from(cfg.storageBucket).upload(`${registro}.${ext}`, file, { upsert: true });
+      if(upErr){ console.error(upErr); toast('Falha ao subir foto','error'); return; }
+      payload.foto_path = `${cfg.storageBucket}/${registro}.${ext}`;
+    }
+
+    // Insert ou Update
+    let resp;
+    if(current && current === registro){
+      resp = await supabase.from('empregados').update(payload).eq('registro', registro).select().maybeSingle();
+    } else {
+      // se mudou o registro, tentamos upsert
+      resp = await supabase.from('empregados').upsert(payload, { onConflict:'registro' }).select().maybeSingle();
+    }
+    if(resp.error){ console.error(resp.error); toast('Erro ao salvar','error'); return; }
+
+    current = registro;
+    toast('Salvo com sucesso');
+    $('#f_foto').value = '';
+    await loadLista();
+  }
+
+  async function onExcluir(){
+    if(!current){ toast('Selecione um registro para excluir','warn'); return; }
+    if(!confirm(`Excluir o registro ${current}? Esta ação não pode ser desfeita.`)) return;
+    const { error } = await supabase.from('empregados').delete().eq('registro', current);
+    if(error){ console.error(error); toast('Erro ao excluir','error'); return; }
+    // opcional: remover foto
+    await supabase.storage.from(cfg.storageBucket).remove([`${current}.jpg`, `${current}.png`, `${current}.jpeg`]).catch(()=>{});
+    clearForm();
+    await loadLista();
+    toast('Excluído');
+  }
+
+  function closeModal(){
+    $('#md').classList.remove('open');
+    $('#mb').classList.remove('open');
+  }
+
+  async function onQr(){
+    const registro = onlyDigits6($('#f_registro').value);
+    if(!/^\d{6}$/.test(registro)){ toast('Informe um registro válido para gerar QR','warn'); return; }
+    const url = new URL(location.origin + (cfg.publicPage.startsWith('/')?cfg.publicPage:`/${cfg.publicPage}`));
+    // BASE_URL pode ser diferente do origin; usaremos BASE_URL se definido
+    const base = (cfg.BASE_URL || '').replace(/\/+$/,'');
+    const finalUrl = base ? `${base}${cfg.publicPage}?reg=${registro}` : `${url.pathname}?reg=${registro}`;
+    // Renderizar QR no canvas
+    const canvas = $('#qrCanvas');
+    await QRCode.toCanvas(canvas, finalUrl, { width: 256, margin: 1 });
+    // Link de download
+    $('#qrDownload').href = canvas.toDataURL('image/png');
+    $('#qrDownload').download = `qr-${registro}.png`;
+    // Abrir modal
+    $('#md').classList.add('open'); $('#mb').classList.add('open');
+  }
+
+  // Iniciar
+  boot();
+</script>
+
+</body>
+</html>
