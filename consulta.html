@@ -5,7 +5,6 @@
   <title>Consulta – CETESB Credenciais</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <link href="style.css" rel="stylesheet">
-  <meta name="color-scheme" content="light">
 </head>
 <body>
 
@@ -13,197 +12,157 @@
   <div class="container">
     <div class="brand">
       <img src="media/cetesb-logo.png" alt="CETESB" onerror="this.style.display='none'">
-      <h1>CETESB – Consulta de Credenciados</h1>
+      <h1>CETESB – Consulta de Credenciais</h1>
     </div>
     <div class="actions">
-      <a class="btn ghost" href="admin.html">Cadastro</a>
-      <button class="btn" id="btnLogout">Sair</button>
+      <a class="btn" href="admin.html">Admin</a>
+      <button id="btnSair" class="btn danger">Sair</button>
     </div>
   </div>
 </header>
 
-<main class="container card pad">
-  <h2 class="card-title">Consulta</h2>
-  <p class="card-sub" id="scopeInfo">Carregando escopo…</p>
+<main class="container">
+  <section class="card pad">
+    <h2 class="card-title">Consulta</h2>
 
-  <div class="toolbar mt-8">
-    <input id="q" class="input grow" placeholder="Buscar por nome, registro ou sigla…">
-    <select id="q_sigla" class="select">
-      <option value="">— Sigla —</option>
-    </select>
-    <select id="q_status" class="select">
-      <option value="">— Status —</option>
-      <option>Ativo</option>
-      <option>Em andamento</option>
-    </select>
-    <select id="q_venc" class="select" title="Filtro por vencimento">
-      <option value="">— Vencimento —</option>
-      <option value="validas">Dentro da validade</option>
-      <option value="vencidas">Fora da validade</option>
-    </select>
-    <button class="btn" id="btnReload">Recarregar</button>
-  </div>
+    <div class="toolbar mb-12">
+      <input id="q" class="input grow" placeholder="Buscar por nome, registro...">
+      <select id="f_sigla" class="select">
+        <option value="">— Sigla —</option>
+      </select>
+      <select id="f_status" class="select">
+        <option value="">— Status —</option>
+        <option value="Ativo">Ativo</option>
+        <option value="Em andamento">Em andamento</option>
+        <option value="Inativo">Inativo</option>
+      </select>
+      <button id="btnReload" class="btn">Recarregar</button>
+    </div>
 
-  <div class="table-wrap mt-12">
-    <table>
-      <thead>
-        <tr>
-          <th>Registro</th>
-          <th>Nome</th>
-          <th>Sigla</th>
-          <th>Validade</th>
-          <th>Status</th>
-          <th class="right">Ações</th>
-        </tr>
-      </thead>
-      <tbody id="tbody"></tbody>
-    </table>
-  </div>
-  <p class="small muted mt-8" id="count"></p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Registro</th>
+            <th>Nome</th>
+            <th>Sigla</th>
+            <th>Validade</th>
+            <th>Status</th>
+            <th class="right">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+
+    <div id="count" class="small muted mt-8">0 registro(s)</div>
+  </section>
+
+  <div id="toast" class="toast hidden alert success"><div id="toastMsg">OK</div></div>
 </main>
 
-<footer class="container footer">
-  Resultados conforme perfil do usuário (admin/gerente) e escopo de siglas.
-</footer>
-
 <script type="module">
-  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-  const $ = s=>document.querySelector(s);
-  const $$ = s=>document.querySelectorAll(s);
-  const fmtDataBR = (iso)=> iso ? iso.split('-').reverse().join('/') : '—';
-  const isAtivo = (status, validadeISO)=>{
-    if(status!=='Ativo' || !validadeISO) return false;
-    const [y,m,d]=validadeISO.split('-').map(Number);
-    const V = new Date(y, m-1, d);
-    const hoje = new Date(); const H = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
-    return V >= H;
+  const $ = (s)=>document.querySelector(s);
+  const show = (el, v=true)=> el.classList.toggle('hidden', !v);
+  const toast = (t, kind='success')=>{
+    const el = $('#toast'); const m = $('#toastMsg');
+    el.className = 'toast alert '+(kind==='error'?'error':kind==='warn'?'warn':'success');
+    m.textContent = t; show(el, true); setTimeout(()=>show(el,false), 2000);
   };
 
-  let cfg, supabase, perfil = { nivel:0, root_sigla:'' }, unidades = [];
+  // Config + Supabase
+  let cfg; {
+    const res = await fetch('config.json', { cache:'no-store' });
+    if(!res.ok) { alert('Falha ao carregar config.json'); throw new Error(); }
+    cfg = await res.json();
+  }
+  const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+  const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
-  async function boot(){
-    cfg = await fetch('config.json',{cache:'no-store'}).then(r=>r.json());
-    supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+  // Auth
+  const { data: { user } } = await supabase.auth.getUser();
+  if(!user){ location.href = cfg.loginPage || 'index.html'; throw new Error('sem login'); }
 
-    // Sessão obrigatória
-    const { data:{ session } } = await supabase.auth.getSession();
-    if(!session){ window.location.href = cfg.loginPage; return; }
-
-    // Perfil
-    const { data: p } = await supabase.from('usuarios_app')
-      .select('nivel, root_sigla').eq('user_id', session.user.id).maybeSingle();
-
-    if(!p){ window.location.href = cfg.loginPage; return; }
-    perfil = p;
-
-    // Escopo textual
-    if(perfil.nivel === 2){
-      $('#scopeInfo').textContent = 'Perfil: Administrador (acesso a todas as siglas).';
-    } else if(perfil.nivel === 1){
-      const s = (perfil.root_sigla||'').toUpperCase();
-      $('#scopeInfo').textContent = s ? `Perfil: Gerente (acesso restrito a siglas que começam com “${s}”).` :
-        'Perfil: Gerente (escopo não configurado; contate o ARAS).';
-    } else {
-      $('#scopeInfo').textContent = 'Seu nível é 0 (sem acesso). Solicite ao ARAS.';
-      // Mantemos a tela (pode fazer logout), mas sem dados.
+  // Unidades para filtro
+  (async ()=>{
+    const { data } = await supabase.from('unidades').select('sigla').order('sigla');
+    if(data){
+      const f = $('#f_sigla');
+      f.innerHTML = '<option value="">— Sigla —</option>'+ data.map(u=>`<option value="${u.sigla}">${u.sigla}</option>`).join('');
     }
+  })();
 
-    // Unidades para filtro de siglas
-    const { data: unid } = await supabase.from('unidades').select('*').order('sigla');
-    unidades = unid || [];
-    $('#q_sigla').innerHTML = `<option value="">— Sigla —</option>` + unidades.map(u=>`<option>${u.sigla}</option>`).join('');
+  // Helpers de status
+  const todayZero = ()=>{ const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); };
+  const isVigente = (validadeISO)=>{
+    if(!validadeISO) return false;
+    const [y,m,d] = validadeISO.split('-').map(Number);
+    const V = new Date(y, m-1, d);
+    return V >= todayZero();
+  };
+  const statusDerivado = (row)=>{
+    if (row.status === 'Em andamento') return {label:'Em andamento', cls:'andamento'};
+    if (row.status === 'Ativo' && isVigente(row.validade)) return {label:'Ativo', cls:'ativo'};
+    return {label:'Inativo', cls:'inativo'};
+  };
+  const fmtDataISOtoBR = (iso)=> !iso ? '—' : (()=>{ const [y,m,d]=iso.split('-'); return `${d}/${m}/${y}` })();
 
-    bind();
-    await load();
+  // Listagem
+  async function carregar(){
+    const q = ($('#q').value||'').trim().toLowerCase();
+    const sigla = $('#f_sigla').value||'';
+    const fStatus = $('#f_status').value||'';
+
+    let query = supabase.from('empregados')
+      .select('registro,nome,sigla,validade,status', { count:'exact' })
+      .order('registro', { ascending: true });
+
+    if (sigla) query = query.eq('sigla', sigla);
+
+    // busca básica
+    if (q) query = query.or(`nome.ilike.%${q}%,registro.ilike.%${q}%`);
+
+    const { data, error, count } = await query;
+    if (error){ console.error(error); toast('Erro ao carregar','error'); return; }
+
+    let rows = data||[];
+    if (fStatus) rows = rows.filter(r=> statusDerivado(r).label === fStatus);
+
+    render(rows);
+    $('#count').textContent = `${rows.length} registro(s)`;
   }
 
-  function bind(){
-    $('#btnLogout').addEventListener('click', async ()=>{
-      await supabase.auth.signOut(); window.location.href = cfg.loginPage;
-    });
-    $('#btnReload').addEventListener('click', load);
-    $('#q').addEventListener('input', debounce(load, 300));
-    $('#q_sigla').addEventListener('change', load);
-    $('#q_status').addEventListener('change', load);
-    $('#q_venc').addEventListener('change', load);
-  }
-
-  function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; }
-
-  async function load(){
-    let sel = supabase.from('empregados')
-      .select('registro,nome,sigla,validade,status')
-      .order('registro', { ascending:true });
-
-    // Escopo por hierarquia (prefixo root_sigla)
-    if(perfil.nivel === 1){
-      const s = (perfil.root_sigla||'').toUpperCase();
-      if(s){
-        // lado do servidor: ilike prefixo
-        sel = sel.ilike('sigla', s + '%');
-      } else {
-        // sem escopo configurado: retorna vazio
-        sel = sel.limit(0);
-      }
-    }
-
-    // Filtros
-    const q = $('#q').value.trim();
-    const qs = $('#q_status').value;
-    const qsigla = $('#q_sigla').value;
-    const qv = $('#q_venc').value; // validas | vencidas
-
-    if(q){
-      sel = sel.or([
-        `nome.ilike.%${q}%`,
-        `registro.eq.${q}`,
-        `sigla.ilike.%${q}%`
-      ].join(','));
-    }
-    if(qs) sel = sel.eq('status', qs);
-    if(qsigla) sel = sel.eq('sigla', qsigla);
-
-    const { data, error } = await sel;
-    if(error){ console.error(error); return; }
-
-    // Filtro de vencimento no cliente (precisa comparar datas)
-    let rows = data || [];
-    if(qv){
-      rows = rows.filter(r=>{
-        const ativo = isAtivo(r.status, r.validade);
-        return qv === 'validas' ? ativo : !ativo;
-      });
-    }
-
-    // Render
-    const tbody = $('#tbody');
-    tbody.innerHTML = rows.map(r=>{
-      const ativo = isAtivo(r.status, r.validade);
-      const chip = `<span class="chip ${ativo?'ativo':'inativo'}">${ativo?'ATIVO':'INATIVO'}</span>`;
+  function render(rows){
+    $('#tbody').innerHTML = rows.map(r=>{
+      const sd = statusDerivado(r);
       return `
         <tr>
           <td>${r.registro}</td>
-          <td>${r.nome}</td>
-          <td>${r.sigla}</td>
-          <td>${fmtDataBR(r.validade)}</td>
-          <td>${chip}</td>
+          <td>${r.nome||'—'}</td>
+          <td>${r.sigla||'—'}</td>
+          <td>${fmtDataISOtoBR(r.validade)||'—'}</td>
+          <td><span class="chip ${sd.cls}">${sd.label}</span></td>
           <td class="right table-actions">
-            <a class="btn" href="${cfg.publicPage}?reg=${r.registro}" target="_blank">Abrir pública</a>
-            ${perfil.nivel===2 ? `<a class="btn" href="admin.html#${r.registro}">Editar</a>`:''}
+            <a class="btn" target="_blank" rel="noopener" href="public.html?reg=${r.registro}">Abrir pública</a>
           </td>
         </tr>
       `;
     }).join('');
-    $('#count').textContent = `${rows.length} registro(s)`;
-
-    // Se admin clicou "Editar" via hash
-    if(perfil.nivel===2 && location.hash){
-      // Apenas mantém o recurso para navegação (admin abre admin.html manualmente)
-    }
   }
 
-  boot();
+  // Eventos
+  $('#btnReload').addEventListener('click', carregar);
+  $('#q').addEventListener('input', ()=>{ clearTimeout(window._t); window._t=setTimeout(carregar,350); });
+  $('#f_sigla').addEventListener('change', carregar);
+  $('#f_status').addEventListener('change', carregar);
+
+  // Inicial
+  carregar();
+
+  // Sair
+  $('#btnSair').addEventListener('click', async ()=>{
+    await supabase.auth.signOut(); location.href = cfg.loginPage || 'index.html';
+  });
 </script>
 
 </body>
