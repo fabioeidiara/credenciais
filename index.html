@@ -44,9 +44,135 @@
   </section>
 </main>
 
-<script type="module">
-  import bcrypt from 'https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js';
+<!-- carrega bcryptjs no escopo global (window.dcodeIO.bcrypt) -->
+<script src="https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js"></script>
 
+<script type="module">
+  const $ = (s)=>document.querySelector(s);
+
+  // pega o bcrypt do escopo global UMD
+  const bcrypt = (window.dcodeIO && window.dcodeIO.bcrypt) || window.bcrypt || null;
+
+  const showMsg = (t, isErr=false)=>{
+    const m = $('#msg'); m.textContent = t; m.style.color = isErr ? '#991b1b' : '';
+  };
+
+  // config + supabase
+  let cfg; {
+    const res = await fetch('config.json', { cache:'no-store' });
+    if(!res.ok){ showMsg('Falha ao carregar configuração.', true); throw new Error(); }
+    cfg = await res.json();
+  }
+  const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+  const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+
+  document.querySelector('#formLogin').addEventListener('submit', async (ev)=>{
+    ev.preventDefault();
+    const matricula = $('#matricula').value.trim();
+    const senha = $('#senha').value;
+
+    if(!/^[0-9]{6}$/.test(matricula)){ showMsg('Matrícula deve ter 6 dígitos.', true); return; }
+
+    const { data, error } = await supabase
+      .from('usuarios_app')
+      .select('matricula,pass_hash,nivel,sigla')
+      .eq('matricula', matricula)
+      .maybeSingle();
+
+    if (error){ console.error(error); showMsg('Erro de acesso. Contate o ARAS.', true); return; }
+    if (!data){ showMsg('Usuário não encontrado. Contate o ARAS para liberar acesso.', true); return; }
+
+    let ok = false;
+    const h = (data.pass_hash || '').toString();
+
+    if (!h || h.toLowerCase()==='cetesb'){
+      ok = (senha.toLowerCase()==='cetesb');
+    } else if (h.startsWith('$2')) {
+      if (!bcrypt){ showMsg('Componente de senha indisponível. Recarregue a página.', true); return; }
+      try { ok = bcrypt.compareSync(senha, h); } catch(e){ ok = false; }
+    } else {
+      // fallback: texto plano (apenas para demo/piloto)
+      ok = (senha === h);
+    }
+
+    if (!ok){ showMsg('Senha incorreta. Se esqueceu, contate o ARAS.', true); return; }
+
+    localStorage.setItem('sessaoUsuario', JSON.stringify({
+      matricula: data.matricula,
+      nivel: parseInt(data.nivel||'0',10),
+      sigla: data.sigla || ''
+    }));
+
+    const nivel = parseInt(data.nivel||'0',10);
+    location.href = (nivel >= 2) ? 'admin.html' : 'consulta.html';
+  });
+</script>
+
+<!-- carrega bcryptjs no escopo global (window.dcodeIO.bcrypt) -->
+<script src="https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js"></script>
+
+<script type="module">
+  const $ = (s)=>document.querySelector(s);
+
+  // pega o bcrypt do escopo global UMD
+  const bcrypt = (window.dcodeIO && window.dcodeIO.bcrypt) || window.bcrypt || null;
+
+  const showMsg = (t, isErr=false)=>{
+    const m = $('#msg'); m.textContent = t; m.style.color = isErr ? '#991b1b' : '';
+  };
+
+  // config + supabase
+  let cfg; {
+    const res = await fetch('config.json', { cache:'no-store' });
+    if(!res.ok){ showMsg('Falha ao carregar configuração.', true); throw new Error(); }
+    cfg = await res.json();
+  }
+  const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+  const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+
+  document.querySelector('#formLogin').addEventListener('submit', async (ev)=>{
+    ev.preventDefault();
+    const matricula = $('#matricula').value.trim();
+    const senha = $('#senha').value;
+
+    if(!/^[0-9]{6}$/.test(matricula)){ showMsg('Matrícula deve ter 6 dígitos.', true); return; }
+
+    const { data, error } = await supabase
+      .from('usuarios_app')
+      .select('matricula,pass_hash,nivel,sigla')
+      .eq('matricula', matricula)
+      .maybeSingle();
+
+    if (error){ console.error(error); showMsg('Erro de acesso. Contate o ARAS.', true); return; }
+    if (!data){ showMsg('Usuário não encontrado. Contate o ARAS para liberar acesso.', true); return; }
+
+    let ok = false;
+    const h = (data.pass_hash || '').toString();
+
+    if (!h || h.toLowerCase()==='cetesb'){
+      ok = (senha.toLowerCase()==='cetesb');
+    } else if (h.startsWith('$2')) {
+      if (!bcrypt){ showMsg('Componente de senha indisponível. Recarregue a página.', true); return; }
+      try { ok = bcrypt.compareSync(senha, h); } catch(e){ ok = false; }
+    } else {
+      // fallback: texto plano (apenas para demo/piloto)
+      ok = (senha === h);
+    }
+
+    if (!ok){ showMsg('Senha incorreta. Se esqueceu, contate o ARAS.', true); return; }
+
+    localStorage.setItem('sessaoUsuario', JSON.stringify({
+      matricula: data.matricula,
+      nivel: parseInt(data.nivel||'0',10),
+      sigla: data.sigla || ''
+    }));
+
+    const nivel = parseInt(data.nivel||'0',10);
+    location.href = (nivel >= 2) ? 'admin.html' : 'consulta.html';
+  });
+</script>
+  
+<script type="module">
   const $ = (s)=>document.querySelector(s);
   const showMsg = (t, isErr=false)=>{
     const m = $('#msg'); m.textContent = t; m.style.color = isErr ? '#991b1b' : '';
