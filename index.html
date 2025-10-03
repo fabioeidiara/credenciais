@@ -2,12 +2,12 @@
 <html lang="pt-br">
 <head>
   <meta charset="utf-8">
-  <title>Acesso – CETESB Credenciais</title>
+  <title>Login – CETESB Credenciais</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <link href="style.css" rel="stylesheet">
+  <meta name="color-scheme" content="light">
 </head>
 <body>
-
 <header class="header">
   <div class="container">
     <div class="brand">
@@ -17,54 +17,46 @@
   </div>
 </header>
 
-<section class="hero">
-  <div class="shade">
-    <div class="container">
-      <h1>Acesso restrito</h1>
-      <p>Entre com seu número de matrícula. Empregados do ARAS acessarão o cadastro administrativo; gerentes terão acesso à consulta de agentes credenciados de sua unidade e das subordinadas.</p>
-    </div>
-  </div>
-</section>
+<main class="container" style="max-width:520px">
+  <section class="card pad">
+    <h2 class="card-title">Acesso restrito</h2>
+    <p class="small muted">Entre com seu número de matrícula. Empregados do ARAS acessarão o cadastro administrativo; gerentes terão acesso à consulta de agentes credenciados de sua unidade e das subordinadas.</p>
 
-<main class="container">
-  <section class="card pad" style="max-width:520px;margin-inline:auto">
-    <h2 class="card-title">Login</h2>
-    <form id="formLogin" class="form" autocomplete="off">
+    <form id="formLogin" class="form mt-16" autocomplete="off">
       <div class="field">
-        <label for="matricula" class="req">Matrícula (6 dígitos)</label>
-        <input id="matricula" class="input" placeholder="000001" maxlength="6" pattern="[0-9]{6}" required>
+        <label class="req" for="matricula">Matrícula (6 dígitos)</label>
+        <input id="matricula" class="input" placeholder="000001" pattern="[0-9]{6}" maxlength="6" required>
       </div>
       <div class="field">
-        <label for="senha" class="req">Senha</label>
-        <input id="senha" class="input" type="password" placeholder="sua senha" required>
+        <label class="req" for="senha">Senha</label>
+        <input id="senha" class="input" type="password" required>
       </div>
       <button class="btn primary" type="submit">Entrar</button>
     </form>
-    <div id="msg" class="small muted mt-16">Senha padrão inicial: <strong>cetesb</strong> (altere depois, na área administrativa).</div>
+
+    <div id="msg" class="small muted mt-16"></div>
   </section>
 </main>
 
-<!-- carrega bcryptjs no escopo global (window.dcodeIO.bcrypt) -->
+<!-- bcryptjs UMD no escopo global -->
 <script src="https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js"></script>
 
 <script type="module">
   const $ = (s)=>document.querySelector(s);
+  const showMsg = (t, isErr=false)=>{ const m=$('#msg'); m.textContent=t; m.style.color=isErr?'#991b1b':''; };
 
-  // pega o bcrypt do escopo global UMD
-  const bcrypt = (window.dcodeIO && window.dcodeIO.bcrypt) || window.bcrypt || null;
-
-  const showMsg = (t, isErr=false)=>{
-    const m = $('#msg'); m.textContent = t; m.style.color = isErr ? '#991b1b' : '';
-  };
-
-  // config + supabase
-  let cfg; {
+  // Carrega config + Supabase
+  let cfg;
+  try{
     const res = await fetch('config.json', { cache:'no-store' });
-    if(!res.ok){ showMsg('Falha ao carregar configuração.', true); throw new Error(); }
+    if(!res.ok) throw new Error('config.json '+res.status);
     cfg = await res.json();
-  }
+  }catch(e){ showMsg('Falha ao carregar configuração.', true); throw e; }
+
   const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
   const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+
+  const bcrypt = (window.dcodeIO && window.dcodeIO.bcrypt) || window.bcrypt || null;
 
   document.querySelector('#formLogin').addEventListener('submit', async (ev)=>{
     ev.preventDefault();
@@ -91,8 +83,7 @@
       if (!bcrypt){ showMsg('Componente de senha indisponível. Recarregue a página.', true); return; }
       try { ok = bcrypt.compareSync(senha, h); } catch(e){ ok = false; }
     } else {
-      // fallback: texto plano (apenas para demo/piloto)
-      ok = (senha === h);
+      ok = (senha === h); // texto plano (apenas piloto)
     }
 
     if (!ok){ showMsg('Senha incorreta. Se esqueceu, contate o ARAS.', true); return; }
@@ -103,128 +94,8 @@
       sigla: data.sigla || ''
     }));
 
-    const nivel = parseInt(data.nivel||'0',10);
-    location.href = (nivel >= 2) ? 'admin.html' : 'consulta.html';
+    location.href = (parseInt(data.nivel||'0',10) >= 2) ? 'admin.html' : 'consulta.html';
   });
 </script>
-
-<!-- carrega bcryptjs no escopo global (window.dcodeIO.bcrypt) -->
-<script src="https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js"></script>
-
-<script type="module">
-  const $ = (s)=>document.querySelector(s);
-
-  // pega o bcrypt do escopo global UMD
-  const bcrypt = (window.dcodeIO && window.dcodeIO.bcrypt) || window.bcrypt || null;
-
-  const showMsg = (t, isErr=false)=>{
-    const m = $('#msg'); m.textContent = t; m.style.color = isErr ? '#991b1b' : '';
-  };
-
-  // config + supabase
-  let cfg; {
-    const res = await fetch('config.json', { cache:'no-store' });
-    if(!res.ok){ showMsg('Falha ao carregar configuração.', true); throw new Error(); }
-    cfg = await res.json();
-  }
-  const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
-  const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
-
-  document.querySelector('#formLogin').addEventListener('submit', async (ev)=>{
-    ev.preventDefault();
-    const matricula = $('#matricula').value.trim();
-    const senha = $('#senha').value;
-
-    if(!/^[0-9]{6}$/.test(matricula)){ showMsg('Matrícula deve ter 6 dígitos.', true); return; }
-
-    const { data, error } = await supabase
-      .from('usuarios_app')
-      .select('matricula,pass_hash,nivel,sigla')
-      .eq('matricula', matricula)
-      .maybeSingle();
-
-    if (error){ console.error(error); showMsg('Erro de acesso. Contate o ARAS.', true); return; }
-    if (!data){ showMsg('Usuário não encontrado. Contate o ARAS para liberar acesso.', true); return; }
-
-    let ok = false;
-    const h = (data.pass_hash || '').toString();
-
-    if (!h || h.toLowerCase()==='cetesb'){
-      ok = (senha.toLowerCase()==='cetesb');
-    } else if (h.startsWith('$2')) {
-      if (!bcrypt){ showMsg('Componente de senha indisponível. Recarregue a página.', true); return; }
-      try { ok = bcrypt.compareSync(senha, h); } catch(e){ ok = false; }
-    } else {
-      // fallback: texto plano (apenas para demo/piloto)
-      ok = (senha === h);
-    }
-
-    if (!ok){ showMsg('Senha incorreta. Se esqueceu, contate o ARAS.', true); return; }
-
-    localStorage.setItem('sessaoUsuario', JSON.stringify({
-      matricula: data.matricula,
-      nivel: parseInt(data.nivel||'0',10),
-      sigla: data.sigla || ''
-    }));
-
-    const nivel = parseInt(data.nivel||'0',10);
-    location.href = (nivel >= 2) ? 'admin.html' : 'consulta.html';
-  });
-</script>
-  
-<script type="module">
-  const $ = (s)=>document.querySelector(s);
-  const showMsg = (t, isErr=false)=>{
-    const m = $('#msg'); m.textContent = t; m.style.color = isErr ? '#991b1b' : '';
-  };
-
-  // config + supabase
-  let cfg; {
-    const res = await fetch('config.json', { cache:'no-store' });
-    if(!res.ok){ showMsg('Falha ao carregar configuração.', true); throw new Error(); }
-    cfg = await res.json();
-  }
-  const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
-  const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
-
-  document.querySelector('#formLogin').addEventListener('submit', async (ev)=>{
-    ev.preventDefault();
-    const matricula = $('#matricula').value.trim();
-    const senha = $('#senha').value;
-
-    if(!/^[0-9]{6}$/.test(matricula)){ showMsg('Matrícula deve ter 6 dígitos.', true); return; }
-
-    const { data, error } = await supabase
-      .from('usuarios_app')
-      .select('matricula,pass_hash,nivel,sigla')
-      .eq('matricula', matricula)
-      .maybeSingle();
-
-    if (error){ console.error(error); showMsg('Erro de acesso. Contate o ARAS.', true); return; }
-    if (!data){ showMsg('Usuário não encontrado. Contate o ARAS para liberar acesso.', true); return; }
-
-    // senha
-    let ok = false;
-    const h = data.pass_hash || '';
-    if (!h || h.toLowerCase()==='cetesb'){ ok = (senha.toLowerCase()==='cetesb'); }
-    else if (h.startsWith('$2')){ try{ ok = bcrypt.compareSync(senha, h); }catch(e){ ok=false; } }
-    else { ok = (senha === h); } // fallback simples
-
-    if (!ok){ showMsg('Senha incorreta. Se esqueceu, contate o ARAS.', true); return; }
-
-    // sessão mínima
-    localStorage.setItem('sessaoUsuario', JSON.stringify({
-      matricula: data.matricula,
-      nivel: parseInt(data.nivel||'0',10),
-      sigla: data.sigla || ''
-    }));
-
-    // roteamento simples: admin (nivel 2) -> admin.html; gerente (nivel 1) -> consulta.html
-    const nivel = parseInt(data.nivel||'0',10);
-    if (nivel >= 2) location.href = 'admin.html';
-    else location.href = 'consulta.html';
-  });
-</script>
-
 </body>
 </html>
