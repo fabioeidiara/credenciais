@@ -167,7 +167,7 @@ tbody tr:last-child td{border-bottom:0}
 
 /* Banner/hero (login) */
 .hero{
-  background: #ffffff url('/media/bg-cetesb.jpg') center/cover no-repeat;
+  background: #ffffff url('media/bg-cetesb.jpg') center/cover no-repeat;
   border-bottom:1px solid var(--border);
 }
 .hero .shade{
