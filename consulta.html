@@ -7,7 +7,6 @@
   <link href="style.css" rel="stylesheet">
 </head>
 <body>
-
 <header class="header">
   <div class="container">
     <div class="brand">
@@ -16,6 +15,7 @@
     </div>
     <div class="actions">
       <a class="btn" href="admin.html">Cadastro</a>
+      <a class="btn" href="change-password.html">Senha</a>
       <button id="btnSair" class="btn danger">Sair</button>
     </div>
   </div>
@@ -53,7 +53,7 @@
       </table>
     </div>
 
-    <div id="count" class="small muted mt-8">0 registro(s)</div>
+    <div id="count" class="small muted mt-16">0 registro(s)</div>
   </section>
 
   <div id="toast" class="toast hidden alert success"><div id="toastMsg">OK</div></div>
@@ -67,11 +67,9 @@
     m.textContent = t; el.classList.remove('hidden'); setTimeout(()=>el.classList.add('hidden'), 1800);
   };
 
-  // Sessão local
   const sess = JSON.parse(localStorage.getItem('sessaoUsuario')||'null');
   if(!sess){ location.href = 'index.html'; throw new Error('sem sessão'); }
 
-  // Config + Supabase
   let cfg; {
     const res = await fetch('config.json', { cache:'no-store' });
     if(!res.ok) { alert('Falha ao carregar config.json'); throw new Error(); }
@@ -80,13 +78,11 @@
   const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
   const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
-  // Sair
   $('#btnSair').addEventListener('click', ()=>{
     localStorage.removeItem('sessaoUsuario');
     location.href = 'index.html';
   });
 
-  // Filtros (unidades)
   (async ()=>{
     const { data } = await supabase.from('unidades').select('sigla').order('sigla');
     if(data){
@@ -94,7 +90,6 @@
     }
   })();
 
-  // Helpers status
   const todayZero = ()=>{ const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); };
   const isVigente = (iso)=>{ if(!iso) return false; const [y,m,d]=iso.split('-').map(Number); return new Date(y,m-1,d) >= todayZero(); };
   const statusDerivado = (row)=>{
@@ -139,15 +134,12 @@
     $('#count').textContent = `${rows.length} registro(s)`;
   }
 
-  // Eventos
   $('#btnReload').addEventListener('click', carregar);
   $('#q').addEventListener('input', ()=>{ clearTimeout(window._t); window._t=setTimeout(carregar,350); });
   $('#f_sigla').addEventListener('change', carregar);
   $('#f_status').addEventListener('change', carregar);
 
-  // Inicial
   carregar();
 </script>
-
 </body>
 </html>
