@@ -77,7 +77,7 @@
         <div class="field">
           <label for="cred_cod" class="req">Código da credencial</label>
           <select id="cred_cod" class="select" required></select>
-          <div id="cred_desc" class="small muted mt-8"></div>
+          <!-- Removido texto descritivo abaixo para evitar deslocamento -->
         </div>
 
         <div class="row">
@@ -85,9 +85,8 @@
             <label for="fotoInput">Foto (upload)</label>
             <input id="fotoInput" class="input" type="file" accept=".jpg,.jpeg,.png">
             <div class="row mt-8">
-              <button id="btnLinkIntra" type="button" class="btn">Abrir foto da intranet</button>
+              <a id="linkIntra" class="btn" target="_blank" rel="noopener" href="javascript:void(0)" aria-disabled="true">Abrir foto da intranet</a>
             </div>
-            <div class="small muted mt-8">O arquivo é salvo como <code>fotos/&lt;REGISTRO&gt;.jpg</code> (ou .png). Substitui se já existir.</div>
           </div>
           <div class="field">
             <label>Pré-visualização</label>
@@ -162,11 +161,11 @@
     cfg = await res.json();
   }catch(e){ alert('Falha ao carregar config.json'); throw e; }
 
-  // --- Supabase client (com fallback de CDN se desejar trocar) ---
+  // --- Supabase client ---
   const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
   const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
-  // --- Autenticação mínima: se não logado, volta ao login ---
+  // --- Autenticação: exige login ---
   const { data: { user } } = await supabase.auth.getUser();
   if(!user){ location.href = cfg.loginPage || 'index.html'; throw new Error('sem login'); }
 
@@ -175,34 +174,29 @@
     await supabase.auth.signOut(); location.href = cfg.loginPage || 'index.html';
   });
 
-  // --- Carregar combos auxiliares ---
-  // CREDENCIAIS
-  const credSel = $('#cred_cod'), credDesc = $('#cred_desc');
+  // --- Dados auxiliares ---
+  // CREDENCIAIS (combobox)
+  const credSel = $('#cred_cod');
   (async ()=>{
     const { data, error } = await supabase.from('credenciais').select('cred_cod,descricao').order('cred_cod');
     if(!error && data){
-      credSel.innerHTML = data.map(c=>`<option value="${c.cred_cod}">${c.cred_cod} — ${c.descricao.substring(0,80)}</option>`).join('');
-      credSel.addEventListener('change', ()=>{
-        const c = data.find(x=> String(x.cred_cod) === String(credSel.value));
-        credDesc.textContent = c ? c.descricao : '';
-      });
-      credSel.dispatchEvent(new Event('change'));
+      credSel.innerHTML = data.map(c=>`<option value="${c.cred_cod}">${c.cred_cod} — ${c.descricao}</option>`).join('');
     }
   })();
 
-  // UNIDADES (para filtro e autopreenchimento)
+  // UNIDADES (mapa para autopreencher e filtro)
   const unidadesMap = new Map();
   (async ()=>{
     const { data, error } = await supabase.from('unidades').select('sigla,nome_da_unidade').order('sigla');
     if(!error && data){
       data.forEach(u=> unidadesMap.set((u.sigla||'').toUpperCase(), u));
-      // preencher filtro
+      // filtro
       const f = $('#f_sigla');
       f.innerHTML = '<option value="">— Sigla —</option>'+ data.map(u=>`<option value="${u.sigla}">${u.sigla}</option>`).join('');
     }
   })();
 
-  // --- Autopreencher nome da unidade pela sigla ---
+  // --- Autopreencher Nome da unidade pela SIGLA ---
   const siglaInput = $('#sigla');
   const nomeUnInput = $('#nome_da_unidade');
   const applyUnidade = ()=>{
@@ -213,20 +207,26 @@
   siglaInput.addEventListener('input', applyUnidade);
   siglaInput.addEventListener('blur', applyUnidade);
 
-  // --- Link da foto na intranet (empr-XXXX.jpg) ---
-  function registroToEmpr(reg6){
-    // regra: registrar como número sem zeros à esquerda, depois pad 4 dígitos
-    // 008031 -> 8031; 000001 -> 0001
+  // --- Link da intranet (gera automaticamente ao digitar 6 dígitos) ---
+  function regToEmpr(reg6){
     const n = Math.max(0, parseInt((reg6||'').replace(/\D/g,''),10) || 0);
-    return String(n).padStart(4,'0');
+    return String(n).padStart(4,'0'); // 008031 -> 8031 -> "8031" -> "8031"; 000001 -> "0001"
   }
-  $('#btnLinkIntra').addEventListener('click', ()=>{
+  const linkIntra = $('#linkIntra');
+  function updateLinkIntra(){
     const reg = $('#registro').value.trim();
-    if(!/^\d{6}$/.test(reg)){ alert('Informe o registro (6 dígitos) primeiro.'); return; }
-    const code = registroToEmpr(reg);
-    const url = `http://sistemasintra01/QuemQuem/fotos/empr-${code}.jpg`;
-    window.open(url, '_blank','noopener'); // abre em nova aba
-  });
+    if (/^\d{6}$/.test(reg)){
+      const code = regToEmpr(reg);
+      const url = `http://sistemasintra01/QuemQuem/fotos/empr-${code}.jpg`;
+      linkIntra.href = url;
+      linkIntra.setAttribute('aria-disabled','false');
+    } else {
+      linkIntra.href = 'javascript:void(0)';
+      linkIntra.setAttribute('aria-disabled','true');
+    }
+  }
+  $('#registro').addEventListener('input', updateLinkIntra);
+  $('#registro').addEventListener('blur', updateLinkIntra);
 
   // --- Pré-visualização da foto escolhida ---
   $('#fotoInput').addEventListener('change', (ev)=>{
@@ -237,7 +237,7 @@
   });
 
   // --- CRUD / Lista ---
-  let editing = null; // registro sendo editado
+  let editing = null;
 
   function fmtDataISOtoBR(iso){
     if(!iso) return '—';
@@ -256,7 +256,6 @@
     if (s) query = query.eq('sigla', s);
     if (st) query = query.eq('status', st);
     if (q){
-      // busca simples por ilike em nome/registro
       query = query.or(`nome.ilike.%${q}%,registro.ilike.%${q}%`);
     }
 
@@ -278,7 +277,6 @@
       </tr>
     `).join('');
 
-    // bind editar
     tbody.querySelectorAll('button[data-edit]').forEach(btn=>{
       btn.addEventListener('click', ()=> editar(btn.getAttribute('data-edit')));
     });
@@ -293,7 +291,6 @@
     if (error || !data){ toast('Erro ao abrir registro','error'); return; }
 
     editing = data.registro;
-    // preencher form
     $('#registro').value = data.registro||'';
     $('#cred_num').value = data.cred_num||'';
     $('#status').value = data.status||'Ativo';
@@ -303,7 +300,8 @@
     $('#nome_da_unidade').value = data.nome_da_unidade||'';
     $('#doe').value = data.doe||'';
     $('#cred_cod').value = String(data.cred_cod||'');
-    $('#cred_cod').dispatchEvent(new Event('change'));
+    // intranet link
+    updateLinkIntra();
     // preview
     if (data.foto_path) {
       $('#preview').src = `${cfg.supabaseUrl}/storage/v1/object/public/${data.foto_path}`;
@@ -324,6 +322,7 @@
     editing = null;
     $('#formCad').reset();
     $('#preview').src = 'https://via.placeholder.com/120x120?text=pre%CC%81via';
+    updateLinkIntra();
     toast('Cadastro limpo');
   });
 
@@ -334,7 +333,6 @@
     if(!confirm(`Excluir ${reg}?`)) return;
     const { error } = await supabase.from('empregados').delete().eq('registro', reg);
     if(error){ toast('Erro ao excluir','error'); return; }
-    // tentar remover foto
     try{ await supabase.storage.from(cfg.storageBucket||'fotos').remove([`fotos/${reg}.jpg`, `fotos/${reg}.png`]); }catch(e){}
     $('#btnNovo').click();
     carregarLista();
@@ -349,7 +347,7 @@
     window.open(`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}`,'_blank','noopener');
   });
 
-  // Salvar (sem cargo e sem centro de custo)
+  // Salvar
   $('#formCad').addEventListener('submit', async (ev)=>{
     ev.preventDefault();
     const registro = $('#registro').value.trim();
@@ -357,7 +355,7 @@
     const status   = $('#status').value.trim();
     const nome     = $('#nome').value.trim();
     const sigla    = $('#sigla').value.trim().toUpperCase();
-    const validade = $('#validade').value || null; // yyyy-mm-dd
+    const validade = $('#validade').value || null;
     const nome_da_unidade = $('#nome_da_unidade').value.trim();
     const doe      = ($('#doe').value||'').trim() || null;
     const cred_cod = parseInt($('#cred_cod').value||'0',10) || null;
@@ -367,20 +365,17 @@
 
     const payload = { registro, cred_num, cred_cod, status, nome, sigla, nome_da_unidade, validade, doe };
 
-    // upsert
     const { error } = await supabase.from('empregados').upsert(payload, { onConflict:'registro' });
     if (error){ console.error(error); toast('Erro ao salvar','error'); return; }
 
-    // upload da foto se selecionada
+    // Upload da foto (opcional)
     const file = $('#fotoInput').files?.[0];
     if (file){
       const ext = (file.name.split('.').pop()||'jpg').toLowerCase();
       const path = `fotos/${registro}.${ext}`;
-      // remove anteriores
       try{ await supabase.storage.from(cfg.storageBucket||'fotos').remove([`fotos/${registro}.jpg`,`fotos/${registro}.png`]); }catch(e){}
       const up = await supabase.storage.from(cfg.storageBucket||'fotos').upload(path, file, { upsert:true, cacheControl:'3600' });
       if (up.error){ console.warn('upload falhou', up.error); }
-      // grava caminho no empregado
       await supabase.from('empregados').update({ foto_path: path }).eq('registro', registro);
     }
 
@@ -388,7 +383,8 @@
     carregarLista();
   });
 
-  // Inicial
+  // Inicialização
+  updateLinkIntra();
   carregarLista();
 </script>
 
