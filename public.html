@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="pt-br">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Credencial do Agente - CETESB</title>
+
+<style>
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,'Helvetica Neue',Arial,sans-serif;margin:0;background:#f7f9fc;color:#0f172a}
+  .wrap{max-width:720px;margin:24px auto;padding:24px}
+  .card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;box-shadow:0 6px 24px rgba(2,6,23,.06);padding:20px;display:grid;grid-template-columns:120px 1fr;gap:16px}
+  .avatar{width:120px;height:120px;border-radius:12px;object-fit:cover;background:#eef2f7;border:1px solid #e5e7eb}
+  h1{font-size:22px;margin:0 0 4px}
+  .muted{color:#475569;font-size:14px;margin:2px 0}
+  .chip{display:inline-block;padding:6px 10px;border-radius:999px;font-size:12px;border:1px solid rgba(0,0,0,.06);margin-right:8px}
+  .ativo{background:#ecfdf5;border-color:#a7f3d0;color:#065f46}
+  .inativo{background:#f8fafc;border-color:#e2e8f0;color:#334155}
+  .row{margin:6px 0}
+  .label{display:inline-block;min-width:160px;color:#334155}
+  footer{margin-top:16px;color:#64748b;font-size:12px}
+</style>
+
+<div class="wrap">
+  <div id="card" class="card" hidden>
+    <img id="foto" class="avatar" src="" alt="Foto do agente">
+    <div>
+      <h1 id="nome"></h1>
+      <div class="muted" id="desc"></div>
+      <div class="row">
+        <span id="statusChip" class="chip">Status</span>
+        <span class="chip" id="validadeChip">Validade</span>
+      </div>
+      <div class="row"><span class="label">Nº da credencial:</span> <span id="crednum">—</span></div>
+      <div class="row"><span class="label">Registro:</span> <span id="registro">—</span></div>
+    </div>
+  </div>
+  <div id="msg" class="muted">Carregando…</div>
+  <footer>Verifique se o domínio é <strong>*.github.io</strong> (piloto) ou <strong>*.cetesb.sp.gov.br</strong> (produção). </footer>
+</div>
+
+<script>
+(async () => {
+  // 1) Ler config
+  const cfg = await fetch('config.json', {cache:'no-store'}).then(r=>r.json());
+
+  // 2) Pegar ?reg=000001
+  const params = new URLSearchParams(location.search);
+  const reg = (params.get('reg')||'').trim();
+  const msg = document.getElementById('msg');
+  if(!/^\d{6}$/.test(reg)){ msg.textContent = 'Parâmetro ?reg=000000 ausente ou inválido.'; return; }
+
+  // 3) Buscar no Supabase (REST) empregados + credenciais (join pela FK)
+  const url = new URL(cfg.supabaseUrl + '/rest/v1/empregados');
+  url.searchParams.set('select', 'registro,cred_num,validade,status,nome,foto_path,credenciais(descricao)');
+  url.searchParams.set('registro', 'eq.'+reg);
+  url.searchParams.set('limit', '1');
+
+  const res = await fetch(url, {
+    headers: {
+      'apikey': cfg.supabaseAnonKey,
+      'Authorization': 'Bearer ' + cfg.supabaseAnonKey
+    }
+  });
+  if(!res.ok){ msg.textContent = 'Erro ao consultar credencial.'; return; }
+  const rows = await res.json();
+  if(!rows.length){ msg.textContent = 'Registro não encontrado ou revogado.'; return; }
+
+  const r = rows[0];
+  const hoje = new Date(); const H = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+  const [y,m,d] = (r.validade||'').split('-').map(Number);
+  const V = (y && m && d) ? new Date(y, m-1, d) : null;
+
+  // 4) Status público
+  const ativoPublico = (r.status === 'Ativo') && V && (V >= H);
+  const statusPublico = ativoPublico ? 'ATIVO' : 'INATIVO';
+
+  // 5) Preencher UI
+  document.getElementById('nome').textContent = r.nome || '—';
+  document.getElementById('registro').textContent = r.registro || '—';
+  document.getElementById('crednum').textContent = r.cred_num || '—';
+  document.getElementById('desc').textContent = (r.credenciais && r.credenciais.descricao) ? r.credenciais.descricao : '—';
+
+  const fotoUrl = r.foto_path ? (cfg.supabaseUrl + '/storage/v1/object/public/' + r.foto_path) : '';
+  const foto = document.getElementById('foto');
+  foto.src = fotoUrl || 'https://via.placeholder.com/120x120?text=sem+foto';
+
+  const st = document.getElementById('statusChip');
+  st.textContent = statusPublico;
+  st.className = 'chip ' + (ativoPublico ? 'ativo' : 'inativo');
+
+  const vchip = document.getElementById('validadeChip');
+  if(V){
+    const dd = String(d).padStart(2,'0'), mm = String(m).padStart(2,'0'), yyyy = String(y);
+    vchip.textContent = `Validade: ${dd}/${mm}/${yyyy}`;
+  } else {
+    vchip.textContent = 'Validade: —';
+  }
+
+  document.getElementById('card').hidden = false;
+  msg.hidden = true;
+})();
+</script>
+</html>
