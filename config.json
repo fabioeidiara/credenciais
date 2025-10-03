@@ -7,18 +7,18 @@
   "supabaseUrl": "https://ehpacyowzhkqbzehflqy.supabase.co",
   "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVocGFjeW93emhrcWJ6ZWhmbHF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk1MDk3ODEsImV4cCI6MjA3NTA4NTc4MX0.ev5hmoDqaEoSR3Zqbaz-3J-JpoA-ZkZnSPjcnOBvPTc",
 
-  "publicPage": "/public.html",
-  "loginPage": "/index.html",
-  "adminPage": "/admin.html",
-  "consultaPage": "/consulta.html",
-  "configPage": "/config.html",
+  "publicPage": "public.html",
+  "loginPage": "index.html",
+  "adminPage": "admin.html",
+  "consultaPage": "consulta.html",
+  "configPage": "config.html",
 
   "storageBucket": "fotos",
 
   "ui": {
     "brand": {
-      "logo": "/media/cetesb-logo.png",
-      "bgHero": "/media/bg-cetesb.jpg"
+      "logo": "media/cetesb-logo.png",
+      "bgHero": "media/bg-cetesb.jpg"
     },
     "colors": {
       "primary": "#005AA7",
