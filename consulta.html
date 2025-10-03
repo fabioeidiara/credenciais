@@ -63,11 +63,10 @@
 
 <script type="module">
   const $ = (s)=>document.querySelector(s);
-  const show = (el, v=true)=> el.classList.toggle('hidden', !v);
   const toast = (t, kind='success')=>{
     const el = $('#toast'); const m = $('#toastMsg');
     el.className = 'toast alert '+(kind==='error'?'error':kind==='warn'?'warn':'success');
-    m.textContent = t; show(el, true); setTimeout(()=>show(el,false), 2000);
+    m.textContent = t; el.classList.remove('hidden'); setTimeout(()=>el.classList.add('hidden'), 2000);
   };
 
   // Config + Supabase
@@ -118,11 +117,9 @@
       .order('registro', { ascending: true });
 
     if (sigla) query = query.eq('sigla', sigla);
-
-    // busca básica
     if (q) query = query.or(`nome.ilike.%${q}%,registro.ilike.%${q}%`);
 
-    const { data, error, count } = await query;
+    const { data, error } = await query;
     if (error){ console.error(error); toast('Erro ao carregar','error'); return; }
 
     let rows = data||[];
@@ -143,7 +140,7 @@
           <td>${fmtDataISOtoBR(r.validade)||'—'}</td>
           <td><span class="chip ${sd.cls}">${sd.label}</span></td>
           <td class="right table-actions">
-            <a class="btn" target="_blank" rel="noopener" href="public.html?reg=${r.registro}">Abrir pública</a>
+            <a class="btn" target="_blank" rel="noopener" href="public.html?reg=${r.registro}">Abrir</a>
           </td>
         </tr>
       `;
