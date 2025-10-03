@@ -4,7 +4,6 @@
   <meta charset="utf-8">
   <title>Credencial do Agente – CETESB</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <!-- caminhos RELATIVOS para GitHub Pages -->
   <link href="style.css" rel="stylesheet">
   <meta name="color-scheme" content="light">
 </head>
@@ -22,13 +21,14 @@
   </div>
 </header>
 
-<main class="container">
+<main class="container public-center">
   <div id="card" class="card pad hidden">
     <div class="qr-card">
       <img id="foto" class="avatar" src="" alt="Foto do agente">
       <div>
         <h2 id="nome">—</h2>
         <p class="muted" id="desc">—</p>
+
         <div class="row mt-8">
           <span id="statusChip" class="chip">Status</span>
           <span id="validadeChip" class="chip">Validade</span>
@@ -42,9 +42,6 @@
         </div>
         <div class="row">
           <div class="label">Registro:</div><div id="registro">—</div>
-        </div>
-        <div class="row">
-          <div class="label">Cargo:</div><div id="cargo">—</div>
         </div>
         <div class="row">
           <div class="label">Unidade:</div><div id="unidade">—</div>
@@ -74,7 +71,7 @@
   const fail = (msg)=>{ $('#loading').innerHTML = `<div><strong>${msg}</strong></div>`; };
 
   try {
-    // 1) config.json (RELATIVO)
+    // 1) config.json
     let cfg;
     try{
       const res = await fetch('config.json', {cache:'no-store'});
@@ -82,35 +79,29 @@
       cfg = await res.json();
     }catch(e){ fail('Falha ao carregar configuração (config.json).'); console.error(e); return; }
 
-    // 2) SDK Supabase com fallback
+    // 2) SDK Supabase
     let createClient;
     try{
-      ({ createClient } = await import('https://esm.sh/@supabase/supabase-js@2'));
-    }catch(e1){
-      try{
-        ({ createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'));
-      }catch(e2){
-        fail('Falha ao carregar SDK do Supabase.');
-        console.error(e2);
-        return;
-      }
+      ({ createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'));
+    }catch(e2){
+      fail('Falha ao carregar SDK do Supabase.'); console.error(e2); return;
     }
 
     // 3) validar ?reg=
     const reg = (new URLSearchParams(location.search).get('reg')||'').trim();
     if(!/^\d{6}$/.test(reg)){ fail('Parâmetro inválido. Use ?reg=000001'); return; }
 
-    // 4) consultar empregado (SEM JOIN)
+    // 4) consultar empregado (SEM colunas removidas)
     const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
     const empResp = await supabase.from('empregados')
-      .select('registro,cred_num,validade,status,nome,cargo,sigla,nome_da_unidade,cred_cod,foto_path')
+      .select('registro,cred_num,validade,status,nome,sigla,nome_da_unidade,cred_cod,foto_path')
       .eq('registro', reg).maybeSingle();
 
     if(empResp.error){ fail('Erro ao consultar a credencial.'); console.error(empResp.error); return; }
     const emp = empResp.data;
     if(!emp){ show($('#loading'), false); show($('#notfound'), true); return; }
 
-    // 5) buscar descrição da credencial separadamente
+    // 5) buscar descrição da credencial
     let descricao = '—';
     if (emp.cred_cod != null){
       const cResp = await supabase.from('credenciais').select('descricao').eq('cred_cod', emp.cred_cod).maybeSingle();
@@ -131,7 +122,6 @@
     $('#nome').textContent = emp.nome||'—';
     $('#registro').textContent = emp.registro||'—';
     $('#crednum').textContent = emp.cred_num||'—';
-    $('#cargo').textContent = emp.cargo||'—';
     $('#unidade').textContent = emp.nome_da_unidade ? `${emp.nome_da_unidade} (${emp.sigla})` : (emp.sigla||'—');
     $('#desc').textContent = descricao||'—';
 
