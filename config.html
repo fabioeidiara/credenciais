@@ -106,17 +106,17 @@
   };
 
   async function boot(){
-    cfg = await fetch('/config.json',{cache:'no-store'}).then(r=>r.json());
+    cfg = await fetch('config.json',{cache:'no-store'}).then(r=>r.json());
     supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
     // Sessão obrigatória
     const { data:{ session } } = await supabase.auth.getSession();
-    if(!session){ window.location.href = '/index.html'; return; }
+    if(!session){ window.location.href = 'index.html'; return; }
 
     // Checar nível
     const { data: p, error } = await supabase
       .from('usuarios_app').select('nivel').eq('user_id', session.user.id).maybeSingle();
-    if(error || !p || p.nivel !== 2){ window.location.href = '/index.html'; return; }
+    if(error || !p || p.nivel !== 2){ window.location.href = 'index.html'; return; }
     perfil = p;
 
     bind();
@@ -124,7 +124,7 @@
 
   function bind(){
     $('#btnLogout').addEventListener('click', async ()=>{
-      await supabase.auth.signOut(); window.location.href = '/index.html';
+      await supabase.auth.signOut(); window.location.href = 'index.html';
     });
     $('#expEmpregados').addEventListener('click', ()=> exportTable('empregados'));
     $('#expUnidades').addEventListener('click', ()=> exportTable('unidades'));
