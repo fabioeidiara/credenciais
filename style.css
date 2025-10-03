@@ -103,7 +103,7 @@ p{margin:0 0 10px}
 }
 .card.pad{padding:18px 20px}
 .card-title{font-size:16px;margin:0 0 6px}
-.card-sub{display:none}
+.card-sub{display:none} /* ocultar legendas textuais */
 
 /* ---------- Formulários ---------- */
 .form{display:grid;gap:12px}
@@ -267,3 +267,7 @@ main.container.public-center{
 :where(a,button,[role="button"],.btn,.input,.select,.textarea):focus-visible{
   outline:none; box-shadow:var(--focus);
 }
+
+/* ---------- Remoções solicitadas ---------- */
+/* Esconder textos auxiliares/legendas dentro dos cards de formulário */
+.card-sub, .help, .field .help, .form .help { display: none !important; }
