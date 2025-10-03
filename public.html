@@ -22,32 +22,25 @@
 </header>
 
 <main class="container public-center">
+  <!-- CARD -->
   <div id="card" class="card pad hidden">
     <div class="qr-card">
       <img id="foto" class="avatar" src="https://via.placeholder.com/120x120?text=sem+foto" alt="Foto do agente">
       <div>
         <h2 id="nome">—</h2>
         <p class="muted" id="desc">—</p>
-
-        <!-- chips agora usam .pillrow (não grid) -->
         <div class="pillrow mt-8">
           <span id="statusChip" class="chip">Status</span>
           <span id="validadeChip" class="chip">Validade</span>
         </div>
-
-        <div class="row mt-12">
-          <div class="label">Nº da credencial:</div><div id="crednum">—</div>
-        </div>
-        <div class="row">
-          <div class="label">Registro:</div><div id="registro">—</div>
-        </div>
-        <div class="row">
-          <div class="label">Unidade:</div><div id="unidade">—</div>
-        </div>
+        <div class="row mt-12"><div class="label">Nº da credencial:</div><div id="crednum">—</div></div>
+        <div class="row"><div class="label">Registro:</div><div id="registro">—</div></div>
+        <div class="row"><div class="label">Unidade:</div><div id="unidade">—</div></div>
       </div>
     </div>
   </div>
 
+  <!-- ALERTAS (abaixo do card) -->
   <div id="loading" class="alert"><div><strong>Carregando…</strong> Aguarde um instante.</div></div>
   <div id="notfound" class="alert error hidden"><div><strong>Registro não encontrado ou credencial inativa.</strong><div class="small">Verifique o número ou entre em contato com a CETESB.</div></div></div>
 
