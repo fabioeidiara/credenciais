@@ -69,103 +69,79 @@
 <script type="module">
   const $ = (s)=>document.querySelector(s);
   const show = (el, v=true)=> el.classList.toggle('hidden', !v);
+  const fail = (msg)=>{ $('#loading').innerHTML = `<div><strong>${msg}</strong></div>`; };
 
-  // Utilitário: exibir erro visível
-  function fail(msg){
-    $('#loading').innerHTML = `<div><strong>${msg}</strong></div>`;
-  }
-
-  // 1) Carregar config.json (caminho relativo!)
+  // 1) config.json
   let cfg;
-  try {
-    const res = await fetch('config.json', { cache:'no-store' });
-    if(!res.ok) throw new Error(`config.json HTTP ${res.status}`);
+  try{
+    const res = await fetch('config.json', {cache:'no-store'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
     cfg = await res.json();
-  } catch (e) {
-    fail('Falha ao carregar configuração (config.json).');
-    console.error(e);
-    throw e;
-  }
+  }catch(e){ fail('Falha ao carregar configuração (config.json).'); console.error(e); throw e; }
 
-  // 2) Importar Supabase com fallback de CDN
+  // 2) SDK Supabase com fallback
   let createClient;
-  try {
-    ({ createClient } = await import('https://esm.sh/@supabase/supabase-js@2'));
-  } catch(e1){
-    console.warn('esm.sh falhou, tentando jsdelivr…', e1);
-    try {
-      ({ createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'));
-    } catch(e2){
-      fail('Falha ao carregar SDK do Supabase.');
-      console.error(e2);
-      throw e2;
-    }
+  try{ ({ createClient } = await import('https://esm.sh/@supabase/supabase-js@2')); }
+  catch(e1){
+    try{ ({ createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm')); }
+    catch(e2){ fail('Falha ao carregar SDK do Supabase.'); console.error(e2); throw e2; }
   }
 
-  // 3) Validar parâmetro ?reg=
-  const params = new URLSearchParams(location.search);
-  const reg = (params.get('reg')||'').trim();
-  if(!/^\d{6}$/.test(reg)){
-    fail('Parâmetro inválido. Use ?reg=000001 (6 dígitos).');
-    throw new Error('reg inválido');
-  }
+  // 3) validar ?reg=
+  const reg = (new URLSearchParams(location.search).get('reg')||'').trim();
+  if(!/^\d{6}$/.test(reg)){ fail('Parâmetro inválido. Use ?reg=000001'); throw new Error('reg inválido'); }
 
-  // 4) Consultar no Supabase
+  // 4) buscar empregado (sem join)
   const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
-  const { data, error } = await supabase
-    .from('empregados')
-    .select('registro,cred_num,validade,status,nome,cargo,sigla,nome_da_unidade,credenciais(descricao),foto_path')
-    .eq('registro', reg)
-    .maybeSingle();
+  const empResp = await supabase.from('empregados')
+    .select('registro,cred_num,validade,status,nome,cargo,sigla,nome_da_unidade,cred_cod,foto_path')
+    .eq('registro', reg).maybeSingle();
 
-  if (error) {
-    fail('Erro ao consultar a credencial. Tente novamente mais tarde.');
-    console.error(error);
-    throw error;
+  if(empResp.error){ fail('Erro ao consultar a credencial.'); console.error(empResp.error); throw empResp.error; }
+  const emp = empResp.data;
+  if(!emp){ show($('#loading'), false); show($('#notfound'), true); return; }
+
+  // 5) buscar descrição da credencial separadamente
+  let descricao = '—';
+  if (emp.cred_cod != null){
+    const cResp = await supabase.from('credenciais').select('descricao').eq('cred_cod', emp.cred_cod).maybeSingle();
+    if(!cResp.error && cResp.data) descricao = cResp.data.descricao;
   }
 
-  if (!data) {
-    show($('#loading'), false);
-    show($('#notfound'), true);
-    return;
-  }
-
-  // 5) Calcular status/validade
+  // 6) status/validade
   const hoje = new Date(); const H = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
-  let ativo = false, validadeFmt = '—';
-  if (data.validade) {
-    const [y,m,d] = data.validade.split('-').map(Number);
+  let ativo=false, validadeFmt='—';
+  if(emp.validade){
+    const [y,m,d]=emp.validade.split('-').map(Number);
     const V = new Date(y, m-1, d);
     validadeFmt = `${String(d).padStart(2,'0')}/${String(m).padStart(2,'0')}/${y}`;
-    ativo = (data.status === 'Ativo') && (V >= H);
+    ativo = (emp.status==='Ativo') && (V>=H);
   }
-  const statusPublico = ativo ? 'ATIVO' : 'INATIVO';
 
-  // 6) Preencher UI
-  $('#nome').textContent = data.nome || '—';
-  $('#registro').textContent = data.registro || '—';
-  $('#crednum').textContent = data.cred_num || '—';
-  $('#cargo').textContent = data.cargo || '—';
-  $('#unidade').textContent = data.nome_da_unidade ? `${data.nome_da_unidade} (${data.sigla})` : (data.sigla || '—');
-  $('#desc').textContent = data.credenciais?.descricao || '—';
+  // 7) preencher UI
+  $('#nome').textContent = emp.nome||'—';
+  $('#registro').textContent = emp.registro||'—';
+  $('#crednum').textContent = emp.cred_num||'—';
+  $('#cargo').textContent = emp.cargo||'—';
+  $('#unidade').textContent = emp.nome_da_unidade ? `${emp.nome_da_unidade} (${emp.sigla})` : (emp.sigla||'—');
+  $('#desc').textContent = descricao||'—';
 
   const st = $('#statusChip');
-  st.textContent = statusPublico;
+  st.textContent = ativo ? 'ATIVO' : 'INATIVO';
   st.className = 'chip ' + (ativo ? 'ativo' : 'inativo');
 
   $('#validadeChip').textContent = `Validade: ${validadeFmt}`;
 
   const fotoEl = $('#foto');
-  if (data.foto_path) {
-    fotoEl.src = `${cfg.supabaseUrl}/storage/v1/object/public/${data.foto_path}`;
-    fotoEl.onerror = () => { fotoEl.src = 'https://via.placeholder.com/120x120?text=sem+foto'; };
+  if(emp.foto_path){
+    fotoEl.src = `${cfg.supabaseUrl}/storage/v1/object/public/${emp.foto_path}`;
+    fotoEl.onerror = ()=>{ fotoEl.src='https://via.placeholder.com/120x120?text=sem+foto'; };
   } else {
-    fotoEl.src = 'https://via.placeholder.com/120x120?text=sem+foto';
+    fotoEl.src='https://via.placeholder.com/120x120?text=sem+foto';
   }
 
   show($('#loading'), false);
   show($('#card'), true);
 </script>
-
 </body>
 </html>
