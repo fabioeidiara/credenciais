@@ -82,7 +82,7 @@
 
   const $ = (sel)=>document.querySelector(sel);
   const show = (el, v=true)=> el.classList.toggle('hidden', !v);
-  const cfg = await fetch('/config.json', {cache:'no-store'}).then(r=>r.json());
+  const cfg = await fetch('config.json', {cache:'no-store'}).then(r=>r.json());
 
   // Exibe ambiente (útil para conferência)
   $('#envInfo').textContent = `Backend: ${cfg.supabaseUrl}`;
