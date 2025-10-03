@@ -1,3 +1,162 @@
-<!doctype html><html lang="pt-br"><meta charset="utf-8">
-<title>CETESB - Credenciais</title>
-<h1>Publicação inicial</h1>
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <title>Login – CETESB Credenciais</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link href="/style.css" rel="stylesheet">
+  <meta name="color-scheme" content="light">
+</head>
+<body>
+
+<header class="header">
+  <div class="container">
+    <div class="brand">
+      <img src="/media/cetesb-logo.png" alt="CETESB" onerror="this.style.display='none'">
+      <h1>CETESB – Credenciais</h1>
+    </div>
+    <div class="actions">
+      <a class="btn ghost" href="/public.html?reg=000001">Página pública (exemplo)</a>
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="shade">
+    <div class="container stack">
+      <h2>Acesso restrito (ARAS / Gerências)</h2>
+      <p class="muted">Entre com seu e-mail e senha. Administradores (ARAS) acessarão o cadastro; gerentes verão a consulta filtrada pela hierarquia de siglas.</p>
+    </div>
+  </div>
+</section>
+
+<main class="container grid grid-2">
+  <div class="card pad">
+    <h3 class="card-title">Entrar</h3>
+    <p id="envInfo" class="small muted"></p>
+    <form id="loginForm" class="form">
+      <div class="field">
+        <label for="email" class="req">E-mail</label>
+        <input id="email" type="email" class="input" placeholder="seu.email@cetesb.sp.gov.br" required>
+      </div>
+      <div class="field">
+        <label for="password" class="req">Senha</label>
+        <input id="password" type="password" class="input" placeholder="Senha" required minlength="6">
+        <div class="help">Senha inicial por convite do Supabase. Se esqueceu, peça novo convite ao admin.</div>
+      </div>
+      <button class="btn primary" type="submit" id="btnLogin">Entrar</button>
+      <button class="btn" type="button" id="btnLogout" style="display:none">Sair</button>
+    </form>
+
+    <div id="alert" class="alert error mt-16 hidden">
+      <div>
+        <strong>Falha no login.</strong>
+        <div id="alertMsg" class="small"></div>
+      </div>
+    </div>
+
+    <div id="toast" class="toast hidden">
+      <div class="alert success"><div><strong>Login efetuado.</strong> Redirecionando…</div></div>
+    </div>
+  </div>
+
+  <div class="card pad">
+    <h3 class="card-title">Ajuda rápida</h3>
+    <ul style="margin:0 0 0 18px; line-height:1.6">
+      <li>Se sua conta ainda não foi convidada, peça ao ARAS para enviar convite via Supabase Auth.</li>
+      <li>Após o primeiro acesso, o ARAS deve ajustar seu <em>nível</em> em <code>usuarios_app</code>: <strong>1</strong> (gerente) ou <strong>2</strong> (admin).</li>
+      <li>Gerentes enxergam apenas sua árvore de <strong>sigla</strong> (prefixo).</li>
+      <li>A página pública (QR) não requer login: <code>/public.html?reg=000001</code>.</li>
+    </ul>
+    <p class="small muted mt-12">Piloto hospedado em GitHub Pages. Dados servidos via Supabase (RLS).</p>
+  </div>
+</main>
+
+<footer class="container footer">
+  Verifique se o domínio é <strong>*.github.io</strong> (piloto) ou <strong>*.cetesb.sp.gov.br</strong> (produção).
+</footer>
+
+<!-- Supabase SDK (CDN) -->
+<script type="module">
+  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+  const $ = (sel)=>document.querySelector(sel);
+  const show = (el, v=true)=> el.classList.toggle('hidden', !v);
+  const cfg = await fetch('/config.json', {cache:'no-store'}).then(r=>r.json());
+
+  // Exibe ambiente (útil para conferência)
+  $('#envInfo').textContent = `Backend: ${cfg.supabaseUrl}`;
+
+  // Instancia Supabase
+  const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+
+  // Checa sessão atual e perfil
+  async function routeByRole() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { $('#btnLogout').style.display = 'none'; return; }
+    $('#btnLogout').style.display = 'inline-flex';
+
+    const uid = session.user.id;
+    // Busca nível no usuarios_app (self-read permite)
+    const { data: perfil, error } = await supabase
+      .from('usuarios_app')
+      .select('nivel')
+      .eq('user_id', uid)
+      .maybeSingle();
+
+    if (error) {
+      // Se a tabela estiver vazia, apenas fica na tela de login.
+      console.warn('usuarios_app lookup error', error);
+      return;
+    }
+
+    const nivel = perfil?.nivel ?? 0;
+    if (nivel === 2) {
+      // Admin
+      window.location.href = cfg.adminPage;
+    } else if (nivel === 1) {
+      // Gerente
+      window.location.href = cfg.consultaPage;
+    } else {
+      // Sem perfil: permanece na tela e informa
+      const a = $('#alert'), m = $('#alertMsg');
+      m.textContent = 'Seu usuário ainda não possui permissão (nível 0). Solicite ao ARAS.';
+      show(a, true);
+    }
+  }
+
+  // Submissão do login
+  $('#loginForm').addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    show($('#alert'), false);
+
+    const email = $('#email').value.trim();
+    const password = $('#password').value;
+
+    $('#btnLogin').disabled = true;
+
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      const a = $('#alert'); const m = $('#alertMsg');
+      m.textContent = error.message || 'Não foi possível entrar.';
+      show(a, true);
+    } else {
+      // feedback e roteamento
+      $('#toast').classList.remove('hidden');
+      setTimeout(routeByRole, 600);
+    }
+
+    $('#btnLogin').disabled = false;
+  });
+
+  // Logout
+  $('#btnLogout').addEventListener('click', async ()=>{
+    await supabase.auth.signOut();
+    location.reload();
+  });
+
+  // Ao abrir a página, tenta rotear se já há sessão
+  routeByRole();
+</script>
+</body>
+</html>
