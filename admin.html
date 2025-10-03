@@ -23,7 +23,7 @@
 
 <main class="container">
   <div class="grid grid-2">
-    <!-- COLUNA ESQUERDA: FORMULÁRIO -->
+    <!-- FORMULÁRIO -->
     <section class="card pad">
       <h2 class="card-title">Cadastro</h2>
 
@@ -55,7 +55,6 @@
         <div class="row">
           <div class="field">
             <label for="sigla" class="req">Sigla da unidade</label>
-            <!-- agora é select, preenchido de 'unidades' -->
             <select id="sigla" class="select" required>
               <option value="">Selecione…</option>
             </select>
@@ -84,12 +83,12 @@
         <div class="row row-media">
           <div class="field">
             <label for="fotoInput">Foto (upload)</label>
-            <input id="fotoInput" class="input" type="file" accept=".jpg,.jpeg,.png">
-            <a id="linkIntra" class="small" target="_blank" rel="noopener" href="javascript:void(0)" aria-disabled="true">Quem é Quem</a>
+            <!-- apenas o botão de arquivo, sem caixa ao redor e sem link extra -->
+            <input id="fotoInput" type="file" accept=".jpg,.jpeg,.png">
           </div>
           <div class="field">
             <label>Pré-visualização</label>
-            <img id="preview" class="avatar" alt="Prévia" src="" onerror="this.src='https://via.placeholder.com/120x120?text=pre%CC%81via'">
+            <img id="preview" class="avatar" alt="Prévia" src="https://via.placeholder.com/120x120?text=pre%CC%81via">
           </div>
         </div>
 
@@ -102,12 +101,12 @@
       </form>
     </section>
 
-    <!-- COLUNA DIREITA: LISTA E FILTROS -->
+    <!-- LISTA -->
     <section class="card pad">
       <h2 class="card-title">Lista e filtros</h2>
 
-      <div class="toolbar mb-12">
-        <input id="q" class="input grow" placeholder="Buscar por nome, registro...">
+      <div class="row" style="gap:10px;align-items:center;flex-wrap:wrap">
+        <input id="q" class="input" style="flex:1 1 auto" placeholder="Buscar por nome, registro...">
         <select id="f_sigla" class="select">
           <option value="">— Sigla —</option>
         </select>
@@ -120,7 +119,7 @@
         <button id="btnReload" class="btn">Recarregar</button>
       </div>
 
-      <div class="table-wrap">
+      <div class="table-wrap mt-12">
         <table>
           <thead>
             <tr>
@@ -144,174 +143,119 @@
 </main>
 
 <script type="module">
-  // --- Utilitários UI ---
   const $ = (s)=>document.querySelector(s);
-  const show = (el, v=true)=> el.classList.toggle('hidden', !v);
   const toast = (t, kind='success')=>{
     const el = $('#toast'); const m = $('#toastMsg');
     el.className = 'toast alert '+(kind==='error'?'error':kind==='warn'?'warn':'success');
-    m.textContent = t; show(el, true); setTimeout(()=>show(el,false), 2000);
+    m.textContent = t; el.classList.remove('hidden'); setTimeout(()=>el.classList.add('hidden'), 1800);
   };
 
-  // --- Config ---
-  let cfg;
-  try{
-    const res = await fetch('config.json', { cache:'no-store' });
-    if(!res.ok) throw new Error('config.json '+res.status);
-    cfg = await res.json();
-  }catch(e){ alert('Falha ao carregar config.json'); throw e; }
+  // Sessão local (login por matrícula/senha)
+  const sess = JSON.parse(localStorage.getItem('sessaoUsuario')||'null');
+  if(!sess){ location.href = 'index.html'; throw new Error('sem sessão'); }
 
-  // --- Supabase client ---
+  // Config + Supabase
+  let cfg; {
+    const res = await fetch('config.json', { cache:'no-store' });
+    if(!res.ok) { alert('Falha ao carregar config.json'); throw new Error(); }
+    cfg = await res.json();
+  }
   const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
   const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
-  // --- Autenticação: exige login ---
-  const { data: { user } } = await supabase.auth.getUser();
-  if(!user){ location.href = cfg.loginPage || 'index.html'; throw new Error('sem login'); }
-
-  // --- Sair ---
-  $('#btnSair').addEventListener('click', async ()=>{
-    await supabase.auth.signOut(); location.href = cfg.loginPage || 'index.html';
+  // Sair
+  $('#btnSair').addEventListener('click', ()=>{
+    localStorage.removeItem('sessaoUsuario');
+    location.href = 'index.html';
   });
 
-  // ---------- Helpers ----------
-  const todayZero = ()=>{
-    const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  };
-  const isVigente = (validadeISO)=>{
-    if(!validadeISO) return false;
-    const [y,m,d] = validadeISO.split('-').map(Number);
-    const V = new Date(y, m-1, d);
-    return V >= todayZero();
-  };
+  // Helpers status
+  const todayZero = ()=>{ const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); };
+  const isVigente = (iso)=>{ if(!iso) return false; const [y,m,d]=iso.split('-').map(Number); return new Date(y,m-1,d) >= todayZero(); };
   const statusDerivado = (row)=>{
-    if (row.status === 'Em andamento') return {label:'Em andamento', cls:'andamento'};
-    if (row.status === 'Ativo' && isVigente(row.validade)) return {label:'Ativo', cls:'ativo'};
+    if (row.status==='Em andamento') return {label:'Em andamento', cls:'andamento'};
+    if (row.status==='Ativo' && isVigente(row.validade)) return {label:'Ativo', cls:'ativo'};
     return {label:'Inativo', cls:'inativo'};
   };
-  const fmtDataISOtoBR = (iso)=> !iso ? '—' : (()=>{ const [y,m,d]=iso.split('-'); return `${d}/${m}/${y}` })();
+  const fmtBR = (iso)=> !iso ? '—' : (()=>{const [y,m,d]=iso.split('-');return `${d}/${m}/${y}`})();
 
-  // ---------- Carregar combos auxiliares ----------
-  // CREDENCIAIS
-  const credSel = $('#cred_cod');
+  // Combos
   (async ()=>{
-    const { data, error } = await supabase.from('credenciais').select('cred_cod,descricao').order('cred_cod');
-    if(!error && data){
-      credSel.innerHTML = data.map(c=>`<option value="${c.cred_cod}">${c.cred_cod} — ${c.descricao}</option>`).join('');
+    const { data } = await supabase.from('credenciais').select('cred_cod,descricao').order('cred_cod');
+    if (data){
+      $('#cred_cod').innerHTML = data.map(c=>`<option value="${c.cred_cod}">${c.cred_cod} — ${c.descricao}</option>`).join('');
     }
   })();
-
-  // UNIDADES (mapa para autopreencher e população do select)
-  const unidadesMap = new Map();
   (async ()=>{
-    const { data, error } = await supabase.from('unidades').select('sigla,nome_da_unidade').order('sigla');
-    if(!error && data){
+    const { data } = await supabase.from('unidades').select('sigla,nome_da_unidade').order('sigla');
+    if (data){
       const sel = $('#sigla');
-      sel.innerHTML = '<option value="">Selecione…</option>' + data.map(u=>`<option value="${u.sigla}">${u.sigla}</option>`).join('');
-      data.forEach(u=> unidadesMap.set((u.sigla||'').toUpperCase(), u));
+      sel.innerHTML = '<option value="">Selecione…</option>'+ data.map(u=>`<option value="${u.sigla}">${u.sigla}</option>`).join('');
+      const map = new Map(data.map(u=>[u.sigla.toUpperCase(),u]));
       sel.addEventListener('change', ()=>{
-        const key = (sel.value||'').toUpperCase();
-        const u = unidadesMap.get(key);
+        const u = map.get((sel.value||'').toUpperCase());
         $('#nome_da_unidade').value = u ? (u.nome_da_unidade||'') : '';
       });
+      // filtro
+      const f = $('#f_sigla');
+      f.innerHTML = '<option value="">— Sigla —</option>'+ data.map(u=>`<option value="${u.sigla}">${u.sigla}</option>`).join('');
     }
   })();
 
-  // ---------- Link da intranet (auto) + prévia quando possível ----------
-  function regToEmpr(reg6){
-    const n = Math.max(0, parseInt((reg6||'').replace(/\D/g,''),10) || 0);
-    return String(n).padStart(4,'0');
-  }
-  const linkIntra = $('#linkIntra');
-  function updateLinkIntra(){
-    const reg = $('#registro').value.trim();
-    if (/^[0-9]{6}$/.test(reg)){
-      const code = regToEmpr(reg);
-      const url = `http://sistemasintra01/QuemQuem/fotos/empr-${code}.jpg`;
-      linkIntra.href = url;
-      linkIntra.setAttribute('aria-disabled','false');
-      // se não houver upload nem foto salva, tentar mostrar a intranet na prévia (em rede interna)
-      if (!$('#fotoInput').files?.length && !$('#preview').dataset.locked) {
-        $('#preview').src = url;
-      }
-    } else {
-      linkIntra.href = 'javascript:void(0)';
-      linkIntra.setAttribute('aria-disabled','true');
-    }
-  }
-  $('#registro').addEventListener('input', updateLinkIntra);
-  $('#registro').addEventListener('blur', updateLinkIntra);
-
-  // ---------- Pré-visualização da foto escolhida ----------
+  // Prévia de upload
   $('#fotoInput').addEventListener('change', (ev)=>{
-    const f = ev.target.files?.[0];
-    if (!f) return;
+    const f = ev.target.files?.[0]; if(!f) return;
     const url = URL.createObjectURL(f);
     $('#preview').src = url;
-    $('#preview').dataset.locked = '1';
   });
 
-  // ---------- CRUD / Lista ----------
-  let editing = null;
-
+  // CRUD
   async function carregarLista(){
     const q = ($('#q').value||'').trim().toLowerCase();
     const fSigla = $('#f_sigla').value||'';
     const fStatus = $('#f_status').value||'';
-
     let query = supabase.from('empregados')
       .select('registro,nome,sigla,validade,status', { count:'exact' })
-      .order('registro', { ascending: true });
+      .order('registro', { ascending:true });
 
     if (fSigla) query = query.eq('sigla', fSigla);
-
-    // busca básica
-    if (q){ query = query.or(`nome.ilike.%${q}%,registro.ilike.%${q}%`); }
-
-    const { data, error, count } = await query;
+    if (q) query = query.or(`nome.ilike.%${q}%,registro.ilike.%${q}%`);
+    const { data, error } = await query;
     if (error){ console.error(error); toast('Erro ao carregar lista','error'); return; }
 
     let rows = data||[];
     if (fStatus) rows = rows.filter(r=> statusDerivado(r).label === fStatus);
 
-    renderTabela(rows);
-    $('#count').textContent = `${rows.length} registro(s)`;
-  }
-
-  function renderTabela(rows){
     const tbody = $('#tbody');
     tbody.innerHTML = rows.map(r=>{
       const sd = statusDerivado(r);
-      return `
-        <tr>
-          <td>${r.registro}</td>
-          <td>${r.nome||'—'}</td>
-          <td>${r.sigla||'—'}</td>
-          <td>${fmtDataISOtoBR(r.validade)||'—'}</td>
-          <td><span class="chip ${sd.cls}">${sd.label}</span></td>
-          <td class="right table-actions">
-            <button class="btn" data-edit="${r.registro}">Editar</button>
-            <a class="btn" target="_blank" rel="noopener" href="public.html?reg=${r.registro}">Abrir</a>
-          </td>
-        </tr>
-      `;
+      return `<tr>
+        <td>${r.registro}</td>
+        <td>${r.nome||'—'}</td>
+        <td>${r.sigla||'—'}</td>
+        <td>${fmtBR(r.validade)||'—'}</td>
+        <td><span class="chip ${sd.cls}">${sd.label}</span></td>
+        <td class="right table-actions">
+          <button class="btn" data-edit="${r.registro}">Editar</button>
+          <a class="btn" target="_blank" rel="noopener" href="public.html?reg=${r.registro}">Abrir</a>
+        </td>
+      </tr>`;
     }).join('');
 
     tbody.querySelectorAll('button[data-edit]').forEach(btn=>{
       btn.addEventListener('click', ()=> editar(btn.getAttribute('data-edit')));
     });
+
+    $('#count').textContent = `${rows.length} registro(s)`;
   }
 
   async function editar(registro){
     const { data, error } = await supabase.from('empregados')
       .select('registro,cred_num,cred_cod,status,nome,sigla,nome_da_unidade,validade,doe,foto_path')
       .eq('registro', registro).maybeSingle();
-    if (error || !data){ toast('Erro ao abrir registro','error'); return; }
+    if (error || !data){ toast('Erro ao abrir','error'); return; }
 
-    editing = data.registro;
     $('#formCad').reset();
-    $('#preview').dataset.locked = '';
-    // preencher form
     $('#registro').value = data.registro||'';
     $('#cred_num').value = data.cred_num||'';
     $('#status').value = data.status||'Ativo';
@@ -321,54 +265,34 @@
     $('#nome_da_unidade').value = data.nome_da_unidade||'';
     $('#doe').value = data.doe||'';
     $('#cred_cod').value = String(data.cred_cod||'');
-
-    // Link intranet + prévia
-    updateLinkIntra();
-    if (data.foto_path) {
-      $('#preview').src = `${cfg.supabaseUrl}/storage/v1/object/public/${data.foto_path}`;
-      $('#preview').dataset.locked = '1';
-    } else {
-      const reg = $('#registro').value.trim();
-      if (/^[0-9]{6}$/.test(reg)) {
-        const url = `http://sistemasintra01/QuemQuem/fotos/empr-${regToEmpr(reg)}.jpg`;
-        $('#preview').src = url;
-      } else {
-        $('#preview').src = 'https://via.placeholder.com/120x120?text=pre%CC%81via';
-      }
-    }
+    $('#preview').src = data.foto_path
+      ? `${cfg.supabaseUrl}/storage/v1/object/public/${data.foto_path}`
+      : 'https://via.placeholder.com/120x120?text=pre%CC%81via';
     toast('Registro carregado');
   }
 
-  // Botões topo lista
+  // Ações
   $('#btnReload').addEventListener('click', carregarLista);
   $('#q').addEventListener('input', ()=>{ clearTimeout(window._t); window._t=setTimeout(carregarLista,350); });
   $('#f_sigla').addEventListener('change', carregarLista);
   $('#f_status').addEventListener('change', carregarLista);
 
-  // Novo
   $('#btnNovo').addEventListener('click', ()=>{
-    editing = null;
     $('#formCad').reset();
-    $('#preview').dataset.locked = '';
     $('#preview').src = 'https://via.placeholder.com/120x120?text=pre%CC%81via';
-    updateLinkIntra();
     toast('Cadastro limpo');
   });
 
-  // Excluir
   $('#btnExcluir').addEventListener('click', async ()=>{
     const reg = $('#registro').value.trim();
-    if(!/^[0-9]{6}$/.test(reg)){ alert('Informe um registro válido.'); return; }
+    if(!/^[0-9]{6}$/.test(reg)){ alert('Registro inválido'); return; }
     if(!confirm(`Excluir ${reg}?`)) return;
     const { error } = await supabase.from('empregados').delete().eq('registro', reg);
     if(error){ toast('Erro ao excluir','error'); return; }
-    try{ await supabase.storage.from(cfg.storageBucket||'fotos').remove([`fotos/${reg}.jpg`, `fotos/${reg}.png`]); }catch(e){}
-    $('#btnNovo').click();
-    carregarLista();
-    toast('Excluído.');
+    try{ await supabase.storage.from(cfg.storageBucket||'fotos').remove([`fotos/${reg}.jpg`,`fotos/${reg}.png`]); }catch(e){}
+    $('#btnNovo').click(); carregarLista(); toast('Excluído.');
   });
 
-  // Gerar QR
   $('#btnQR').addEventListener('click', ()=>{
     const reg = $('#registro').value.trim();
     if(!/^[0-9]{6}$/.test(reg)){ alert('Informe um registro válido.'); return; }
@@ -376,7 +300,6 @@
     window.open(`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}`,'_blank','noopener');
   });
 
-  // Salvar
   $('#formCad').addEventListener('submit', async (ev)=>{
     ev.preventDefault();
     const registro = $('#registro').value.trim();
@@ -394,29 +317,23 @@
     if (!nome || !sigla || !cred_cod){ alert('Preencha Nome, Sigla e Código da credencial.'); return; }
 
     const payload = { registro, cred_num, cred_cod, status, nome, sigla, nome_da_unidade, validade, doe };
-
     const { error } = await supabase.from('empregados').upsert(payload, { onConflict:'registro' });
     if (error){ console.error(error); toast('Erro ao salvar','error'); return; }
 
-    // Upload da foto (opcional)
     const file = $('#fotoInput').files?.[0];
     if (file){
       const ext = (file.name.split('.').pop()||'jpg').toLowerCase();
       const path = `fotos/${registro}.${ext}`;
       try{ await supabase.storage.from(cfg.storageBucket||'fotos').remove([`fotos/${registro}.jpg`,`fotos/${registro}.png`]); }catch(e){}
       const up = await supabase.storage.from(cfg.storageBucket||'fotos').upload(path, file, { upsert:true, cacheControl:'3600' });
-      if (up.error){ console.warn('upload falhou', up.error); }
-      await supabase.from('empregados').update({ foto_path: path }).eq('registro', registro);
-      $('#preview').dataset.locked = '1';
+      if (!up.error){ await supabase.from('empregados').update({ foto_path: path }).eq('registro', registro); }
       $('#preview').src = `${cfg.supabaseUrl}/storage/v1/object/public/${path}`;
     }
 
-    toast('Salvo com sucesso.');
-    carregarLista();
+    toast('Salvo com sucesso.'); carregarLista();
   });
 
-  // Inicialização
-  updateLinkIntra();
+  // Start
   carregarLista();
 </script>
 
