@@ -30,13 +30,13 @@
       <form class="form" id="formCad" autocomplete="off">
         <div class="field">
           <label for="registro" class="req">Registro (6 dígitos)</label>
-          <input id="registro" class="input" placeholder="000001" maxlength="6" pattern="\\d{6}" required>
+          <input id="registro" class="input" placeholder="000001" maxlength="6" pattern="[0-9]{6}" required>
         </div>
 
         <div class="row">
           <div class="field">
             <label for="cred_num" class="req">Nº da credencial</label>
-            <input id="cred_num" class="input" placeholder="2025-000123" required>
+            <input id="cred_num" class="input" placeholder="1234" pattern="[0-9]{4}" required>
           </div>
           <div class="field">
             <label for="status" class="req">Status</label>
@@ -81,7 +81,7 @@
           <select id="cred_cod" class="select" required></select>
         </div>
 
-        <div class="row">
+        <div class="row row-media">
           <div class="field">
             <label for="fotoInput">Foto (upload)</label>
             <input id="fotoInput" class="input" type="file" accept=".jpg,.jpeg,.png">
@@ -185,9 +185,7 @@
     return V >= todayZero();
   };
   const statusDerivado = (row)=>{
-    // prioridade: Em andamento (sempre amarelo)
     if (row.status === 'Em andamento') return {label:'Em andamento', cls:'andamento'};
-    // caso contrário, só "Ativo" com validade >= hoje fica verde
     if (row.status === 'Ativo' && isVigente(row.validade)) return {label:'Ativo', cls:'ativo'};
     return {label:'Inativo', cls:'inativo'};
   };
@@ -219,15 +217,15 @@
     }
   })();
 
-  // ---------- Link da intranet (auto) ----------
+  // ---------- Link da intranet (auto) + prévia quando possível ----------
   function regToEmpr(reg6){
     const n = Math.max(0, parseInt((reg6||'').replace(/\D/g,''),10) || 0);
-    return String(n).padStart(4,'0'); // 008031 -> 8031 -> "8031" -> pad 4 => "8031"
+    return String(n).padStart(4,'0');
   }
   const linkIntra = $('#linkIntra');
   function updateLinkIntra(){
     const reg = $('#registro').value.trim();
-    if (/^\d{6}$/.test(reg)){
+    if (/^[0-9]{6}$/.test(reg)){
       const code = regToEmpr(reg);
       const url = `http://sistemasintra01/QuemQuem/fotos/empr-${code}.jpg`;
       linkIntra.href = url;
@@ -250,7 +248,6 @@
     if (!f) return;
     const url = URL.createObjectURL(f);
     $('#preview').src = url;
-    // trava a prévia no arquivo local até salvar/substituir
     $('#preview').dataset.locked = '1';
   });
 
@@ -267,25 +264,18 @@
       .order('registro', { ascending: true });
 
     if (fSigla) query = query.eq('sigla', fSigla);
-    if (fStatus) {
-      // filtro por derivação: precisamos filtrar client-side se for "Inativo" por validade
-      const { data, error } = await query;
-      if (error){ console.error(error); toast('Erro ao carregar lista','error'); return; }
-      const rows = (data||[]).filter(r=>{
-        const sd = statusDerivado(r).label;
-        return sd === fStatus;
-      });
-      renderTabela(rows);
-      $('#count').textContent = `${rows.length} registro(s)`;
-      return;
-    }
 
+    // busca básica
     if (q){ query = query.or(`nome.ilike.%${q}%,registro.ilike.%${q}%`); }
 
     const { data, error, count } = await query;
     if (error){ console.error(error); toast('Erro ao carregar lista','error'); return; }
-    renderTabela(data||[]);
-    $('#count').textContent = `${count||0} registro(s)`;
+
+    let rows = data||[];
+    if (fStatus) rows = rows.filter(r=> statusDerivado(r).label === fStatus);
+
+    renderTabela(rows);
+    $('#count').textContent = `${rows.length} registro(s)`;
   }
 
   function renderTabela(rows){
@@ -301,7 +291,7 @@
           <td><span class="chip ${sd.cls}">${sd.label}</span></td>
           <td class="right table-actions">
             <button class="btn" data-edit="${r.registro}">Editar</button>
-            <a class="btn" target="_blank" rel="noopener" href="public.html?reg=${r.registro}">Abrir pública</a>
+            <a class="btn" target="_blank" rel="noopener" href="public.html?reg=${r.registro}">Abrir</a>
           </td>
         </tr>
       `;
@@ -338,9 +328,8 @@
       $('#preview').src = `${cfg.supabaseUrl}/storage/v1/object/public/${data.foto_path}`;
       $('#preview').dataset.locked = '1';
     } else {
-      // tenta intranet (em rede interna)
       const reg = $('#registro').value.trim();
-      if (/^\d{6}$/.test(reg)) {
+      if (/^[0-9]{6}$/.test(reg)) {
         const url = `http://sistemasintra01/QuemQuem/fotos/empr-${regToEmpr(reg)}.jpg`;
         $('#preview').src = url;
       } else {
@@ -369,7 +358,7 @@
   // Excluir
   $('#btnExcluir').addEventListener('click', async ()=>{
     const reg = $('#registro').value.trim();
-    if(!/^\d{6}$/.test(reg)){ alert('Informe um registro válido.'); return; }
+    if(!/^[0-9]{6}$/.test(reg)){ alert('Informe um registro válido.'); return; }
     if(!confirm(`Excluir ${reg}?`)) return;
     const { error } = await supabase.from('empregados').delete().eq('registro', reg);
     if(error){ toast('Erro ao excluir','error'); return; }
@@ -382,7 +371,7 @@
   // Gerar QR
   $('#btnQR').addEventListener('click', ()=>{
     const reg = $('#registro').value.trim();
-    if(!/^\d{6}$/.test(reg)){ alert('Informe um registro válido.'); return; }
+    if(!/^[0-9]{6}$/.test(reg)){ alert('Informe um registro válido.'); return; }
     const url = `${cfg.BASE_URL.replace(/\/$/,'')}/${cfg.publicPage||'public.html'}?reg=${reg}`;
     window.open(`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}`,'_blank','noopener');
   });
@@ -400,7 +389,8 @@
     const doe      = ($('#doe').value||'').trim() || null;
     const cred_cod = parseInt($('#cred_cod').value||'0',10) || null;
 
-    if (!/^\d{6}$/.test(registro)){ alert('Registro deve ter 6 dígitos.'); return; }
+    if (!/^[0-9]{6}$/.test(registro)){ alert('Registro deve ter 6 dígitos.'); return; }
+    if (!/^[0-9]{4}$/.test(cred_num)){ alert('Nº da credencial deve ter 4 dígitos.'); return; }
     if (!nome || !sigla || !cred_cod){ alert('Preencha Nome, Sigla e Código da credencial.'); return; }
 
     const payload = { registro, cred_num, cred_cod, status, nome, sigla, nome_da_unidade, validade, doe };
