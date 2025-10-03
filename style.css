@@ -133,3 +133,79 @@ main.container.public-center{
 
 /* Foco */
 :where(a,button,[role="button"],.btn,.input,.select):focus-visible{outline:none;box-shadow:var(--focus)}
+
+/* ====== FIXES DE ALINHAMENTO GERAL ====== */
+
+/* 1) Alinhar campos e rótulos pelo topo (evita “dente” vertical) */
+.form .row,
+.form .row-media {
+  align-items: start !important;
+}
+
+/* 2) Linha de rótulos/valores na pública: idem (nada de baseline) */
+.qr-card .row {
+  align-items: start !important;
+}
+
+/* 3) Evita “estouro” horizontal ao somar paddings/borders */
+.qr-card,
+#card .qr-card > * {
+  min-width: 0;
+}
+
+/* 4) Força o card da pública a ocupar 100% disponível até o max-width */
+#card {
+  width: 100%;
+  max-width: 920px;
+}
+
+/* 5) Garante empilhamento em coluna SEM chance do rodapé “engatar” ao lado */
+main.container.public-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 16px;
+  padding-bottom: 56px;
+}
+
+/* 6) Espaçamento explícito antes do rodapé (independe da altura do card) */
+.public-center .footer {
+  margin-top: 8px;
+}
+
+/* 7) Botões nunca “transbordam” (efeito sanfona) */
+.form .row-actions {
+  display: flex !important;
+  gap: 10px;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.form .row-actions > * {
+  width: auto !important;
+  flex: 0 0 auto;
+}
+
+/* 8) Input file e avatar não alteram a altura das colunas ao errar imagem */
+input[type="file"] { max-width: 100%; }
+.avatar { flex-shrink: 0; }
+
+/* 9) Coluna de rótulo da pública com largura fixa e quebra elegantes */
+.qr-card .row .label {
+  width: 160px;
+  min-width: 120px;
+  max-width: 220px;
+  word-break: break-word;
+}
+@media (max-width:560px){
+  .qr-card .row .label { width: auto; min-width: 0; max-width: none; }
+}
+
+/* 10) Chips não esticam (especialmente “Validade”) */
+#statusChip, #validadeChip { padding: 4px 10px; font-size: 12px; }
+
+/* 11) Evita que textos grandes (nome da unidade) empurrem o layout */
+#unidade {
+  overflow-wrap: anywhere;
+}
