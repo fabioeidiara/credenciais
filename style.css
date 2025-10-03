@@ -3,20 +3,10 @@
    Design tokens inspirados no e-CETESB. Mobile-first. Produção-ready.
    ======================================================================= */
 
-/* ---------- Tokens / Paleta ---------- */
 :root{
-  --brand:#005AA7;
-  --brand-700:#003e73;
-  --brand-500:#009fda;
-  --brand-600:#058bbf;
-
-  --page-bg:#f7f9fc;
-  --card:#ffffff;
-  --border:#e5e7eb;
-
-  --text-strong:#1e293b;
-  --text:#334155;
-  --muted:#64748b;
+  --brand:#005AA7; --brand-700:#003e73; --brand-500:#009fda; --brand-600:#058bbf;
+  --page-bg:#f7f9fc; --card:#ffffff; --border:#e5e7eb;
+  --text-strong:#1e293b; --text:#334155; --muted:#64748b;
 
   --success-bg:#e8f5e9; --success-bd:#bbf7d0; --success-tx:#166534;
   --warn-bg:#fff7ed;    --warn-bd:#fed7aa;  --warn-tx:#92400e;
@@ -25,63 +15,51 @@
   --shadow-sm:0 1px 2px rgba(2,6,23,.06);
   --shadow-md:0 6px 24px rgba(2,6,23,.08);
 
-  --radius:16px;
-  --focus:0 0 0 3px rgba(0,90,167,.25);
-
-  --font-size:14px;
-  --line:20px;
+  --radius:16px; --focus:0 0 0 3px rgba(0,90,167,.25);
+  --font-size:14px; --line:20px;
 }
 
-/* ---------- Base ---------- */
 *{box-sizing:border-box}
 html,body{height:100%}
 body{
-  margin:0;
-  font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,'Helvetica Neue',Arial,sans-serif;
-  font-size:var(--font-size);
-  line-height:var(--line);
-  color:var(--text);
-  background:var(--page-bg);
-  -webkit-font-smoothing:antialiased;
-  -moz-osx-font-smoothing:grayscale;
+  margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,'Helvetica Neue',Arial,sans-serif;
+  font-size:var(--font-size); line-height:var(--line); color:var(--text); background:var(--page-bg);
+  -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
 }
-img{max-width:100%;display:block}
+img{max-width:100%; display:block}
 
 h1,h2,h3{margin:0;color:var(--text-strong);letter-spacing:.2px}
 h2{font-size:18px}
 p{margin:0 0 10px}
 .small{font-size:12px}
 .muted{color:var(--muted)}
-
 .hidden{display:none !important}
 .right{justify-content:flex-end}
 .mt-8{margin-top:8px}.mt-12{margin-top:12px}.mt-16{margin-top:16px}.mt-24{margin-top:24px}
 
-/* ---------- Layouts ---------- */
 .container{max-width:1240px;margin-inline:auto;padding:24px}
 .grid{display:grid;gap:16px}
 .grid-2{grid-template-columns:420px 1fr;gap:24px}
 @media (max-width:980px){ .grid-2{grid-template-columns:1fr} }
 
-/* ---------- Header ---------- */
+/* Header */
 .header{background:linear-gradient(180deg,#ffffff,#f5f8ff);border-bottom:1px solid var(--border)}
 .header .container{display:flex;gap:16px;align-items:center;justify-content:space-between;padding-block:10px}
 .brand{display:flex;gap:12px;align-items:center}
-.brand img{height:34px;width:auto}
-.brand h1{font-size:18px;margin:0;color:var(--brand)}
+.brand img{height:34px}
+.brand h1{font-size:18px;color:var(--brand)}
 .header .actions{display:flex;gap:8px;align-items:center}
 
-/* ---------- Cards ---------- */
+/* Cards */
 .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-md)}
 .card.pad{padding:18px 20px}
 .card-title{font-size:16px;margin:0 0 6px}
 
-/* ---------- Formulários ---------- */
+/* Formulários */
 .form{display:grid;gap:12px}
 .field{display:grid;gap:6px}
 .field label{font-size:12px;color:var(--muted);margin-bottom:4px}
 .req::after{content:" *";color:#ef4444}
-
 .input,.select{
   width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:12px;
   background:#fff;color:var(--text);height:38px;font-size:14px;box-shadow:var(--shadow-sm);
@@ -89,8 +67,6 @@ p{margin:0 0 10px}
 }
 .input:focus,.select:focus{outline:none;border-color:var(--brand);box-shadow:var(--focus)}
 .input[readonly]{background:#eef7ff;color:#2c4c69;border-color:#cfe3ff}
-
-/* Linha dupla no formulário e mídia alinhada ao topo */
 .form .row{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:end}
 .form .row-media{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
 @media (max-width:980px){ .form .row,.form .row-media{grid-template-columns:1fr} }
@@ -123,22 +99,22 @@ tbody tr:hover{background:#fafbff}
 tbody tr:last-child td{border-bottom:0}
 .table-actions{display:flex;gap:8px;justify-content:flex-end;align-items:center}
 
-/* Chips de status */
+/* Chips */
 .chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:12px;border:1px solid rgba(0,0,0,.06);background:#f8fafc;color:#334155}
 .chip.ativo{background:var(--success-bg);border-color:var(--success-bd);color:var(--success-tx)}
 .chip.andamento{background:var(--warn-bg);border-color:var(--warn-bd);color:var(--warn-tx)}
 .chip.inativo{background:var(--danger-bg);border-color:var(--danger-bd);color:var(--danger-tx)}
 
-/* Avatar */
-.avatar{width:120px;height:120px;border-radius:12px;object-fit:cover;background:#eef2f7;border:1px solid var(--border)}
-
-/* File input: apenas botão (sem “caixa” externa) */
-input[type=file]{height:auto;padding:0;border:0;box-shadow:none}
+/* Avatar (tamanho fixo anti-distorção) */
+.avatar{
+  width:120px;height:120px;min-width:120px;min-height:120px;
+  border-radius:12px;object-fit:cover;object-position:center;background:#eef2f7;border:1px solid var(--border)
+}
 
 /* Página pública (QR) */
 #card.card.pad{padding:22px 24px;position:relative;z-index:1}
 .qr-card{display:grid;grid-template-columns:120px 1fr;gap:18px}
-@media (max-width:560px){ .qr-card{grid-template-columns:1fr} .avatar{width:100%;height:auto} }
+@media (max-width:560px){ .qr-card{grid-template-columns:1fr} .avatar{width:100%;height:auto;min-width:0;min-height:0} }
 .qr-card h2{font-size:18px;color:#1e293b;margin:2px 0 4px}
 #desc{color:var(--muted);line-height:1.5}
 #statusChip,#validadeChip{padding:4px 10px;font-size:12px}
@@ -150,10 +126,10 @@ input[type=file]{height:auto;padding:0;border:0;box-shadow:none}
 main.container.public-center{
   min-height:calc(100dvh - 140px);
   display:flex;align-items:flex-start;justify-content:center;
-  padding-bottom:48px; /* garante espaço para o rodapé */
+  padding-bottom:56px; /* espaço para rodapé */
 }
 #card{max-width:920px;width:100%}
 .footer{margin-top:16px;color:#64748b;font-size:12px;position:relative;z-index:0}
 
-/* Foco visível */
+/* Foco */
 :where(a,button,[role="button"],.btn,.input,.select):focus-visible{outline:none;box-shadow:var(--focus)}
