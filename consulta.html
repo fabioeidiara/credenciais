@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <title>Consulta – CETESB Credenciais</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link href="/style.css" rel="stylesheet">
+  <meta name="color-scheme" content="light">
+</head>
+<body>
+
+<header class="header">
+  <div class="container">
+    <div class="brand">
+      <img src="/media/cetesb-logo.png" alt="CETESB" onerror="this.style.display='none'">
+      <h1>CETESB – Consulta de Credenciados</h1>
+    </div>
+    <div class="actions">
+      <a class="btn ghost" href="/admin.html">Cadastro</a>
+      <button class="btn" id="btnLogout">Sair</button>
+    </div>
+  </div>
+</header>
+
+<main class="container card pad">
+  <h2 class="card-title">Consulta</h2>
+  <p class="card-sub" id="scopeInfo">Carregando escopo…</p>
+
+  <div class="toolbar mt-8">
+    <input id="q" class="input grow" placeholder="Buscar por nome, registro ou sigla…">
+    <select id="q_sigla" class="select">
+      <option value="">— Sigla —</option>
+    </select>
+    <select id="q_status" class="select">
+      <option value="">— Status —</option>
+      <option>Ativo</option>
+      <option>Em andamento</option>
+    </select>
+    <select id="q_venc" class="select" title="Filtro por vencimento">
+      <option value="">— Vencimento —</option>
+      <option value="validas">Dentro da validade</option>
+      <option value="vencidas">Fora da validade</option>
+    </select>
+    <button class="btn" id="btnReload">Recarregar</button>
+  </div>
+
+  <div class="table-wrap mt-12">
+    <table>
+      <thead>
+        <tr>
+          <th>Registro</th>
+          <th>Nome</th>
+          <th>Sigla</th>
+          <th>Validade</th>
+          <th>Status</th>
+          <th class="right">Ações</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+  <p class="small muted mt-8" id="count"></p>
+</main>
+
+<footer class="container footer">
+  Resultados conforme perfil do usuário (admin/gerente) e escopo de siglas.
+</footer>
+
+<script type="module">
+  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+  const $ = s=>document.querySelector(s);
+  const $$ = s=>document.querySelectorAll(s);
+  const fmtDataBR = (iso)=> iso ? iso.split('-').reverse().join('/') : '—';
+  const isAtivo = (status, validadeISO)=>{
+    if(status!=='Ativo' || !validadeISO) return false;
+    const [y,m,d]=validadeISO.split('-').map(Number);
+    const V = new Date(y, m-1, d);
+    const hoje = new Date(); const H = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+    return V >= H;
+  };
+
+  let cfg, supabase, perfil = { nivel:0, root_sigla:'' }, unidades = [];
+
+  async function boot(){
+    cfg = await fetch('/config.json',{cache:'no-store'}).then(r=>r.json());
+    supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+
+    // Sessão obrigatória
+    const { data:{ session } } = await supabase.auth.getSession();
+    if(!session){ window.location.href = cfg.loginPage; return; }
+
+    // Perfil
+    const { data: p } = await supabase.from('usuarios_app')
+      .select('nivel, root_sigla').eq('user_id', session.user.id).maybeSingle();
+
+    if(!p){ window.location.href = cfg.loginPage; return; }
+    perfil = p;
+
+    // Escopo textual
+    if(perfil.nivel === 2){
+      $('#scopeInfo').textContent = 'Perfil: Administrador (acesso a todas as siglas).';
+    } else if(perfil.nivel === 1){
+      const s = (perfil.root_sigla||'').toUpperCase();
+      $('#scopeInfo').textContent = s ? `Perfil: Gerente (acesso restrito a siglas que começam com “${s}”).` :
+        'Perfil: Gerente (escopo não configurado; contate o ARAS).';
+    } else {
+      $('#scopeInfo').textContent = 'Seu nível é 0 (sem acesso). Solicite ao ARAS.';
+      // Mantemos a tela (pode fazer logout), mas sem dados.
+    }
+
+    // Unidades para filtro de siglas
+    const { data: unid } = await supabase.from('unidades').select('*').order('sigla');
+    unidades = unid || [];
+    $('#q_sigla').innerHTML = `<option value="">— Sigla —</option>` + unidades.map(u=>`<option>${u.sigla}</option>`).join('');
+
+    bind();
+    await load();
+  }
+
+  function bind(){
+    $('#btnLogout').addEventListener('click', async ()=>{
+      await supabase.auth.signOut(); window.location.href = cfg.loginPage;
+    });
+    $('#btnReload').addEventListener('click', load);
+    $('#q').addEventListener('input', debounce(load, 300));
+    $('#q_sigla').addEventListener('change', load);
+    $('#q_status').addEventListener('change', load);
+    $('#q_venc').addEventListener('change', load);
+  }
+
+  function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; }
+
+  async function load(){
+    let sel = supabase.from('empregados')
+      .select('registro,nome,sigla,validade,status')
+      .order('registro', { ascending:true });
+
+    // Escopo por hierarquia (prefixo root_sigla)
+    if(perfil.nivel === 1){
+      const s = (perfil.root_sigla||'').toUpperCase();
+      if(s){
+        // lado do servidor: ilike prefixo
+        sel = sel.ilike('sigla', s + '%');
+      } else {
+        // sem escopo configurado: retorna vazio
+        sel = sel.limit(0);
+      }
+    }
+
+    // Filtros
+    const q = $('#q').value.trim();
+    const qs = $('#q_status').value;
+    const qsigla = $('#q_sigla').value;
+    const qv = $('#q_venc').value; // validas | vencidas
+
+    if(q){
+      sel = sel.or([
+        `nome.ilike.%${q}%`,
+        `registro.eq.${q}`,
+        `sigla.ilike.%${q}%`
+      ].join(','));
+    }
+    if(qs) sel = sel.eq('status', qs);
+    if(qsigla) sel = sel.eq('sigla', qsigla);
+
+    const { data, error } = await sel;
+    if(error){ console.error(error); return; }
+
+    // Filtro de vencimento no cliente (precisa comparar datas)
+    let rows = data || [];
+    if(qv){
+      rows = rows.filter(r=>{
+        const ativo = isAtivo(r.status, r.validade);
+        return qv === 'validas' ? ativo : !ativo;
+      });
+    }
+
+    // Render
+    const tbody = $('#tbody');
+    tbody.innerHTML = rows.map(r=>{
+      const ativo = isAtivo(r.status, r.validade);
+      const chip = `<span class="chip ${ativo?'ativo':'inativo'}">${ativo?'ATIVO':'INATIVO'}</span>`;
+      return `
+        <tr>
+          <td>${r.registro}</td>
+          <td>${r.nome}</td>
+          <td>${r.sigla}</td>
+          <td>${fmtDataBR(r.validade)}</td>
+          <td>${chip}</td>
+          <td class="right table-actions">
+            <a class="btn" href="${cfg.publicPage}?reg=${r.registro}" target="_blank">Abrir pública</a>
+            ${perfil.nivel===2 ? `<a class="btn" href="/admin.html#${r.registro}">Editar</a>`:''}
+          </td>
+        </tr>
+      `;
+    }).join('');
+    $('#count').textContent = `${rows.length} registro(s)`;
+
+    // Se admin clicou "Editar" via hash
+    if(perfil.nivel===2 && location.hash){
+      // Apenas mantém o recurso para navegação (admin abre admin.html manualmente)
+    }
+  }
+
+  boot();
+</script>
+
+</body>
+</html>
