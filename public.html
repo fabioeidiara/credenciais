@@ -29,7 +29,8 @@
         <h2 id="nome">—</h2>
         <p class="muted" id="desc">—</p>
 
-        <div class="row mt-8">
+        <!-- chips agora usam .pillrow (não grid) -->
+        <div class="pillrow mt-8">
           <span id="statusChip" class="chip">Status</span>
           <span id="validadeChip" class="chip">Validade</span>
         </div>
@@ -47,8 +48,8 @@
     </div>
   </div>
 
-  <div id="loading" class="alert mt-16"><div><strong>Carregando…</strong> Aguarde um instante.</div></div>
-  <div id="notfound" class="alert error mt-16 hidden"><div><strong>Registro não encontrado ou credencial inativa.</strong><div class="small">Verifique o número ou entre em contato com a CETESB.</div></div></div>
+  <div id="loading" class="alert"><div><strong>Carregando…</strong> Aguarde um instante.</div></div>
+  <div id="notfound" class="alert error hidden"><div><strong>Registro não encontrado ou credencial inativa.</strong><div class="small">Verifique o número ou entre em contato com a CETESB.</div></div></div>
 
   <p class="footer">Confirme o domínio: <strong>*.github.io</strong> (piloto) ou <strong>*.cetesb.sp.gov.br</strong> (produção).</p>
 </main>
