@@ -24,7 +24,7 @@
 <main class="container public-center">
   <div id="card" class="card pad hidden">
     <div class="qr-card">
-      <img id="foto" class="avatar" src="" alt="Foto do agente">
+      <img id="foto" class="avatar" src="https://via.placeholder.com/120x120?text=sem+foto" alt="Foto do agente">
       <div>
         <h2 id="nome">—</h2>
         <p class="muted" id="desc">—</p>
@@ -112,8 +112,8 @@
 
   const fotoEl = $('#foto');
   if(emp.foto_path){
-    fotoEl.src = `${cfg.supabaseUrl}/storage/v1/object/public/${emp.foto_path}`;
     fotoEl.onerror = ()=>{ fotoEl.src='https://via.placeholder.com/120x120?text=sem+foto'; };
+    fotoEl.src = `${cfg.supabaseUrl}/storage/v1/object/public/${emp.foto_path}`;
   } else {
     fotoEl.src='https://via.placeholder.com/120x120?text=sem+foto';
   }
