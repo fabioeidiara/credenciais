@@ -105,9 +105,11 @@
   $('#validadeChip').textContent = `Validade: ${validadeFmt}`;
 
   const fotoEl = $('#foto');
-  if(emp.foto_path){
+  if (emp.foto_path){
+    const bucket = (cfg.storageBucket || 'fotos');
+    const pub = supabase.storage.from(bucket).getPublicUrl(emp.foto_path).data.publicUrl;
     fotoEl.onerror = ()=>{ fotoEl.src='https://via.placeholder.com/120x120?text=sem+foto'; };
-    fotoEl.src = `${cfg.supabaseUrl}/storage/v1/object/public/${emp.foto_path}`;
+    fotoEl.src = pub;
   } else {
     fotoEl.src='https://via.placeholder.com/120x120?text=sem+foto';
   }
