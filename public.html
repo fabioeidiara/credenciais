@@ -67,32 +67,51 @@
 </main>
 
 <script type="module">
-  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-  const $ = (sel)=>document.querySelector(sel);
+  const $ = (s)=>document.querySelector(s);
   const show = (el, v=true)=> el.classList.toggle('hidden', !v);
 
-  // 1) Carregar config
-  let cfg;
-  try {
-    cfg = await fetch('/config.json', {cache:'no-store'}).then(r=>r.json());
-  } catch {
-    $('#loading').innerHTML = '<div><strong>Falha ao carregar configuração.</strong> Verifique o arquivo <code>config.json</code>.</div>';
-    throw new Error('config.json não encontrado');
+  // Utilitário: exibir erro visível
+  function fail(msg){
+    $('#loading').innerHTML = `<div><strong>${msg}</strong></div>`;
   }
 
-  // 2) Ler ?reg=000001
+  // 1) Carregar config.json (caminho relativo!)
+  let cfg;
+  try {
+    const res = await fetch('config.json', { cache:'no-store' });
+    if(!res.ok) throw new Error(`config.json HTTP ${res.status}`);
+    cfg = await res.json();
+  } catch (e) {
+    fail('Falha ao carregar configuração (config.json).');
+    console.error(e);
+    throw e;
+  }
+
+  // 2) Importar Supabase com fallback de CDN
+  let createClient;
+  try {
+    ({ createClient } = await import('https://esm.sh/@supabase/supabase-js@2'));
+  } catch(e1){
+    console.warn('esm.sh falhou, tentando jsdelivr…', e1);
+    try {
+      ({ createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'));
+    } catch(e2){
+      fail('Falha ao carregar SDK do Supabase.');
+      console.error(e2);
+      throw e2;
+    }
+  }
+
+  // 3) Validar parâmetro ?reg=
   const params = new URLSearchParams(location.search);
   const reg = (params.get('reg')||'').trim();
   if(!/^\d{6}$/.test(reg)){
-    $('#loading').innerHTML = '<div><strong>Parâmetro inválido.</strong> Use <code>?reg=000001</code> (6 dígitos).</div>';
+    fail('Parâmetro inválido. Use ?reg=000001 (6 dígitos).');
     throw new Error('reg inválido');
   }
 
-  // 3) Supabase client (somente leitura pública via RLS)
+  // 4) Consultar no Supabase
   const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
-
-  // 4) Buscar empregado + descrição da credencial (join pela FK)
   const { data, error } = await supabase
     .from('empregados')
     .select('registro,cred_num,validade,status,nome,cargo,sigla,nome_da_unidade,credenciais(descricao),foto_path')
@@ -100,42 +119,35 @@
     .maybeSingle();
 
   if (error) {
-    $('#loading').innerHTML = '<div><strong>Erro ao consultar.</strong> Tente novamente mais tarde.</div>';
+    fail('Erro ao consultar a credencial. Tente novamente mais tarde.');
     console.error(error);
     throw error;
   }
 
-  // 5) Tratar "não encontrado"
   if (!data) {
     show($('#loading'), false);
     show($('#notfound'), true);
     return;
   }
 
-  // 6) Cálculo de status público
-  const hoje = new Date();
-  const H = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
-  let statusPublico = 'INATIVO';
-  let ativo = false;
-  let validadeFmt = '—';
-
+  // 5) Calcular status/validade
+  const hoje = new Date(); const H = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+  let ativo = false, validadeFmt = '—';
   if (data.validade) {
     const [y,m,d] = data.validade.split('-').map(Number);
     const V = new Date(y, m-1, d);
     validadeFmt = `${String(d).padStart(2,'0')}/${String(m).padStart(2,'0')}/${y}`;
     ativo = (data.status === 'Ativo') && (V >= H);
-    statusPublico = ativo ? 'ATIVO' : 'INATIVO';
   }
+  const statusPublico = ativo ? 'ATIVO' : 'INATIVO';
 
-  // 7) Preencher UI
+  // 6) Preencher UI
   $('#nome').textContent = data.nome || '—';
   $('#registro').textContent = data.registro || '—';
   $('#crednum').textContent = data.cred_num || '—';
   $('#cargo').textContent = data.cargo || '—';
   $('#unidade').textContent = data.nome_da_unidade ? `${data.nome_da_unidade} (${data.sigla})` : (data.sigla || '—');
-
-  const desc = data.credenciais?.descricao || '—';
-  $('#desc').textContent = desc;
+  $('#desc').textContent = data.credenciais?.descricao || '—';
 
   const st = $('#statusChip');
   st.textContent = statusPublico;
@@ -143,7 +155,6 @@
 
   $('#validadeChip').textContent = `Validade: ${validadeFmt}`;
 
-  // Foto (Storage público)
   const fotoEl = $('#foto');
   if (data.foto_path) {
     fotoEl.src = `${cfg.supabaseUrl}/storage/v1/object/public/${data.foto_path}`;
@@ -152,9 +163,9 @@
     fotoEl.src = 'https://via.placeholder.com/120x120?text=sem+foto';
   }
 
-  // Mostrar cartão
   show($('#loading'), false);
   show($('#card'), true);
 </script>
+
 </body>
 </html>
