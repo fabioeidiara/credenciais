@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <title>Configurações – CETESB Credenciais</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link href="/style.css" rel="stylesheet">
+  <meta name="color-scheme" content="light">
+</head>
+<body>
+
+<header class="header">
+  <div class="container">
+    <div class="brand">
+      <img src="/media/cetesb-logo.png" alt="CETESB" onerror="this.style.display='none'">
+      <h1>CETESB – Configurações (CSV)</h1>
+    </div>
+    <div class="actions">
+      <a class="btn ghost" href="/admin.html">Cadastro</a>
+      <a class="btn ghost" href="/consulta.html">Consulta</a>
+      <button class="btn" id="btnLogout">Sair</button>
+    </div>
+  </div>
+</header>
+
+<main class="container stack">
+
+  <section class="card pad">
+    <h2 class="card-title">Exportar CSV</h2>
+    <p class="card-sub">Baixe o conteúdo atual do banco em formato CSV.</p>
+    <div class="row">
+      <button class="btn" id="expEmpregados">Exportar <strong>empregados.csv</strong></button>
+      <button class="btn" id="expUnidades">Exportar <strong>unidades.csv</strong></button>
+      <button class="btn" id="tplEmp">Baixar <strong>modelo empregados.csv</strong></button>
+      <button class="btn" id="tplUnd">Baixar <strong>modelo unidades.csv</strong></button>
+    </div>
+    <p class="small muted mt-12">
+      <strong>empregados.csv</strong> cabeçalhos: <code>registro,cred_num,cred_cod,status,nome,cargo,sigla,nome_da_unidade,centro_de_custo,validade,doe,foto_path</code><br>
+      <strong>unidades.csv</strong> cabeçalhos: <code>sigla,nome_da_unidade,centro_de_custo</code>
+    </p>
+  </section>
+
+  <section class="card pad">
+    <h2 class="card-title">Importar / Upsert CSV</h2>
+    <p class="card-sub">Faça upload de CSV para atualizar ou inserir registros. A operação é <em>upsert</em> pela coluna-chave.</p>
+
+    <div class="row">
+      <label class="field" style="min-width:220px">
+        <span>Tabela</span>
+        <select id="impTabela" class="select">
+          <option value="empregados">empregados (chave: registro)</option>
+          <option value="unidades">unidades (chave: sigla)</option>
+        </select>
+      </label>
+
+      <label class="field" style="flex:1">
+        <span>Arquivo CSV</span>
+        <input id="impArquivo" type="file" accept=".csv" class="input">
+      </label>
+
+      <button class="btn primary" id="btnImportar">Importar (upsert)</button>
+    </div>
+
+    <div id="alert" class="alert hidden mt-12"><div id="alertMsg"></div></div>
+
+    <div class="table-wrap mt-12 hidden" id="previewWrap">
+      <table>
+        <thead><tr id="previewHead"></tr></thead>
+        <tbody id="previewBody"></tbody>
+      </table>
+    </div>
+    <p id="previewCount" class="small muted hidden"></p>
+  </section>
+
+  <section class="card pad">
+    <h2 class="card-title">Orientações</h2>
+    <ul style="margin:0 0 0 18px; line-height:1.6">
+      <li>Use **vírgula** como separador; codificação **UTF-8**.</li>
+      <li>Colunas devem ter **cabeçalhos exatos** (veja acima). Colunas extras serão ignoradas.</li>
+      <li>Na tabela <strong>empregados</strong>, a coluna **registro** é a chave (6 dígitos). Em <strong>unidades</strong>, a chave é **sigla**.</li>
+      <li>Datas de <strong>validade</strong> no formato ISO: <code>YYYY-MM-DD</code> (ex.: 2025-12-31).</li>
+      <li>Campos vazios: deixe em branco (serão tratados como <em>null</em> quando aplicável).</li>
+    </ul>
+  </section>
+
+  <footer class="footer">Somente administradores (nível 2). Operações registradas.</footer>
+</main>
+
+<!-- PapaParse para CSV -->
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js" integrity="sha256-2fVXzGm+N8xKQwoyxI8Tg7N4+Qv7Y3qjA1k7o0F4o9k=" crossorigin="anonymous"></script>
+
+<script type="module">
+  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+  const $ = (s)=>document.querySelector(s);
+  const show = (el, v=true)=> el.classList.toggle('hidden', !v);
+
+  let cfg, supabase, perfil;
+
+  const toast = (msg, kind='success')=>{
+    const box = $('#alert'), msgEl = $('#alertMsg');
+    box.className = 'alert ' + (kind==='error'?'error':kind==='warn'?'warn':'success');
+    msgEl.textContent = msg;
+    show(box, true);
+    setTimeout(()=> show(box, false), 3000);
+  };
+
+  async function boot(){
+    cfg = await fetch('/config.json',{cache:'no-store'}).then(r=>r.json());
+    supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+
+    // Sessão obrigatória
+    const { data:{ session } } = await supabase.auth.getSession();
+    if(!session){ window.location.href = '/index.html'; return; }
+
+    // Checar nível
+    const { data: p, error } = await supabase
+      .from('usuarios_app').select('nivel').eq('user_id', session.user.id).maybeSingle();
+    if(error || !p || p.nivel !== 2){ window.location.href = '/index.html'; return; }
+    perfil = p;
+
+    bind();
+  }
+
+  function bind(){
+    $('#btnLogout').addEventListener('click', async ()=>{
+      await supabase.auth.signOut(); window.location.href = '/index.html';
+    });
+    $('#expEmpregados').addEventListener('click', ()=> exportTable('empregados'));
+    $('#expUnidades').addEventListener('click', ()=> exportTable('unidades'));
+    $('#tplEmp').addEventListener('click', downloadEmpTemplate);
+    $('#tplUnd').addEventListener('click', downloadUndTemplate);
+    $('#btnImportar').addEventListener('click', onImport);
+  }
+
+  async function exportTable(name){
+    try{
+      if(name==='empregados'){
+        const { data, error } = await supabase.from('empregados').select('registro,cred_num,cred_cod,status,nome,cargo,sigla,nome_da_unidade,centro_de_custo,validade,doe,foto_path').order('registro');
+        if(error) throw error;
+        const csv = Papa.unparse(data||[], {quotes:false});
+        downloadText(csv, 'empregados.csv', 'text/csv');
+      } else if(name==='unidades'){
+        const { data, error } = await supabase.from('unidades').select('sigla,nome_da_unidade,centro_de_custo').order('sigla');
+        if(error) throw error;
+        const csv = Papa.unparse(data||[], {quotes:false});
+        downloadText(csv, 'unidades.csv', 'text/csv');
+      }
+      toast('Exportação concluída.');
+    }catch(e){
+      console.error(e);
+      toast('Falha ao exportar.', 'error');
+    }
+  }
+
+  function downloadEmpTemplate(){
+    const headers = 'registro,cred_num,cred_cod,status,nome,cargo,sigla,nome_da_unidade,centro_de_custo,validade,doe,foto_path\n';
+    downloadText(headers, 'modelo-empregados.csv', 'text/csv');
+  }
+  function downloadUndTemplate(){
+    const headers = 'sigla,nome_da_unidade,centro_de_custo\n';
+    downloadText(headers, 'modelo-unidades.csv', 'text/csv');
+  }
+
+  function downloadText(text, filename, mime){
+    const blob = new Blob([text], {type: mime || 'text/plain;charset=utf-8'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  async function onImport(){
+    const tabela = $('#impTabela').value;
+    const file = $('#impArquivo').files?.[0];
+    if(!file){ toast('Selecione um arquivo CSV','warn'); return; }
+
+    // Parse CSV
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: 'greedy',
+      complete: async (results)=>{
+        const rows = results.data || [];
+        if(!rows.length){ toast('CSV vazio','warn'); return; }
+
+        // Preview
+        renderPreview(rows);
+
+        try{
+          if(tabela==='empregados'){
+            // Normalizações mínimas
+            for(const r of rows){
+              if(r.registro) r.registro = (r.registro+'').replace(/\D/g,'').padStart(6,'0').slice(-6);
+              if(r.cred_cod!==undefined && r.cred_cod!=='') r.cred_cod = parseInt(r.cred_cod,10);
+              if(r.validade) r.validade = String(r.validade).slice(0,10); // YYYY-MM-DD
+              // strings vazias => null onde faz sentido
+              ['cred_num','doe','foto_path'].forEach(k=>{ if(r[k]==='') r[k]=null; });
+            }
+            // Upsert por 'registro'
+            await upsertBatched('empregados', rows, 'registro');
+          } else {
+            // unidades
+            for(const r of rows){
+              if(r.sigla) r.sigla = String(r.sigla).trim().toUpperCase();
+            }
+            await upsertBatched('unidades', rows, 'sigla');
+          }
+          toast('Importação concluída.');
+        }catch(e){
+          console.error(e);
+          toast('Falha na importação. Verifique cabeçalhos e dados.','error');
+        }
+      },
+      error: (err)=>{ console.error(err); toast('Erro ao ler o CSV.','error'); }
+    });
+  }
+
+  function renderPreview(rows){
+    const head = $('#previewHead'), body = $('#previewBody'), wrap = $('#previewWrap'), cnt = $('#previewCount');
+    const cols = Object.keys(rows[0]||{});
+    head.innerHTML = cols.map(c=>`<th>${c}</th>`).join('');
+    body.innerHTML = rows.slice(0,50).map(r=>`<tr>${cols.map(c=>`<td>${(r[c]??'')}</td>`).join('')}</tr>`).join('');
+    $('#previewCount').textContent = `${rows.length} linha(s) no arquivo. Mostrando as 50 primeiras.`;
+    show(wrap, true); show(cnt, true);
+  }
+
+  async function upsertBatched(table, rows, conflictCol){
+    const batchSize = 500;
+    for(let i=0;i<rows.length;i+=batchSize){
+      const chunk = rows.slice(i, i+batchSize);
+      const { error } = await supabase.from(table).upsert(chunk, { onConflict: conflictCol });
+      if(error) throw error;
+    }
+  }
+
+  boot();
+</script>
+
+</body>
+</html>
