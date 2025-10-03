@@ -16,7 +16,6 @@
     </div>
     <div class="actions">
       <a class="btn" href="consulta.html">Consulta</a>
-      <a class="btn" href="public.html?reg=000001" target="_blank" rel="noopener">Página pública (exemplo)</a>
       <button id="btnSair" class="btn danger">Sair</button>
     </div>
   </div>
@@ -56,7 +55,10 @@
         <div class="row">
           <div class="field">
             <label for="sigla" class="req">Sigla da unidade</label>
-            <input id="sigla" class="input" placeholder="ex.: ARAS" required>
+            <!-- agora é select, preenchido de 'unidades' -->
+            <select id="sigla" class="select" required>
+              <option value="">Selecione…</option>
+            </select>
           </div>
           <div class="field">
             <label for="validade" class="req">Validade da credencial</label>
@@ -66,7 +68,7 @@
 
         <div class="field">
           <label for="nome_da_unidade">Nome da unidade</label>
-          <input id="nome_da_unidade" class="input" placeholder="Preenchido automaticamente pela sigla">
+          <input id="nome_da_unidade" class="input" placeholder="Preenchido pela sigla" readonly>
         </div>
 
         <div class="field">
@@ -77,16 +79,13 @@
         <div class="field">
           <label for="cred_cod" class="req">Código da credencial</label>
           <select id="cred_cod" class="select" required></select>
-          <!-- Removido texto descritivo abaixo para evitar deslocamento -->
         </div>
 
         <div class="row">
           <div class="field">
             <label for="fotoInput">Foto (upload)</label>
             <input id="fotoInput" class="input" type="file" accept=".jpg,.jpeg,.png">
-            <div class="row mt-8">
-              <a id="linkIntra" class="btn" target="_blank" rel="noopener" href="javascript:void(0)" aria-disabled="true">Abrir foto da intranet</a>
-            </div>
+            <a id="linkIntra" class="small" target="_blank" rel="noopener" href="javascript:void(0)" aria-disabled="true">Quem é Quem</a>
           </div>
           <div class="field">
             <label>Pré-visualização</label>
@@ -116,6 +115,7 @@
           <option value="">— Status —</option>
           <option value="Ativo">Ativo</option>
           <option value="Em andamento">Em andamento</option>
+          <option value="Inativo">Inativo</option>
         </select>
         <button id="btnReload" class="btn">Recarregar</button>
       </div>
@@ -174,8 +174,27 @@
     await supabase.auth.signOut(); location.href = cfg.loginPage || 'index.html';
   });
 
-  // --- Dados auxiliares ---
-  // CREDENCIAIS (combobox)
+  // ---------- Helpers ----------
+  const todayZero = ()=>{
+    const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  };
+  const isVigente = (validadeISO)=>{
+    if(!validadeISO) return false;
+    const [y,m,d] = validadeISO.split('-').map(Number);
+    const V = new Date(y, m-1, d);
+    return V >= todayZero();
+  };
+  const statusDerivado = (row)=>{
+    // prioridade: Em andamento (sempre amarelo)
+    if (row.status === 'Em andamento') return {label:'Em andamento', cls:'andamento'};
+    // caso contrário, só "Ativo" com validade >= hoje fica verde
+    if (row.status === 'Ativo' && isVigente(row.validade)) return {label:'Ativo', cls:'ativo'};
+    return {label:'Inativo', cls:'inativo'};
+  };
+  const fmtDataISOtoBR = (iso)=> !iso ? '—' : (()=>{ const [y,m,d]=iso.split('-'); return `${d}/${m}/${y}` })();
+
+  // ---------- Carregar combos auxiliares ----------
+  // CREDENCIAIS
   const credSel = $('#cred_cod');
   (async ()=>{
     const { data, error } = await supabase.from('credenciais').select('cred_cod,descricao').order('cred_cod');
@@ -184,33 +203,26 @@
     }
   })();
 
-  // UNIDADES (mapa para autopreencher e filtro)
+  // UNIDADES (mapa para autopreencher e população do select)
   const unidadesMap = new Map();
   (async ()=>{
     const { data, error } = await supabase.from('unidades').select('sigla,nome_da_unidade').order('sigla');
     if(!error && data){
+      const sel = $('#sigla');
+      sel.innerHTML = '<option value="">Selecione…</option>' + data.map(u=>`<option value="${u.sigla}">${u.sigla}</option>`).join('');
       data.forEach(u=> unidadesMap.set((u.sigla||'').toUpperCase(), u));
-      // filtro
-      const f = $('#f_sigla');
-      f.innerHTML = '<option value="">— Sigla —</option>'+ data.map(u=>`<option value="${u.sigla}">${u.sigla}</option>`).join('');
+      sel.addEventListener('change', ()=>{
+        const key = (sel.value||'').toUpperCase();
+        const u = unidadesMap.get(key);
+        $('#nome_da_unidade').value = u ? (u.nome_da_unidade||'') : '';
+      });
     }
   })();
 
-  // --- Autopreencher Nome da unidade pela SIGLA ---
-  const siglaInput = $('#sigla');
-  const nomeUnInput = $('#nome_da_unidade');
-  const applyUnidade = ()=>{
-    const key = (siglaInput.value||'').trim().toUpperCase();
-    const u = unidadesMap.get(key);
-    nomeUnInput.value = u ? (u.nome_da_unidade||'') : '';
-  };
-  siglaInput.addEventListener('input', applyUnidade);
-  siglaInput.addEventListener('blur', applyUnidade);
-
-  // --- Link da intranet (gera automaticamente ao digitar 6 dígitos) ---
+  // ---------- Link da intranet (auto) ----------
   function regToEmpr(reg6){
     const n = Math.max(0, parseInt((reg6||'').replace(/\D/g,''),10) || 0);
-    return String(n).padStart(4,'0'); // 008031 -> 8031 -> "8031" -> "8031"; 000001 -> "0001"
+    return String(n).padStart(4,'0'); // 008031 -> 8031 -> "8031" -> pad 4 => "8031"
   }
   const linkIntra = $('#linkIntra');
   function updateLinkIntra(){
@@ -220,6 +232,10 @@
       const url = `http://sistemasintra01/QuemQuem/fotos/empr-${code}.jpg`;
       linkIntra.href = url;
       linkIntra.setAttribute('aria-disabled','false');
+      // se não houver upload nem foto salva, tentar mostrar a intranet na prévia (em rede interna)
+      if (!$('#fotoInput').files?.length && !$('#preview').dataset.locked) {
+        $('#preview').src = url;
+      }
     } else {
       linkIntra.href = 'javascript:void(0)';
       linkIntra.setAttribute('aria-disabled','true');
@@ -228,60 +244,72 @@
   $('#registro').addEventListener('input', updateLinkIntra);
   $('#registro').addEventListener('blur', updateLinkIntra);
 
-  // --- Pré-visualização da foto escolhida ---
+  // ---------- Pré-visualização da foto escolhida ----------
   $('#fotoInput').addEventListener('change', (ev)=>{
     const f = ev.target.files?.[0];
     if (!f) return;
     const url = URL.createObjectURL(f);
     $('#preview').src = url;
+    // trava a prévia no arquivo local até salvar/substituir
+    $('#preview').dataset.locked = '1';
   });
 
-  // --- CRUD / Lista ---
+  // ---------- CRUD / Lista ----------
   let editing = null;
-
-  function fmtDataISOtoBR(iso){
-    if(!iso) return '—';
-    const [y,m,d]=iso.split('-'); return `${d}/${m}/${y}`;
-  }
 
   async function carregarLista(){
     const q = ($('#q').value||'').trim().toLowerCase();
-    const s = $('#f_sigla').value||'';
-    const st = $('#f_status').value||'';
+    const fSigla = $('#f_sigla').value||'';
+    const fStatus = $('#f_status').value||'';
 
     let query = supabase.from('empregados')
       .select('registro,nome,sigla,validade,status', { count:'exact' })
       .order('registro', { ascending: true });
 
-    if (s) query = query.eq('sigla', s);
-    if (st) query = query.eq('status', st);
-    if (q){
-      query = query.or(`nome.ilike.%${q}%,registro.ilike.%${q}%`);
+    if (fSigla) query = query.eq('sigla', fSigla);
+    if (fStatus) {
+      // filtro por derivação: precisamos filtrar client-side se for "Inativo" por validade
+      const { data, error } = await query;
+      if (error){ console.error(error); toast('Erro ao carregar lista','error'); return; }
+      const rows = (data||[]).filter(r=>{
+        const sd = statusDerivado(r).label;
+        return sd === fStatus;
+      });
+      renderTabela(rows);
+      $('#count').textContent = `${rows.length} registro(s)`;
+      return;
     }
+
+    if (q){ query = query.or(`nome.ilike.%${q}%,registro.ilike.%${q}%`); }
 
     const { data, error, count } = await query;
     if (error){ console.error(error); toast('Erro ao carregar lista','error'); return; }
+    renderTabela(data||[]);
+    $('#count').textContent = `${count||0} registro(s)`;
+  }
 
+  function renderTabela(rows){
     const tbody = $('#tbody');
-    tbody.innerHTML = (data||[]).map(r=>`
-      <tr>
-        <td>${r.registro}</td>
-        <td>${r.nome||'—'}</td>
-        <td>${r.sigla||'—'}</td>
-        <td>${fmtDataISOtoBR(r.validade)||'—'}</td>
-        <td><span class="chip ${r.status==='Ativo'?'ativo':'inativo'}">${r.status}</span></td>
-        <td class="right table-actions">
-          <button class="btn" data-edit="${r.registro}">Editar</button>
-          <a class="btn" target="_blank" rel="noopener" href="public.html?reg=${r.registro}">Abrir pública</a>
-        </td>
-      </tr>
-    `).join('');
+    tbody.innerHTML = rows.map(r=>{
+      const sd = statusDerivado(r);
+      return `
+        <tr>
+          <td>${r.registro}</td>
+          <td>${r.nome||'—'}</td>
+          <td>${r.sigla||'—'}</td>
+          <td>${fmtDataISOtoBR(r.validade)||'—'}</td>
+          <td><span class="chip ${sd.cls}">${sd.label}</span></td>
+          <td class="right table-actions">
+            <button class="btn" data-edit="${r.registro}">Editar</button>
+            <a class="btn" target="_blank" rel="noopener" href="public.html?reg=${r.registro}">Abrir pública</a>
+          </td>
+        </tr>
+      `;
+    }).join('');
 
     tbody.querySelectorAll('button[data-edit]').forEach(btn=>{
       btn.addEventListener('click', ()=> editar(btn.getAttribute('data-edit')));
     });
-
-    $('#count').textContent = `${count||0} registro(s)`;
   }
 
   async function editar(registro){
@@ -291,6 +319,9 @@
     if (error || !data){ toast('Erro ao abrir registro','error'); return; }
 
     editing = data.registro;
+    $('#formCad').reset();
+    $('#preview').dataset.locked = '';
+    // preencher form
     $('#registro').value = data.registro||'';
     $('#cred_num').value = data.cred_num||'';
     $('#status').value = data.status||'Ativo';
@@ -300,13 +331,21 @@
     $('#nome_da_unidade').value = data.nome_da_unidade||'';
     $('#doe').value = data.doe||'';
     $('#cred_cod').value = String(data.cred_cod||'');
-    // intranet link
+
+    // Link intranet + prévia
     updateLinkIntra();
-    // preview
     if (data.foto_path) {
       $('#preview').src = `${cfg.supabaseUrl}/storage/v1/object/public/${data.foto_path}`;
+      $('#preview').dataset.locked = '1';
     } else {
-      $('#preview').src = 'https://via.placeholder.com/120x120?text=pre%CC%81via';
+      // tenta intranet (em rede interna)
+      const reg = $('#registro').value.trim();
+      if (/^\d{6}$/.test(reg)) {
+        const url = `http://sistemasintra01/QuemQuem/fotos/empr-${regToEmpr(reg)}.jpg`;
+        $('#preview').src = url;
+      } else {
+        $('#preview').src = 'https://via.placeholder.com/120x120?text=pre%CC%81via';
+      }
     }
     toast('Registro carregado');
   }
@@ -321,6 +360,7 @@
   $('#btnNovo').addEventListener('click', ()=>{
     editing = null;
     $('#formCad').reset();
+    $('#preview').dataset.locked = '';
     $('#preview').src = 'https://via.placeholder.com/120x120?text=pre%CC%81via';
     updateLinkIntra();
     toast('Cadastro limpo');
@@ -377,6 +417,8 @@
       const up = await supabase.storage.from(cfg.storageBucket||'fotos').upload(path, file, { upsert:true, cacheControl:'3600' });
       if (up.error){ console.warn('upload falhou', up.error); }
       await supabase.from('empregados').update({ foto_path: path }).eq('registro', registro);
+      $('#preview').dataset.locked = '1';
+      $('#preview').src = `${cfg.supabaseUrl}/storage/v1/object/public/${path}`;
     }
 
     toast('Salvo com sucesso.');
