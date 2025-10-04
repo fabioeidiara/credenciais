@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>Credencial do Agente – CETESB</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link href="style.css?v=244" rel="stylesheet">
+  <link href="style.css?v=245" rel="stylesheet">
   <meta name="color-scheme" content="light">
   <link rel="icon" href="data:,">
   <style>
@@ -18,7 +18,7 @@
     @media (max-width:640px){
       .kv{ grid-template-columns:1fr; }
       .kv .k{ margin-top:8px; }
-      .card-head{ flex-direction:column; align-items:center; text-align:center; }
+      .card-head{ flex-direction:column; align-items:center; text-align:center; gap:10px; }
     }
   </style>
 </head>
@@ -41,17 +41,17 @@
     <div class="card-head">
       <div class="fotoBox"><img id="foto" alt="Foto do agente"></div>
       <div style="flex:1 1 auto">
-        <h2 id="nome" style="margin:0 0 6px">—</h2>
-        <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
-          <span class="k">Registro</span>
-          <span id="registro" class="v mono">—</span>
+        <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
           <span id="chipStatus" class="chip">—</span>
+          <h2 id="nome" style="margin:0">—</h2>
         </div>
+
         <div class="kv">
-          <div class="k">Credencial</div><div id="credencial" class="v">—</div>
-          <div class="k">Número</div><div id="numero" class="v mono">—</div>
-          <div class="k">Validade</div><div id="validade" class="v">—</div>
-          <div class="k">Unidade</div><div id="unidade" class="v">—</div>
+          <div class="k">Número</div>     <div id="numero" class="v mono">—</div>
+          <div class="k">Descrição</div>  <div id="credencial" class="v">—</div>
+          <div class="k">Validade</div>   <div id="validade" class="v">—</div>
+          <div class="k">Matrícula</div>  <div id="matricula" class="v mono">—</div>
+          <div class="k">Unidade</div>    <div id="unidade" class="v">—</div>
         </div>
       </div>
     </div>
@@ -70,7 +70,7 @@
   function show(el, on){ if(!el) return; if(on){ el.classList.remove('hidden'); } else { el.classList.add('hidden'); } }
   function fmt(iso){ return iso ? new Date(iso).toLocaleDateString('pt-BR') : ''; }
 
-  // Placeholder embutido
+  // Placeholder
   var PH120 = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><rect width='100%25' height='100%25' fill='%23eef2f7' rx='12' ry='12'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='12' fill='%2390a4b8'>sem foto</text></svg>";
   $('#foto').src = PH120;
 
@@ -127,7 +127,6 @@
   var empQ = supabase.from('empregados')
     .select('registro,nome,sigla,nome_da_unidade,cred_cod,cred_num,validade,status,foto_path')
     .eq('registro', reg).maybeSingle();
-
   var crQ  = supabase.from('credenciais').select('cred_cod,descricao');
 
   var arr = await Promise.all([empQ, crQ]);
@@ -137,25 +136,24 @@
   if(eEmp){ console.error(eEmp); $('#loading').innerHTML = '<div>Erro ao carregar dados.</div>'; return; }
   if(!emp){ show($('#loading'), false); show($('#notfound'), true); return; }
 
-  // Mapa de credenciais
   var mapCred = {};
   (catCred||[]).forEach(function(x){ mapCred[String(x.cred_cod)] = x.descricao; });
   var credDesc = mapCred[String(emp.cred_cod)] || ('Tipo '+emp.cred_cod);
 
   // Preenche
   $('#nome').textContent      = emp.nome || '—';
-  $('#registro').textContent  = emp.registro || '—';
-  $('#credencial').textContent= credDesc || '—';
   $('#numero').textContent    = emp.cred_num ? String(emp.cred_num) : '—';
+  $('#credencial').textContent= credDesc || '—';
   $('#validade').textContent  = fmt(emp.validade);
+  $('#matricula').textContent = emp.registro || '—';
   $('#unidade').textContent   = emp.nome_da_unidade ? (emp.sigla+' – '+emp.nome_da_unidade) : (emp.sigla || '—');
 
-  // Status
+  // Status (antes do nome)
   var chip = $('#chipStatus');
   var hoje0 = new Date(); hoje0.setHours(0,0,0,0);
   var ativoValido = (emp.status==='Ativo' && emp.validade && new Date(emp.validade) >= hoje0);
   chip.className = 'chip ' + (emp.status==='Em andamento' ? 'warn' : (ativoValido ? 'success' : 'danger'));
-  chip.textContent = (emp.status==='Em andamento' ? 'Em andamento' : (ativoValido ? 'Ativo' : 'Inativo/Vencido'));
+  chip.textContent = (emp.status==='Em andamento' ? 'Em andamento' : (ativoValido ? 'Ativo' : 'Inativo'));
 
   // Foto
   var url = await getFotoUrlFlexible(emp.registro, emp.foto_path);
