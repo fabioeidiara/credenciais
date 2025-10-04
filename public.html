@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <link href="style.css?v=241" rel="stylesheet">
   <meta name="color-scheme" content="light">
+  <link rel="icon" href="data:,">
 </head>
 <body>
 
@@ -52,18 +53,22 @@
 
 <script type="module">
 (async function(){
+  // Helpers simples (sem ?. e sem features que possam gerar SyntaxError em ambientes restritos)
   function $(s){ return document.querySelector(s); }
   function qs(k){ return new URL(location.href).searchParams.get(k); }
-  function show(el, on){ if(!el) return; if(on) el.classList.remove('hidden'); else el.classList.add('hidden'); }
+  function show(el, on){ if(!el) return; if(on){ el.classList.remove('hidden'); } else { el.classList.add('hidden'); } }
   function fmt(iso){ return iso ? new Date(iso).toLocaleDateString('pt-BR') : ''; }
 
-  // Placeholder embutido
+  // Placeholder embutido (sem rede)
   var PH120 = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><rect width='100%25' height='100%25' fill='%23e5e7eb'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='12' fill='%2364748b'>sem foto</text></svg>";
   $('#foto').src = PH120;
 
   // ?reg=
   var reg = qs('reg');
-  if(!/^\d{6}$/.test(reg||'')){ $('#loading').innerHTML = '<div><strong>Parâmetro inválido.</strong> Use ?reg=000001</div>'; return; }
+  if(!/^\d{6}$/.test(reg||'')){
+    $('#loading').innerHTML = '<div><strong>Parâmetro inválido.</strong> Use ?reg=000001</div>';
+    return;
+  }
 
   // config.json
   var cfg;
@@ -72,10 +77,15 @@
     if(!r.ok) throw new Error('config.json HTTP '+r.status);
     var txt = await r.text();
     try{ cfg = JSON.parse(txt); }catch(e){ console.error('config.json inválido:', txt); alert('config.json inválido'); return; }
-  }catch(e){ console.error('Falha ao carregar config.json', e); alert('Falha ao carregar config.json'); return; }
+  }catch(e){
+    console.error('Falha ao carregar config.json', e);
+    alert('Falha ao carregar config.json');
+    return;
+  }
 
-  // Supabase
-  const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+  // Supabase (IMPORT compatível)
+  const supa = await import('https://esm.sh/@supabase/supabase-js@2');
+  const createClient = supa.createClient;
   var supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
   function normalizeFotoPath(p){ return String(p||'').replace(/^fotos\//i,''); }
@@ -94,32 +104,45 @@
 
   var crQ  = supabase.from('credenciais').select('cred_cod,descricao');
 
-  var res = await Promise.all([empQ, crQ]);
-  var emp = res[0].data, eEmp = res[0].error;
-  var catCred = res[1].data;
+  var arr = await Promise.all([empQ, crQ]);
+  var emp = arr[0].data, eEmp = arr[0].error;
+  var catCred = arr[1].data;
 
-  if(eEmp){ console.error(eEmp); $('#loading').innerHTML='<div>Erro ao carregar dados.</div>'; return; }
-  if(!emp){ show($('#loading'), false); show($('#notfound'), true); return; }
+  if(eEmp){
+    console.error(eEmp);
+    $('#loading').innerHTML = '<div>Erro ao carregar dados.</div>';
+    return;
+  }
+  if(!emp){
+    show($('#loading'), false);
+    show($('#notfound'), true);
+    return;
+  }
 
+  // Mapa de credenciais
   var mapCred = {};
   (catCred||[]).forEach(function(x){ mapCred[String(x.cred_cod)] = x.descricao; });
   var credDesc = mapCred[String(emp.cred_cod)] || ('Tipo '+emp.cred_cod);
 
-  $('#nome').textContent = emp.nome || '—';
-  $('#registro').textContent = emp.registro || '—';
-  $('#credencial').textContent = credDesc + (emp.cred_num ? ' • Nº '+emp.cred_num : '');
-  $('#validade').textContent = fmt(emp.validade);
-  $('#unidade').textContent  = emp.nome_da_unidade ? (emp.sigla+' – '+emp.nome_da_unidade) : (emp.sigla || '—');
+  // Preenche
+  $('#nome').textContent      = emp.nome || '—';
+  $('#registro').textContent  = emp.registro || '—';
+  $('#credencial').textContent= credDesc + (emp.cred_num ? ' • Nº '+emp.cred_num : '');
+  $('#validade').textContent  = fmt(emp.validade);
+  $('#unidade').textContent   = emp.nome_da_unidade ? (emp.sigla+' – '+emp.nome_da_unidade) : (emp.sigla || '—');
 
+  // Status
   var chip = $('#chipStatus');
   var hoje0 = new Date(); hoje0.setHours(0,0,0,0);
-  var ok = (emp.status==='Ativo' && emp.validade && new Date(emp.validade) >= hoje0);
-  chip.className = 'chip ' + (emp.status==='Em andamento' ? 'warn' : (ok ? 'success' : 'danger'));
-  chip.textContent = (emp.status==='Em andamento' ? 'Em andamento' : (ok ? 'Ativo' : 'Inativo/Vencido'));
+  var ativoValido = (emp.status==='Ativo' && emp.validade && new Date(emp.validade) >= hoje0);
+  chip.className = 'chip ' + (emp.status==='Em andamento' ? 'warn' : (ativoValido ? 'success' : 'danger'));
+  chip.textContent = (emp.status==='Em andamento' ? 'Em andamento' : (ativoValido ? 'Ativo' : 'Inativo/Vencido'));
 
+  // Foto
   var url = buildFotoUrl(emp.foto_path);
   $('#foto').src = url || PH120;
 
+  // Mostrar card
   show($('#loading'), false);
   show($('#card'), true);
 })();
