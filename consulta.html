@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>Consulta – CETESB Credenciais</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link href="style.css?v=240" rel="stylesheet">
+  <link href="style.css?v=241" rel="stylesheet">
 </head>
 <body>
 <header class="header">
@@ -61,10 +61,9 @@
 
 <script type="module">
   const $  = (s)=>document.querySelector(s);
-  const formatData = (iso)=> iso ? new Date(iso).toLocaleDateString('pt-BR') : '';
+  const fmt = (iso)=> iso ? new Date(iso).toLocaleDateString('pt-BR') : '';
 
-  // Placeholder embutido
-  const PH40  = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect width='100%25' height='100%25' fill='%23e5e7eb'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='16' fill='%2364748b'>?</text></svg>";
+  const PH40 = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect width='100%25' height='100%25' fill='%23e5e7eb'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='16' fill='%2364748b'>?</text></svg>";
 
   // Sair
   document.getElementById('btnSair')?.addEventListener('click', ()=>{ localStorage.removeItem('sessaoUsuario'); location.href='index.html'; });
@@ -72,79 +71,75 @@
   // Config
   let cfg;
   try{
-    const res = await fetch('config.json', {cache:'no-store'});
-    if(!res.ok) throw new Error(`config.json HTTP ${res.status}`);
-    const txt = await res.text();
-    try{ cfg = JSON.parse(txt); } catch(e){ console.error('config.json inválido:', txt); alert('config.json inválido'); throw e; }
-  }catch(e){ console.error('Falha ao carregar config.json', e); alert('Falha ao carregar config.json'); throw e; }
+    const r = await fetch('config.json',{cache:'no-store'});
+    if(!r.ok) throw new Error('config.json HTTP '+r.status);
+    const txt = await r.text();
+    try{ cfg = JSON.parse(txt); }catch(e){ console.error('config.json inválido:', txt); alert('config.json inválido'); throw e; }
+  }catch(e){ console.error(e); alert('Falha ao carregar config.json'); throw e; }
 
   // Supabase
   import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
   const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
-  const normalizeFotoPath = (p)=> String(p||'').replace(/^fotos\//i,'');
-  const buildFotoUrl = (fp)=>{
-    if(!fp) return null;
-    const bucket = (cfg.storageBucket || 'fotos');
-    const path = normalizeFotoPath(fp);
-    const { data } = supabase.storage.from(bucket).getPublicUrl(path);
-    return data?.publicUrl || null;
-  };
 
-  // Combos
-  async function carregarCombos(){
-    const { data } = await supabase.from('unidades').select('sigla').order('sigla');
-    $('#f_sigla').innerHTML = `<option value="">Todas</option>` + (data||[]).map(x=>`<option value="${x.sigla}">${x.sigla}</option>`).join('');
+  function normalizeFotoPath(p){ return String(p||'').replace(/^fotos\//i,''); }
+  function buildFotoUrl(fp){
+    if(!fp) return null;
+    const bucket = cfg.storageBucket || 'fotos';
+    const path = normalizeFotoPath(fp);
+    const resp = supabase.storage.from(bucket).getPublicUrl(path);
+    return (resp && resp.data && resp.data.publicUrl) ? resp.data.publicUrl : null;
   }
 
-  // Lista
+  async function combos(){
+    const { data } = await supabase.from('unidades').select('sigla').order('sigla');
+    document.getElementById('f_sigla').innerHTML =
+      `<option value="">Todas</option>`+(data||[]).map(x=>`<option value="${x.sigla}">${x.sigla}</option>`).join('');
+  }
+
   async function carregar(){
-    const q = $('#q').value.trim();
-    const fs = $('#f_status').value;
-    const fSig = $('#f_sigla').value;
+    const q = document.getElementById('q').value.trim();
+    const fs = document.getElementById('f_status').value;
+    const fSig = document.getElementById('f_sigla').value;
 
     let query = supabase.from('empregados').select('registro,nome,sigla,validade,status,foto_path').order('registro');
 
     if(q){
       const isNum = /^\d+$/.test(q);
-      if (isNum) query = query.or(`registro.eq.${q},cred_num.eq.${q}`);
-      else query = query.ilike('nome', `%${q}%`);
+      query = isNum ? query.or(`registro.eq.${q},cred_num.eq.${q}`) : query.ilike('nome', `%${q}%`);
     }
     if(fs)  query = query.eq('status', fs);
-    if(fSig)query = query.eq('sigla', fSig);
+    if(fSig) query = query.eq('sigla', fSig);
 
     const { data, error } = await query;
     if(error){ console.error(error); alert('Erro ao carregar'); return; }
 
     const rows = (data||[]).map(x=>{
       const foto = buildFotoUrl(x.foto_path) || PH40;
-      const statusChip =
-        (x.status==='Ativo' && new Date(x.validade) >= new Date().setHours(0,0,0,0)) ? `<span class="chip success">Ativo</span>` :
-        (x.status==='Em andamento') ? `<span class="chip warn">Em andamento</span>` :
-        `<span class="chip danger">Inativo/Vencido</span>`;
-
+      const ok = (x.status==='Ativo' && x.validade && new Date(x.validade) >= new Date(new Date().toDateString()));
+      const chip = ok ? `<span class="chip success">Ativo</span>`
+               : (x.status==='Em andamento' ? `<span class="chip warn">Em andamento</span>`
+                                            : `<span class="chip danger">Inativo/Vencido</span>`);
       return `<tr>
         <td><img src="${foto}" alt="foto" width="40" height="40" style="border-radius:6px;object-fit:cover;border:1px solid #ddd" onerror="this.src='${PH40}'"></td>
         <td>${x.registro}</td>
         <td>${x.nome||''}</td>
         <td>${x.sigla||''}</td>
-        <td>${formatData(x.validade)}</td>
-        <td>${statusChip}</td>
+        <td>${fmt(x.validade)}</td>
+        <td>${chip}</td>
         <td><a class="btn sm" target="_blank" href="public.html?reg=${x.registro}">Público</a></td>
       </tr>`;
     }).join('');
 
-    $('#tbody').innerHTML = rows || `<tr><td colspan="7" class="muted">Nenhum registro</td></tr>`;
-    $('#count').textContent = `${data?.length||0} registro(s)`;
+    document.getElementById('tbody').innerHTML = rows || `<tr><td colspan="7" class="muted">Nenhum registro</td></tr>`;
+    document.getElementById('count').textContent = String(data?.length||0)+' registro(s)';
   }
 
-  // Eventos
   document.getElementById('btnReload').addEventListener('click', carregar);
   document.getElementById('q').addEventListener('input', ()=>{ clearTimeout(window._t); window._t=setTimeout(carregar,250); });
   document.getElementById('f_sigla').addEventListener('change', carregar);
   document.getElementById('f_status').addEventListener('change', carregar);
 
-  // Start
-  await carregarCombos();
+  await combos();
   await carregar();
 </script>
 </body>
