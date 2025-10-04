@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>Consulta – CETESB Credenciais</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link href="style.css" rel="stylesheet">
+  <link href="style.css?v=233" rel="stylesheet">
 </head>
 <body>
 <header class="header">
@@ -14,9 +14,8 @@
       <h1>CETESB – Consulta de Credenciais</h1>
     </div>
     <div class="actions">
-      <a class="btn" href="admin.html">Cadastro</a>
-      <a class="btn" href="change-password.html">Senha</a>
-      <button id="btnSair" class="btn danger">Sair</button>
+      <a class="btn" href="admin.html">Admin</a>
+      <button class="btn danger" id="btnSair">Sair</button>
     </div>
   </div>
 </header>
@@ -26,120 +25,136 @@
     <h2 class="card-title">Consulta</h2>
 
     <div class="row" style="gap:10px;align-items:center;flex-wrap:wrap">
-      <input id="q" class="input" style="flex:1 1 auto" placeholder="Buscar por nome, registro...">
-      <select id="f_sigla" class="select"><option value="">— Sigla —</option></select>
-      <select id="f_status" class="select">
-        <option value="">— Status —</option>
-        <option value="Ativo">Ativo</option>
-        <option value="Em andamento">Em andamento</option>
-        <option value="Inativo">Inativo</option>
+      <input id="q" class="input" style="flex:1 1 auto" placeholder="Buscar por nome, registro ou sigla">
+      <select id="f_sigla" class="input" style="min-width:140px"></select>
+      <select id="f_status" class="input" style="min-width:140px">
+        <option value="">Todos</option>
+        <option>Ativo</option>
+        <option>Em andamento</option>
+        <option>Inativo</option>
       </select>
       <button id="btnReload" class="btn">Recarregar</button>
     </div>
 
-    <div class="table-wrap mt-12">
-      <table>
+    <div class="scroll">
+      <table class="table">
         <thead>
           <tr>
+            <th style="width:56px">Foto</th>
             <th>Registro</th>
             <th>Nome</th>
             <th>Sigla</th>
             <th>Validade</th>
             <th>Status</th>
-            <th class="right">Ações</th>
+            <th style="width:120px">Ações</th>
           </tr>
         </thead>
         <tbody id="tbody"></tbody>
       </table>
     </div>
 
-    <div id="count" class="small muted mt-16">0 registro(s)</div>
+    <div class="muted" id="count">0 registro(s)</div>
   </section>
-
-  <div id="toast" class="toast hidden alert success"><div id="toastMsg">OK</div></div>
 </main>
 
+<footer class="footer"><div class="container">Piloto – CETESB</div></footer>
+
 <script type="module">
-  const $ = (s)=>document.querySelector(s);
-  const toast = (t, kind='success')=>{
-    const el = $('#toast'); const m = $('#toastMsg');
-    el.className = 'toast alert '+(kind==='error'?'error':kind==='warn'?'warn':'success');
-    m.textContent = t; el.classList.remove('hidden'); setTimeout(()=>el.classList.add('hidden'), 1800);
-  };
+  // Utils
+  const $  = (s)=>document.querySelector(s);
+  const $$ = (s)=>Array.from(document.querySelectorAll(s));
+  const formatData = (iso)=> iso ? new Date(iso).toLocaleDateString('pt-BR') : '';
 
-  const sess = JSON.parse(localStorage.getItem('sessaoUsuario')||'null');
-  if(!sess){ location.href = 'index.html'; throw new Error('sem sessão'); }
-
-  let cfg; {
-    const res = await fetch('config.json', { cache:'no-store' });
-    if(!res.ok) { alert('Falha ao carregar config.json'); throw new Error(); }
-    cfg = await res.json();
-  }
-  const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
-  const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
-
-  $('#btnSair').addEventListener('click', ()=>{
+  // Sair imediato
+  document.getElementById('btnSair')?.addEventListener('click', ()=>{
     localStorage.removeItem('sessaoUsuario');
     location.href = 'index.html';
   });
 
-  (async ()=>{
-    const { data } = await supabase.from('unidades').select('sigla').order('sigla');
-    if(data){
-      $('#f_sigla').innerHTML = '<option value="">— Sigla —</option>'+ data.map(u=>`<option value="${u.sigla}">${u.sigla}</option>`).join('');
-    }
-  })();
+  // Config robusta
+  let cfg;
+  try {
+    const res = await fetch('config.json', { cache:'no-store' });
+    if (!res.ok) throw new Error(`config.json HTTP ${res.status}`);
+    const txt = await res.text();
+    try { cfg = JSON.parse(txt); }
+    catch(e){ console.error('config.json inválido:', txt); alert('config.json inválido'); throw e; }
+  } catch (e) {
+    console.error('Falha ao carregar config.json', e);
+    alert('Falha ao carregar config.json');
+    throw e;
+  }
 
-  const todayZero = ()=>{ const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); };
-  const isVigente = (iso)=>{ if(!iso) return false; const [y,m,d]=iso.split('-').map(Number); return new Date(y,m-1,d) >= todayZero(); };
-  const statusDerivado = (row)=>{
-    if (row.status==='Em andamento') return {label:'Em andamento', cls:'andamento'};
-    if (row.status==='Ativo' && isVigente(row.validade)) return {label:'Ativo', cls:'ativo'};
-    return {label:'Inativo', cls:'inativo'};
+  // Supabase
+  import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+  const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+  const normalizeFotoPath = (p)=> String(p||'').replace(/^fotos\//i,'');
+  const buildFotoUrl = (foto_path)=>{
+    if (!foto_path) return null;
+    const bucket = (cfg.storageBucket || 'fotos');
+    const path = normalizeFotoPath(foto_path);
+    const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+    return data?.publicUrl || null;
   };
-  const fmtBR = (iso)=> !iso ? '—' : (()=>{const [y,m,d]=iso.split('-');return `${d}/${m}/${y}`})();
 
+  // Combos
+  async function carregarCombos(){
+    const { data } = await supabase.from('unidades').select('sigla').order('sigla');
+    $('#f_sigla').innerHTML = `<option value="">Todas</option>` + (data||[]).map(x=>`<option value="${x.sigla}">${x.sigla}</option>`).join('');
+  }
+
+  // Lista
   async function carregar(){
-    const q = ($('#q').value||'').trim().toLowerCase();
-    const sigla = $('#f_sigla').value||'';
-    const fStatus = $('#f_status').value||'';
+    const q = $('#q').value.trim();
+    const fs = $('#f_status').value;
+    const fSig = $('#f_sigla').value;
 
-    let query = supabase.from('empregados')
-      .select('registro,nome,sigla,validade,status', { count:'exact' })
-      .order('registro', { ascending:true });
+    let query = supabase.from('empregados').select('registro,nome,sigla,validade,status,foto_path').order('registro');
 
-    if (sigla) query = query.eq('sigla', sigla);
-    if (q) query = query.or(`nome.ilike.%${q}%,registro.ilike.%${q}%`);
+    if (q){
+      const isNum = /^\d+$/.test(q);
+      if (isNum) query = query.or(`registro.eq.${q},cred_num.eq.${q}`);
+      else query = query.ilike('nome', `%${q}%`);
+    }
+    if (fs)  query = query.eq('status', fs);
+    if (fSig) query = query.eq('sigla', fSig);
 
     const { data, error } = await query;
-    if (error){ console.error(error); toast('Erro ao carregar','error'); return; }
+    if (error) { console.error(error); alert('Erro ao carregar'); return; }
 
-    let rows = data||[];
-    if (fStatus) rows = rows.filter(r=> statusDerivado(r).label === fStatus);
+    const rows = (data||[]).map(x=>{
+      const foto = buildFotoUrl(x.foto_path) || 'https://via.placeholder.com/40?text=%F0%9F%92%AC';
+      const statusChip =
+        (x.status==='Ativo' && new Date(x.validade) >= new Date().setHours(0,0,0,0)) ? `<span class="chip success">Ativo</span>` :
+        (x.status==='Em andamento') ? `<span class="chip warn">Em andamento</span>` :
+        `<span class="chip danger">Inativo/Vencido</span>`;
 
-    $('#tbody').innerHTML = rows.map(r=>{
-      const sd = statusDerivado(r);
       return `<tr>
-        <td>${r.registro}</td>
-        <td>${r.nome||'—'}</td>
-        <td>${r.sigla||'—'}</td>
-        <td>${fmtBR(r.validade)||'—'}</td>
-        <td><span class="chip ${sd.cls}">${sd.label}</span></td>
-        <td class="right table-actions">
-          <a class="btn" target="_blank" rel="noopener" href="public.html?reg=${r.registro}">Abrir</a>
+        <td><img src="${foto}" alt="foto" width="40" height="40" style="border-radius:6px;object-fit:cover;border:1px solid #ddd" onerror="this.src='https://via.placeholder.com/40?text=%3F'"></td>
+        <td>${x.registro}</td>
+        <td>${x.nome||''}</td>
+        <td>${x.sigla||''}</td>
+        <td>${formatData(x.validade)}</td>
+        <td>${statusChip}</td>
+        <td>
+          <a class="btn sm" target="_blank" href="public.html?reg=${x.registro}">Público</a>
         </td>
       </tr>`;
     }).join('');
 
-    $('#count').textContent = `${rows.length} registro(s)`;
+    $('#tbody').innerHTML = rows || `<tr><td colspan="7" class="muted">Nenhum registro</td></tr>`;
+    $('#count').textContent = `${data?.length||0} registro(s)`;
   }
 
+  // Eventos
   $('#btnReload').addEventListener('click', carregar);
-  $('#q').addEventListener('input', ()=>{ clearTimeout(window._t); window._t=setTimeout(carregar,350); });
+  $('#q').addEventListener('input', ()=>{ clearTimeout(window._t); window._t=setTimeout(carregar,250); });
   $('#f_sigla').addEventListener('change', carregar);
   $('#f_status').addEventListener('change', carregar);
 
-  carregar();
+  // Start
+  await carregarCombos();
+  await carregar();
 </script>
 </body>
 </html>
