@@ -4,9 +4,16 @@
   <meta charset="utf-8">
   <title>Credencial do Agente – CETESB</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link href="style.css?v=241" rel="stylesheet">
+  <link href="style.css?v=242" rel="stylesheet">
   <meta name="color-scheme" content="light">
   <link rel="icon" href="data:,">
+  <style>
+    /* Polimento: rótulo x valor bem distintos */
+    .kv { display:grid; grid-template-columns:120px 1fr; gap:6px 12px; align-items:center; }
+    .kv .k { color:#64748b; font-weight:700; }
+    .kv .v { color:#1e293b; font-weight:700; }
+    @media (max-width:560px){ .kv{grid-template-columns:1fr} .kv .k{margin-top:8px} }
+  </style>
 </head>
 <body>
 
@@ -30,17 +37,18 @@
              style="border-radius:8px;object-fit:cover;border:1px solid #ddd">
       </div>
       <div class="col">
-        <h2 id="nome">—</h2>
-        <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap">
-          <div class="muted">Registro:</div>
-          <div id="registro">—</div>
-          <div id="chipStatus" class="chip">—</div>
+        <h2 id="nome" style="margin:0 0 6px">—</h2>
+        <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+          <span class="k muted">Registro</span>
+          <span id="registro" class="v">—</span>
+          <span id="chipStatus" class="chip">—</span>
         </div>
 
-        <hr>
-        <div class="row"><div class="label">Credencial:</div><div id="credencial">—</div></div>
-        <div class="row"><div class="label">Validade:</div><div id="validade">—</div></div>
-        <div class="row"><div class="label">Unidade:</div><div id="unidade">—</div></div>
+        <div class="kv">
+          <div class="k">Credencial</div><div id="credencial" class="v">—</div>
+          <div class="k">Validade</div><div id="validade" class="v">—</div>
+          <div class="k">Unidade</div><div id="unidade" class="v">—</div>
+        </div>
       </div>
     </div>
   </div>
@@ -53,13 +61,12 @@
 
 <script type="module">
 (async function(){
-  // Helpers simples (sem ?. e sem features que possam gerar SyntaxError em ambientes restritos)
   function $(s){ return document.querySelector(s); }
   function qs(k){ return new URL(location.href).searchParams.get(k); }
   function show(el, on){ if(!el) return; if(on){ el.classList.remove('hidden'); } else { el.classList.add('hidden'); } }
   function fmt(iso){ return iso ? new Date(iso).toLocaleDateString('pt-BR') : ''; }
 
-  // Placeholder embutido (sem rede)
+  // Placeholder embutido
   var PH120 = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><rect width='100%25' height='100%25' fill='%23e5e7eb'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='12' fill='%2364748b'>sem foto</text></svg>";
   $('#foto').src = PH120;
 
@@ -83,18 +90,24 @@
     return;
   }
 
-  // Supabase (IMPORT compatível)
+  // Supabase (import compatível)
   const supa = await import('https://esm.sh/@supabase/supabase-js@2');
   const createClient = supa.createClient;
   var supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
   function normalizeFotoPath(p){ return String(p||'').replace(/^fotos\//i,''); }
-  function buildFotoUrl(fp){
+  async function getFotoUrl(fp){
     if(!fp) return null;
     var bucket = cfg.storageBucket || 'fotos';
     var path = normalizeFotoPath(fp);
-    var resp = supabase.storage.from(bucket).getPublicUrl(path);
-    return (resp && resp.data && resp.data.publicUrl) ? resp.data.publicUrl : null;
+
+    var signed = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
+    if(signed && !signed.error && signed.data && signed.data.signedUrl) return signed.data.signedUrl;
+
+    var pub = supabase.storage.from(bucket).getPublicUrl(path);
+    if(pub && pub.data && pub.data.publicUrl) return pub.data.publicUrl;
+
+    return null;
   }
 
   // Dados
@@ -138,11 +151,11 @@
   chip.className = 'chip ' + (emp.status==='Em andamento' ? 'warn' : (ativoValido ? 'success' : 'danger'));
   chip.textContent = (emp.status==='Em andamento' ? 'Em andamento' : (ativoValido ? 'Ativo' : 'Inativo/Vencido'));
 
-  // Foto
-  var url = buildFotoUrl(emp.foto_path);
+  // Foto (pública/assinada)
+  var url = await getFotoUrl(emp.foto_path);
   $('#foto').src = url || PH120;
 
-  // Mostrar card
+  // Mostrar
   show($('#loading'), false);
   show($('#card'), true);
 })();
