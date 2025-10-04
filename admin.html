@@ -24,7 +24,7 @@
 
 <main class="container">
   <div class="grid grid-2">
-    <!-- ESQUERDA: FORM -->
+    <!-- ESQUERDA: FORM (estruturas e classes preservadas) -->
     <section class="card pad">
       <h2 class="card-title">Cadastro</h2>
 
@@ -76,12 +76,20 @@
 
         <div class="field">
           <label>Foto</label>
-          <div class="row" style="gap:12px;align-items:center">
-            <img id="preview" alt="Prévia da foto" width="120" height="120" style="border-radius:8px;object-fit:cover;border:1px solid #ddd"
-                 src="https://via.placeholder.com/120x120?text=sem+foto">
+
+          <div class="row" style="gap:12px;align-items:center;flex-wrap:wrap">
+            <img id="preview" alt="Prévia da foto" width="120" height="120"
+                 style="border-radius:8px;object-fit:cover;border:1px solid #ddd">
+
+            <!-- Input de arquivo customizado (PT-BR) -->
             <div>
-              <input id="arquivoFoto" type="file" accept="image/*">
-              <div class="row" style="gap:8px;margin-top:8px">
+              <input id="arquivoFoto" type="file" accept="image/*" style="display:none">
+              <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap">
+                <button type="button" class="btn" id="btnEscolherArquivo">Selecionar arquivo</button>
+                <span id="arquivoNome" class="muted">Nenhum arquivo selecionado</span>
+              </div>
+
+              <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap">
                 <button type="button" class="btn" id="btnUploadFoto">Enviar/Atualizar foto</button>
                 <button type="button" class="btn danger" id="btnRemoverFoto">Remover foto</button>
               </div>
@@ -90,7 +98,8 @@
           </div>
         </div>
 
-        <div class="row" style="gap:8px;flex-wrap:wrap">
+        <!-- Linha de ações com classe própria para evitar “sanfona” -->
+        <div class="row-actions">
           <button id="btnNovo" type="button" class="btn">Novo</button>
           <button id="btnExcluir" type="button" class="btn danger">Excluir</button>
           <button id="btnQR" type="button" class="btn">Gerar QR</button>
@@ -140,12 +149,21 @@
 <footer class="footer"><div class="container">Piloto – CETESB</div></footer>
 
 <script type="module">
-  // Utilidades
+  // -------------------------
+  // Utilitários e constantes
+  // -------------------------
   const $  = (s)=>document.querySelector(s);
   const $$ = (s)=>Array.from(document.querySelectorAll(s));
   const toast = (msg)=>{ console.log(msg); };
 
-  // Sair: registra IMEDIATAMENTE (mesmo que o resto quebre)
+  // Placeholders embutidos (sem rede)
+  const PH120 = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><rect width='100%25' height='100%25' fill='%23e5e7eb'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='12' fill='%2364748b'>sem foto</text></svg>";
+  const PH40  = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect width='100%25' height='100%25' fill='%23e5e7eb'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='16' fill='%2364748b'>?</text></svg>";
+
+  // Define placeholder inicial do preview sem depender de onerror
+  $('#preview').src = PH120;
+
+  // Sair / Trocar senha: registra IMEDIATAMENTE
   document.getElementById('btnSair')?.addEventListener('click', ()=>{
     localStorage.removeItem('sessaoUsuario');
     location.href = 'index.html';
@@ -154,7 +172,22 @@
     location.href = 'change-password.html';
   });
 
-  // Carrega config com diagnóstico robusto
+  // Botão "Selecionar arquivo" (PT-BR)
+  $('#btnEscolherArquivo').addEventListener('click', ()=> $('#arquivoFoto').click());
+  $('#arquivoFoto').addEventListener('change', (ev)=>{
+    const file = ev.target.files?.[0];
+    $('#arquivoNome').textContent = file ? file.name : 'Nenhum arquivo selecionado';
+    if (file){
+      const objUrl = URL.createObjectURL(file);
+      $('#preview').src = objUrl; // prévia local imediata
+    } else {
+      $('#preview').src = PH120;
+    }
+  });
+
+  // -------------------------
+  // Carrega config.json (robusto)
+  // -------------------------
   let cfg;
   try {
     const res = await fetch('config.json', { cache:'no-store' });
@@ -165,14 +198,15 @@
   } catch (e) {
     console.error('Falha ao carregar config.json', e);
     alert('Falha ao carregar config.json');
-    throw e;
+    throw e; // listeners essenciais já estão ativos
   }
 
+  // -------------------------
   // Supabase
+  // -------------------------
   import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
   const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
-  // Helpers
   const normalizeFotoPath = (p)=> String(p||'').replace(/^fotos\//i,'');
   const buildFotoUrl = (foto_path)=>{
     if (!foto_path) return null;
@@ -183,7 +217,9 @@
   };
   const formatData = (iso)=> iso ? new Date(iso).toLocaleDateString('pt-BR') : '';
 
-  // Preenche combos
+  // -------------------------
+  // Combos
+  // -------------------------
   async function carregarCombos(){
     const [u, c] = await Promise.all([
       supabase.from('unidades').select('sigla,nome_da_unidade').order('sigla'),
@@ -191,11 +227,14 @@
     ]);
     $('#sigla').innerHTML = (u.data||[]).map(x=>`<option value="${x.sigla}">${x.sigla} – ${x.nome_da_unidade||''}</option>`).join('');
     $('#cred_cod').innerHTML = (c.data||[]).map(x=>`<option value="${x.cred_cod}">${x.cred_cod} – ${x.descricao||''}</option>`).join('');
+
     // filtros
     $('#f_sigla').innerHTML = `<option value="">Todas</option>` + (u.data||[]).map(x=>`<option value="${x.sigla}">${x.sigla}</option>`).join('');
   }
 
+  // -------------------------
   // Lista
+  // -------------------------
   async function carregarLista(){
     const q = $('#q').value.trim();
     const fs = $('#f_status').value;
@@ -204,7 +243,6 @@
     let query = supabase.from('empregados').select('registro,nome,sigla,validade,status,foto_path').order('registro');
 
     if (q){
-      // busca por nome (ilike), registro ou sigla
       const isNum = /^\d+$/.test(q);
       if (isNum) query = query.or(`registro.eq.${q},cred_num.eq.${q}`);
       else query = query.ilike('nome', `%${q}%`);
@@ -216,14 +254,14 @@
     if (error) { console.error(error); alert('Erro ao carregar lista'); return; }
 
     const rows = (data||[]).map(x=>{
-      const foto = buildFotoUrl(x.foto_path) || 'https://via.placeholder.com/40?text=%F0%9F%92%AC';
+      const foto = buildFotoUrl(x.foto_path) || PH40;
       const statusChip =
         (x.status==='Ativo' && new Date(x.validade) >= new Date().setHours(0,0,0,0)) ? `<span class="chip success">Ativo</span>` :
         (x.status==='Em andamento') ? `<span class="chip warn">Em andamento</span>` :
         `<span class="chip danger">Inativo/Vencido</span>`;
 
       return `<tr data-reg="${x.registro}">
-        <td><img src="${foto}" alt="foto" width="40" height="40" style="border-radius:6px;object-fit:cover;border:1px solid #ddd" onerror="this.src='https://via.placeholder.com/40?text=%3F'"></td>
+        <td><img src="${foto}" alt="foto" width="40" height="40" style="border-radius:6px;object-fit:cover;border:1px solid #ddd" onerror="this.src='${PH40}'"></td>
         <td>${x.registro}</td>
         <td>${x.nome||''}</td>
         <td>${x.sigla||''}</td>
@@ -262,14 +300,15 @@
 
     // atualiza prévia
     const url = buildFotoUrl(data.foto_path);
-    $('#preview').src = url || 'https://via.placeholder.com/120x120?text=sem+foto';
+    $('#preview').src = url || PH120;
   });
 
   // Botões
   $('#btnReload').addEventListener('click', carregarLista);
   $('#btnNovo').addEventListener('click', ()=>{
     $('#formCad').reset();
-    $('#preview').src = 'https://via.placeholder.com/120x120?text=sem+foto';
+    $('#arquivoNome').textContent = 'Nenhum arquivo selecionado';
+    $('#preview').src = PH120;
   });
 
   $('#btnExcluir').addEventListener('click', async ()=>{
@@ -292,15 +331,6 @@
     window.open(`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url.href)}`,'_blank');
   });
 
-  // Upload de foto (preview imediato)
-  $('#arquivoFoto').addEventListener('change', (ev)=>{
-    const file = ev.target.files?.[0];
-    if (file){
-      const objUrl = URL.createObjectURL(file);
-      $('#preview').src = objUrl;
-    }
-  });
-
   $('#btnUploadFoto').addEventListener('click', async ()=>{
     const reg = $('#registro').value.trim();
     if (!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).');
@@ -311,17 +341,14 @@
     const key = `${reg}.${ext}`;
     const bucket = (cfg.storageBucket || 'fotos');
 
-    // sobe com upsert
     const { error: upErr } = await supabase.storage.from(bucket).upload(key, file, { upsert:true, contentType:file.type });
     if (upErr) { console.error(upErr); return alert('Falha no upload'); }
 
-    // grava no DB (apenas nome do arquivo!)
     const { error: dbErr } = await supabase.from('empregados').update({ foto_path: key }).eq('registro', reg);
     if (dbErr) { console.error(dbErr); return alert('Falha ao gravar foto no banco'); }
 
-    // atualiza preview a partir do Storage (URL pública)
     const url = buildFotoUrl(key);
-    $('#preview').src = url || 'https://via.placeholder.com/120x120?text=sem+foto';
+    $('#preview').src = url || PH120;
     toast('Foto atualizada.');
   });
 
@@ -329,7 +356,6 @@
     const reg = $('#registro').value.trim();
     if (!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).');
 
-    // busca registro atual para descobrir nome do arquivo
     const { data } = await supabase.from('empregados').select('foto_path').eq('registro', reg).maybeSingle();
     const key = normalizeFotoPath(data?.foto_path);
     const bucket = (cfg.storageBucket || 'fotos');
@@ -339,12 +365,12 @@
     }
     await supabase.from('empregados').update({ foto_path: null }).eq('registro', reg);
 
-    $('#preview').src = 'https://via.placeholder.com/120x120?text=sem+foto';
+    $('#preview').src = PH120;
     $('#arquivoFoto').value = '';
+    $('#arquivoNome').textContent = 'Nenhum arquivo selecionado';
     toast('Foto removida.');
   });
 
-  // Salvar
   $('#formCad').addEventListener('submit', async (ev)=>{
     ev.preventDefault();
     const reg = $('#registro').value.trim();
@@ -361,7 +387,6 @@
       doe: $('#doe').value.trim() || null
     };
 
-    // upsert por registro
     const { error } = await supabase.from('empregados').upsert(payload, { onConflict:'registro' });
     if (error) { console.error(error); return alert('Erro ao salvar'); }
 
