@@ -4,11 +4,21 @@
   <meta charset="utf-8">
   <title>Consulta – CETESB Credenciais</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link href="style.css?v=245" rel="stylesheet">
+  <link href="style.css?v=253" rel="stylesheet">
   <meta name="color-scheme" content="light">
   <link rel="icon" href="data:,">
   <style>
     .label-like{ font-size:12px; color:#64748b; }
+    .muted{ color:#6b7280 }
+    .filters-row{ display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end }
+    .filters-row .stack{ display:flex; flex-direction:column; gap:6px }
+    .filters-row .grow{ flex:1 1 220px }
+    .tags{ display:flex; gap:10px; flex-wrap:wrap; padding:8px 10px; border-radius:10px; border:1px solid #e5e7eb; }
+    .filters-actions{ width:100%; display:flex; justify-content:center; gap:12px; margin-top:6px }
+    .filters-actions .btn{ width:auto; white-space:nowrap; min-width:max-content }
+    .input::placeholder{ color:#a8b3c0; opacity:1 }
+    th.sortable{ cursor:pointer; user-select:none }
+    th.sortable .caret{ font-size:10px; margin-left:6px; color:#94a3b8; opacity:.8 }
   </style>
 </head>
 <body>
@@ -20,41 +30,68 @@
     </div>
     <div class="actions">
       <a class="btn" href="admin.html">Cadastro</a>
-      <button class="btn danger" id="btnSair">Sair</button>
+      <a class="btn" href="index.html">Início</a>
     </div>
   </div>
 </header>
 
 <main class="container">
   <section class="card pad">
-    <h2 class="card-title">Consulta</h2>
+    <h2 class="card-title">Lista e filtros</h2>
 
-    <div class="row" style="gap:10px;align-items:flex-start;flex-wrap:wrap">
-      <input id="q" class="input" style="flex:1 1 220px" placeholder="Buscar por nome, matrícula, número">
-      <input id="f_numero" class="input" style="width:120px" placeholder="Número">
-      <select id="f_status" class="input" style="min-width:140px">
-        <option value="">Todos</option>
-        <option>Ativo</option>
-        <option>Em andamento</option>
-        <option>Inativo</option>
-      </select>
-      <select id="f_sigla" class="input" style="min-width:140px"></select>
-      <div id="tiposBox" class="card" style="padding:8px 10px;border-radius:10px;display:flex;gap:8px;flex-wrap:wrap"></div>
-      <button id="btnReload" class="btn">Recarregar</button>
+    <div class="filters-row">
+      <div class="stack grow">
+        <label class="label-like" for="f_nome">Nome</label>
+        <input id="f_nome" class="input" placeholder="Ex.: MARIA">
+      </div>
+
+      <div class="stack">
+        <label class="label-like" for="f_reg">Matrícula</label>
+        <input id="f_reg" class="input" placeholder="Ex.: 000123" maxlength="6">
+      </div>
+
+      <div class="stack">
+        <label class="label-like" for="f_numero">Número (credencial)</label>
+        <input id="f_numero" class="input" placeholder="Ex.: 0042" maxlength="4">
+      </div>
+
+      <div class="stack">
+        <label class="label-like" for="f_status">Status</label>
+        <select id="f_status" class="input">
+          <option value="">Todos</option>
+          <option>Ativo</option>
+          <option>Em andamento</option>
+          <option>Inativo</option>
+        </select>
+      </div>
+
+      <div class="stack">
+        <label class="label-like" for="f_sigla">Unidade</label>
+        <select id="f_sigla" class="input"></select>
+      </div>
+
+      <div class="stack" style="flex:1 1 100%">
+        <span class="label-like">Tipo</span>
+        <div id="tiposBox" class="tags"><span class="muted">carregando…</span></div>
+      </div>
+
+      <div class="filters-actions">
+        <button id="btnReload" class="btn">Recarregar</button>
+      </div>
     </div>
 
     <div class="scroll">
-      <table class="table">
+      <table class="table" id="tabela">
         <thead>
           <tr>
             <th style="width:56px">Foto</th>
-            <th>Matrícula</th>
-            <th>Nome</th>
-            <th>Unidade</th>
-            <th>Número</th>
-            <th>Tipo</th>
-            <th>Validade</th>
-            <th>Status</th>
+            <th class="sortable" data-col="registro">Matrícula <span class="caret">▾▴</span></th>
+            <th class="sortable" data-col="nome">Nome <span class="caret">▾▴</span></th>
+            <th class="sortable" data-col="sigla">Unidade <span class="caret">▾▴</span></th>
+            <th class="sortable" data-col="cred_num">Número <span class="caret">▾▴</span></th>
+            <th class="sortable" data-col="cred_cod">Tipo <span class="caret">▾▴</span></th>
+            <th class="sortable" data-col="validade">Validade <span class="caret">▾▴</span></th>
+            <th class="sortable" data-col="status">Status <span class="caret">▾▴</span></th>
             <th style="width:120px">Ações</th>
           </tr>
         </thead>
@@ -62,7 +99,7 @@
       </table>
     </div>
 
-    <div class="label-like" id="count">0 registro(s)</div>
+    <div id="count" class="label-like">0 registro(s)</div>
   </section>
 </main>
 
@@ -72,34 +109,25 @@
   const $  = (s)=>document.querySelector(s);
   const fmt = (iso)=> iso ? new Date(iso).toLocaleDateString('pt-BR') : '';
 
-  // Placeholder
-  const PH40 = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect width='100%25' height='100%25' fill='%23eef2f7' rx='8' ry='8'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='16' fill='%2390a4b8'>?</text></svg>";
+  const PH40  = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect width='100%25' height='100%25' fill='%23eef2f7' rx='8' ry='8'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='16' fill='%2390a4b8'>?</text></svg>";
 
-  // Sair
-  $('#btnSair')?.addEventListener('click', ()=>{ localStorage.removeItem('sessaoUsuario'); location.href='index.html'; });
-
-  // Config
+  // config
   let cfg;
   try{
-    const r = await fetch('config.json',{cache:'no-store'});
+    const r = await fetch('config.json', { cache:'no-store' });
     if(!r.ok) throw new Error('config.json HTTP '+r.status);
-    const txt = await r.text();
-    try{ cfg = JSON.parse(txt); }catch(e){ console.error('config.json inválido:', txt); alert('config.json inválido'); throw e; }
+    cfg = JSON.parse(await r.text());
   }catch(e){ console.error(e); alert('Falha ao carregar config.json'); throw e; }
 
   // Supabase
   const supa = await import('https://esm.sh/@supabase/supabase-js@2');
-  const createClient = supa.createClient;
-  const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+  const supabase = supa.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
-  function normalizeFotoPath(p){ return String(p||'').replace(/^fotos\//i,''); }
-  function splitDir(basepath){
-    const i = basepath.lastIndexOf('/');
-    return i === -1 ? { dir:'', name:basepath } : { dir:basepath.slice(0,i), name:basepath.slice(i+1) };
-  }
+  // fotos (consulta permite fallback sempre)
+  const splitDir = (basepath)=>{ const i=basepath.lastIndexOf('/'); return i===-1?{dir:'',name:basepath}:{dir:basepath.slice(0,i),name:basepath.slice(i+1)}; };
   async function objectExists(bucket, fullpath){
     const t = splitDir(fullpath);
-    const res = await supabase.storage.from(bucket).list(t.dir || '', { search: t.name, limit: 1 });
+    const res = await supabase.storage.from(bucket).list(t.dir || '', { search:t.name, limit:1 });
     if(res.error) return false;
     return (res.data||[]).some(x=>x.name===t.name);
   }
@@ -113,61 +141,84 @@
     if(p && p.data && p.data.publicUrl) return p.data.publicUrl;
     return null;
   }
-  async function getFotoUrlFlexible(reg, foto_path){
-    const candidates = [];
-    if (foto_path) candidates.push(normalizeFotoPath(foto_path));
-    candidates.push(reg + '.png', reg + '.jpg', reg + '.jpeg');
-    for (let i=0;i<candidates.length;i++){
-      const url = await getFotoUrlIfExists(candidates[i]);
+  async function getFotoUrl(reg, foto_path){
+    const list = [];
+    if (foto_path) list.push(foto_path);
+    list.push(reg+'.png', reg+'.jpg', reg+'.jpeg');
+    for (const k of list){
+      const url = await getFotoUrlIfExists(k);
       if(url) return url;
     }
     return null;
   }
 
-  // Combos + filtros
-  async function combos(){
+  // Combos/Tipos
+  async function carregarCombos(){
     const [u,c] = await Promise.all([
       supabase.from('unidades').select('sigla').order('sigla'),
       supabase.from('credenciais').select('cred_cod').order('cred_cod')
     ]);
-    $('#f_sigla').innerHTML = `<option value="">Todas</option>`+(u.data||[]).map(x=>`<option value="${x.sigla}">${x.sigla}</option>`).join('');
+    const un = u.data||[], cr = c.data||[];
+    $('#f_sigla').innerHTML  = `<option value="">Todas</option>` + un.map(x=>`<option value="${x.sigla}">${x.sigla}</option>`).join('');
     const tipos = $('#tiposBox');
-    tipos.innerHTML = `<span class="label-like">Tipo:</span>` + (c.data||[]).map(x=>`
-      <label class="label-like" style="display:inline-flex;align-items:center;gap:6px">
-        <input type="checkbox" class="f_tipo" value="${x.cred_cod}"> ${x.cred_cod}
-      </label>`).join('');
+    if(cr.length){
+      tipos.innerHTML = cr.map(x=>`
+        <label class="label-like" style="display:inline-flex;align-items:center;gap:6px">
+          <input type="checkbox" class="f_tipo" value="${x.cred_cod}"> ${x.cred_cod}
+        </label>`).join('');
+    }else{
+      tipos.innerHTML = `<span class="muted">Nenhum tipo cadastrado</span>`;
+    }
   }
   const tiposSelecionados = ()=> Array.from(document.querySelectorAll('.f_tipo:checked')).map(el=>el.value);
 
-  async function carregar(){
-    const q = $('#q').value.trim();
-    const fs = $('#f_status').value;
-    const fSig = $('#f_sigla').value;
+  // Ordenação
+  let sortCol = 'registro';
+  let sortAsc = true;
+  function bindSortHeaders(){
+    document.querySelectorAll('th.sortable').forEach(th=>{
+      th.addEventListener('click', ()=>{
+        const col = th.getAttribute('data-col');
+        if(!col) return;
+        if (sortCol === col) sortAsc = !sortAsc; else { sortCol = col; sortAsc = true; }
+        carregarLista();
+      });
+    });
+  }
+
+  // Lista
+  async function carregarLista(){
+    const nome = $('#f_nome').value.trim();
+    const reg  = $('#f_reg').value.trim();
     const fNum = $('#f_numero').value.trim();
+    const fs   = $('#f_status').value;
+    const fSig = $('#f_sigla').value;
     const fTipos = tiposSelecionados();
 
-    let query = supabase.from('empregados').select('registro,nome,sigla,cred_num,cred_cod,validade,status,foto_path').order('registro');
+    let query = supabase.from('empregados').select('registro,nome,sigla,cred_num,cred_cod,validade,status,foto_path');
 
-    if(q){
-      const isNum = /^\d+$/.test(q);
-      query = isNum ? query.or(`registro.eq.${q},cred_num.eq.${q}`) : query.ilike('nome', `%${q}%`);
-    }
+    if(nome) query = query.ilike('nome', `%${nome}%`);
+    if(reg)  query = query.eq('registro', reg);
+    if(fNum) query = query.eq('cred_num', fNum);
     if(fs)   query = query.eq('status', fs);
     if(fSig) query = query.eq('sigla', fSig);
-    if(fNum) query = query.eq('cred_num', fNum);
     if(fTipos.length) query = query.in('cred_cod', fTipos.map(Number));
 
-    const { data, error } = await query;
-    if(error){ console.error(error); alert('Erro ao carregar'); return; }
+    query = query.order(sortCol, { ascending: sortAsc }).order('registro', { ascending:true });
 
-    const rows = await Promise.all((data||[]).map(async x=>{
-      const foto = await getFotoUrlFlexible(x.registro, x.foto_path) || PH40;
+    const res = await query;
+    if(res.error){ console.error(res.error); alert('Erro ao carregar lista'); return; }
+    const data = res.data || [];
+
+    const linhas = await Promise.all(data.map(async (x)=>{
+      const url = await getFotoUrl(x.registro, x.foto_path);
+      const avatar = url || PH40;
       const ok = (x.status==='Ativo' && x.validade && new Date(x.validade) >= new Date(new Date().toDateString()));
-      const chip = ok ? `<span class="chip success">Ativo</span>`
-               : (x.status==='Em andamento' ? `<span class="chip warn">Em andamento</span>`
-                                            : `<span class="chip danger">Inativo</span>`);
+      const chip = ok ? '<span class="chip success">Ativo</span>' :
+                (x.status==='Em andamento' ? '<span class="chip warn">Em andamento</span>' :
+                                              '<span class="chip danger">Inativo</span>');
       return `<tr>
-        <td><img src="${foto}" alt="foto" width="40" height="40" style="border-radius:6px;object-fit:cover;border:1px solid #ddd" onerror="this.src='${PH40}'"></td>
+        <td><img src="${avatar}" alt="foto" width="40" height="40" style="border-radius:6px;object-fit:cover;border:1px solid #ddd" onerror="this.src='${PH40}'"></td>
         <td>${x.registro}</td>
         <td>${x.nome||''}</td>
         <td>${x.sigla||''}</td>
@@ -179,19 +230,23 @@
       </tr>`;
     }));
 
-    $('#tbody').innerHTML = rows.join('') || `<tr><td colspan="9" class="muted">Nenhum registro</td></tr>`;
-    $('#count').textContent = String(data?.length||0)+' registro(s)';
+    $('#tbody').innerHTML = linhas.join('') || '<tr><td colspan="9" class="muted">Nenhum registro</td></tr>';
+    $('#count').textContent = String(data.length)+' registro(s)';
   }
 
-  $('#btnReload').addEventListener('click', carregar);
-  $('#q').addEventListener('input', ()=>{ clearTimeout(window._t); window._t=setTimeout(carregar,250); });
-  $('#f_sigla').addEventListener('change', carregar);
-  $('#f_status').addEventListener('change', carregar);
-  $('#f_numero').addEventListener('input', ()=>{ clearTimeout(window._t2); window._t2=setTimeout(carregar,250); });
-  $('#tiposBox').addEventListener('change', carregar);
+  // eventos de filtros
+  $('#btnReload').addEventListener('click', carregarLista);
+  $('#f_sigla').addEventListener('change', carregarLista);
+  $('#f_status').addEventListener('change', carregarLista);
+  $('#f_numero').addEventListener('input', ()=>{ clearTimeout(window._d1); window._d1=setTimeout(carregarLista,250); });
+  $('#f_reg').addEventListener('input',   ()=>{ clearTimeout(window._d2); window._d2=setTimeout(carregarLista,250); });
+  $('#f_nome').addEventListener('input',  ()=>{ clearTimeout(window._d3); window._d3=setTimeout(carregarLista,250); });
+  $('#tiposBox').addEventListener('change', carregarLista);
 
-  await combos();
-  await carregar();
+  // init
+  bindSortHeaders();
+  await carregarCombos();
+  await carregarLista();
 </script>
 </body>
 </html>
