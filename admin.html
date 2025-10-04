@@ -4,33 +4,30 @@
   <meta charset="utf-8">
   <title>Admin – CETESB Credenciais</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link href="style.css?v=251" rel="stylesheet">
+  <link href="style.css?v=252" rel="stylesheet">
   <meta name="color-scheme" content="light">
   <link rel="icon" href="data:,">
   <style>
+    /* Complementa o style.css sem mexer na estrutura que já funcionava */
     .label-like{ font-size:12px; color:#64748b; }
     .file-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap }
     .file-row .btn{ margin:0 }
 
-    /* Filtros organizados e responsivos */
-    .filters{ display:grid; grid-template-columns: 1fr 150px 160px 180px; gap:10px; align-items:end }
-    .filters .w-full{ grid-column: 1 / -1 }
-    .filters .stack{ display:flex; flex-direction:column; gap:6px }
-    .tags{ display:flex; gap:10px; flex-wrap:wrap; padding:8px 10px; border-radius:10px; border:1px solid #e5e7eb; }
-
-    /* Botões com largura conforme o texto (evita corte/overflow) */
-    .filters .btn{ width:auto; white-space:nowrap; min-width:max-content }
-
-    /* Checagem na tabela */
-    .tbl-check{ width:34px }
-
-    /* Placeholders mais claros para não confundir com texto real */
+    /* Placeholders mais claros */
     .input::placeholder{ color:#a8b3c0; opacity:1 }
 
+    /* Barra de filtros no layout antigo */
+    .filters-row{ display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end }
+    .filters-row .stack{ display:flex; flex-direction:column; gap:6px }
+    .filters-row .grow{ flex:1 1 240px }
+    .tags{ display:flex; gap:10px; flex-wrap:wrap; padding:8px 10px; border-radius:10px; border:1px solid #e5e7eb; }
+
+    /* Ações dos filtros centralizadas */
+    .filters-actions{ width:100%; display:flex; justify-content:center; gap:12px; margin-top:6px }
+    .filters-actions .btn{ width:auto; white-space:nowrap; min-width:max-content }
+
+    .tbl-check{ width:34px }
     .muted{ color:#6b7280 }
-    @media (max-width: 900px){
-      .filters{ grid-template-columns: 1fr 1fr; }
-    }
   </style>
 </head>
 <body>
@@ -50,7 +47,7 @@
 
 <main class="container">
   <div class="grid grid-2">
-    <!-- ESQUERDA: FORM -->
+    <!-- ESQUERDA: FORM (layout antigo) -->
     <section class="card pad">
       <h2 class="card-title">Cadastro</h2>
 
@@ -120,12 +117,12 @@
       </form>
     </section>
 
-    <!-- DIREITA: LISTA -->
+    <!-- DIREITA: LISTA (layout antigo) -->
     <section class="card pad">
       <h2 class="card-title">Lista e filtros</h2>
 
-      <div class="filters">
-        <div class="stack w-full">
+      <div class="filters-row">
+        <div class="stack grow">
           <label class="label-like" for="q">Buscar (nome / matrícula / número-credencial)</label>
           <input id="q" class="input" placeholder="Ex.: MARIA / 000123 / 0042">
         </div>
@@ -150,18 +147,13 @@
           <select id="f_sigla" class="input"></select>
         </div>
 
-        <div class="stack w-full">
+        <div class="stack" style="flex:1 1 100%">
           <span class="label-like">Tipo</span>
           <div id="tiposBox" class="tags"><span class="muted">carregando…</span></div>
         </div>
 
-        <div class="stack">
-          <label class="label-like">&nbsp;</label>
+        <div class="filters-actions">
           <button id="btnReload" class="btn">Recarregar</button>
-        </div>
-
-        <div class="stack">
-          <label class="label-like">&nbsp;</label>
           <button id="btnQrSelecionados" class="btn">QR em lote</button>
         </div>
       </div>
@@ -194,19 +186,16 @@
 <footer class="footer"><div class="container">Piloto – CETESB</div></footer>
 
 <script type="module">
-  // ===== Imports (inclui QRCode como ESM para evitar “Falha ao gerar QR”) =====
   import QRCode from 'https://esm.sh/qrcode@1.5.3';
 
-  // ===== Helpers =====
+  // ===== Helpers (iguais ao layout estável) =====
   const $  = (s)=>document.querySelector(s);
   const fmt = (iso)=> iso ? new Date(iso).toLocaleDateString('pt-BR') : '';
-
-  // Placeholders
   const PH120 = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><rect width='100%25' height='100%25' fill='%23eef2f7' rx='12' ry='12'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='12' fill='%2390a4b8'>sem foto</text></svg>";
   const PH40  = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect width='100%25' height='100%25' fill='%23eef2f7' rx='8' ry='8'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='16' fill='%2390a4b8'>?</text></svg>";
   $('#preview').src = PH120;
 
-  // Sair / Trocar senha
+  // Sessão / navegação
   $('#btnSair')?.addEventListener('click', ()=>{ localStorage.removeItem('sessaoUsuario'); location.href='index.html'; });
   $('#btnChangePass')?.addEventListener('click', ()=>{ location.href='change-password.html'; });
 
@@ -217,20 +206,19 @@
     $('#preview').src = f ? URL.createObjectURL(f) : PH120;
   });
 
-  // ===== config =====
+  // config.json
   let cfg;
   try{
     const r = await fetch('config.json', { cache:'no-store' });
     if(!r.ok) throw new Error('config.json HTTP '+r.status);
-    const txt = await r.text();
-    cfg = JSON.parse(txt);
+    cfg = JSON.parse(await r.text());
   }catch(e){ console.error(e); alert('Falha ao carregar config.json'); throw e; }
 
-  // ===== Supabase =====
+  // Supabase
   const supa = await import('https://esm.sh/@supabase/supabase-js@2');
   const supabase = supa.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
-  // === fotos: helpers ===
+  // ===== FOTO: utilitários (iguais ao estável, com “strict” no admin) =====
   const normalizeFotoPath = (p)=> String(p||'').replace(/^fotos\//i,'');
   const splitDir = (basepath)=>{ const i=basepath.lastIndexOf('/'); return i===-1?{dir:'',name:basepath}:{dir:basepath.slice(0,i),name:basepath.slice(i+1)}; };
   async function objectExists(bucket, fullpath){
@@ -249,28 +237,17 @@
     if(p && p.data && p.data.publicUrl) return p.data.publicUrl;
     return null;
   }
-  async function getFotoUrlFlexible(reg, foto_path, opts){
-    const strict = !!(opts && opts.strict);
+  async function getFotoUrlFlexible(reg, foto_path, {strict=false}={}){
     const list = [];
-    if (foto_path) {
-      list.push(normalizeFotoPath(foto_path));
-      if(!strict) list.push(reg + '.png', reg + '.jpg', reg + '.jpeg');
-    } else {
-      if(!strict) list.push(reg + '.png', reg + '.jpg', reg + '.jpeg');
-    }
-    for (let i=0;i<list.length;i++){
-      const url = await getFotoUrlIfExists(list[i]);
-      if(url) return url;
-    }
+    if (foto_path) { list.push(normalizeFotoPath(foto_path)); if(!strict){ list.push(reg+'.png',reg+'.jpg',reg+'.jpeg'); } }
+    else if(!strict){ list.push(reg+'.png',reg+'.jpg',reg+'.jpeg'); }
+    for (const key of list){ const url = await getFotoUrlIfExists(key); if(url) return url; }
     return null;
   }
   async function deleteAllKnownPhotos(reg, currentKey){
     const bucket = cfg.storageBucket || 'fotos';
     const keys = [reg+'.png', reg+'.jpg', reg+'.jpeg'];
-    if (currentKey) {
-      const cur = normalizeFotoPath(currentKey);
-      if (!keys.includes(cur)) keys.push(cur);
-    }
+    if (currentKey) { const cur = normalizeFotoPath(currentKey); if (!keys.includes(cur)) keys.push(cur); }
     try { await supabase.storage.from(bucket).remove(keys); } catch(_) {}
   }
   async function removeOtherExtAfterUpload(reg, keepKey){
@@ -293,7 +270,7 @@
     return key;
   }
 
-  // === Combos / filtros ===
+  // ===== COMBOS E FILTROS (como antes) =====
   const UNITS_MAP = Object.create(null);
 
   async function carregarCombos(){
@@ -319,7 +296,7 @@
   }
   const tiposSelecionados = ()=> Array.from(document.querySelectorAll('.f_tipo:checked')).map(el=>el.value);
 
-  // === Lista ===
+  // ===== LISTA (layout antigo) =====
   async function carregarLista(){
     const q  = $('#q').value.trim();
     const fs = $('#f_status').value;
@@ -371,15 +348,11 @@
 
     $('#tbody').innerHTML = linhas.join('') || '<tr><td colspan="10" class="muted">Nenhum registro</td></tr>';
     $('#count').textContent = String(data.length)+' registro(s)';
-
-    // select all
     $('#chkAll').checked = false;
-    $('#chkAll').addEventListener('change', (ev)=>{
-      document.querySelectorAll('.chkRow').forEach(ch=> ch.checked = ev.target.checked);
-    });
+    $('#chkAll').onchange = (ev)=>{ document.querySelectorAll('.chkRow').forEach(ch=> ch.checked = ev.target.checked); };
   }
 
-  // === Editar → form
+  // Editar → form (como antes)
   $('#tbody').addEventListener('click', async (ev)=>{
     const editBtn = ev.target.closest && ev.target.closest('[data-acao="editar"]');
     const tr = ev.target.closest('tr'); const reg = tr && tr.getAttribute('data-reg'); if(!tr || !editBtn) return;
@@ -402,7 +375,7 @@
     $('#arquivoFoto').value='';
   });
 
-  // === Botão “Novo” (agora funcionando)
+  // Novo
   $('#btnNovo').addEventListener('click', ()=>{
     $('#formCad').reset();
     $('#preview').src = PH120;
@@ -411,7 +384,7 @@
     $('#registro').focus();
   });
 
-  // === Remover foto
+  // Remover foto
   $('#btnRemoverFoto').addEventListener('click', async ()=>{
     const reg = $('#registro').value.trim();
     if(!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).');
@@ -427,8 +400,7 @@
     await carregarLista();
   });
 
-  // === Salvar (com upload da foto se houver)
-  const UNITS_MAP = Object.create(null);
+  // Salvar (upload integrado)
   async function nomeUnidade(sig){
     if(UNITS_MAP[sig]!=null) return UNITS_MAP[sig];
     const ru = await supabase.from('unidades').select('nome_da_unidade').eq('sigla', sig).maybeSingle();
@@ -438,7 +410,6 @@
 
   $('#formCad').addEventListener('submit', async (ev)=>{
     ev.preventDefault();
-
     const reg = $('#registro').value.trim();
     if(!/^\d{6}$/.test(reg)) return alert('Registro inválido (6 dígitos).');
 
@@ -474,7 +445,7 @@
     }
   });
 
-  // === QR Code ===
+  // ===== QR =====
   function publicUrlFor(reg){
     const base = new URL('public.html', location.href);
     base.searchParams.set('reg', reg);
@@ -482,52 +453,34 @@
   }
   async function gerarQrDataUrl(reg, size=512){
     const url = publicUrlFor(reg);
-    return await QRCode.toDataURL(url, {
-      width: size,
-      margin: 2,
-      errorCorrectionLevel: 'M'
-    });
+    return await QRCode.toDataURL(url, { width:size, margin:2, errorCorrectionLevel:'M' });
   }
   function downloadDataUrl(dataUrl, filename){
-    const a = document.createElement('a');
-    a.href = dataUrl;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    const a = document.createElement('a'); a.href = dataUrl; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
   }
   async function gerarQrDownload(reg){
     const png = await gerarQrDataUrl(reg, 512);
     downloadDataUrl(png, `QR_${reg}.png`);
   }
 
-  // Botão “Gerar QR” (lado do form)
   $('#btnQR').addEventListener('click', async ()=>{
     try{
       const reg = $('#registro').value.trim();
       if(!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).');
       await gerarQrDownload(reg);
-    }catch(e){
-      console.error(e);
-      alert('Falha ao gerar QR.');
-    }
+    }catch(e){ console.error(e); alert('Falha ao gerar QR.'); }
   });
 
-  // QR em lote
   $('#btnQrSelecionados').addEventListener('click', async ()=>{
     const regs = Array.from(document.querySelectorAll('.chkRow:checked')).map(ch=>ch.value);
     if(!regs.length) return alert('Selecione ao menos um registro.');
     for (const r of regs){
-      try{
-        const png = await gerarQrDataUrl(r, 512);
-        downloadDataUrl(png, `QR_${r}.png`);
-      }catch(e){
-        console.error('QR falhou para', r, e);
-      }
+      try{ const png = await gerarQrDataUrl(r, 512); downloadDataUrl(png, `QR_${r}.png`); }
+      catch(e){ console.error('QR falhou para', r, e); }
     }
   });
 
-  // === Interações filtros
+  // Filtros
   $('#btnReload').addEventListener('click', carregarLista);
   $('#q').addEventListener('input', ()=>{ clearTimeout(window._deb); window._deb=setTimeout(carregarLista,250); });
   $('#f_sigla').addEventListener('change', carregarLista);
@@ -535,7 +488,7 @@
   $('#f_numero').addEventListener('input', ()=>{ clearTimeout(window._deb2); window._deb2=setTimeout(carregarLista,250); });
   $('#tiposBox').addEventListener('change', carregarLista);
 
-  // === Init
+  // Init (ordem igual à que funcionava)
   await carregarCombos();
   await carregarLista();
 </script>
