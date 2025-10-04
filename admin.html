@@ -8,56 +8,85 @@
   <meta name="color-scheme" content="light">
   <link rel="icon" href="data:,">
   <style>
-    /* Ajustes estéticos pontuais sem mudar a paleta do style.css */
     :root{
+      /* régua de alinhamento */
+      --cell-pad-x: 14px;
+      --first-col-w: 34px;   /* coluna checkbox na tabela */
+      --foto-col-w: 56px;    /* coluna foto */
+      --radius-xl: 16px;
+
+      /* tipografia unificada (admin L e R + consulta) */
+      --title-size: 18px;
+      --title-weight: 700;
+      --label-size: 14px;
+      --label-weight: 600;
+
+      /* linhas / tons */
       --line: #e5e9f1;
       --muted: #64748b;
       --muted-2: #94a3b8;
-      --cell-pad-x: 14px;
-      --first-col-w: 34px;  /* coluna checkbox */
-      --foto-col-w: 56px;   /* coluna foto */
-      --radius-xl: 16px;
     }
 
-    /* Container e cartões (seguem o style.css; só completando onde precisa) */
     .container{ max-width:1200px; margin:0 auto; padding:0 16px; }
     .card{ background:#fff; border:1px solid var(--line); border-radius:var(--radius-xl); }
     .pad{ padding:18px; }
 
-    /* TÍTULOS: painel esquerdo e direito idênticos (mesma classe/h2) */
-    .card-title{ margin:2px 0 14px 0; padding-left: var(--cell-pad-x); }
+    /* header compatível com index.html (usa classes existentes em style.css) */
+    .header .brand h1{ font-size: var(--title-size); font-weight: var(--title-weight); margin:0; }
 
-    /* Labels e inputs: mesma tipografia/peso e recuo em ambos os painéis */
-    label{ margin-left: var(--cell-pad-x); font-weight:600; }
+    /* TÍTULOS: iguais nos DOIS painéis */
+    .card-title{
+      margin:2px 0 14px 0;
+      padding-left: var(--cell-pad-x);
+      font-size: var(--title-size);
+      font-weight: var(--title-weight);
+    }
+
+    /* LABELS: iguais nos DOIS painéis */
+    label{
+      margin-left: var(--cell-pad-x);
+      font-size: var(--label-size);
+      font-weight: var(--label-weight);
+    }
     .req::after{ content:" *"; color:#ef4444; }
-    .input{ margin-left: var(--cell-pad-x); border-radius:12px; }
+
+    .input{
+      margin-left: var(--cell-pad-x);
+      border-radius:12px;
+    }
     .input::placeholder{ color:var(--muted-2); }
 
-    /* Tabela */
+    /* tabela/lista */
     .scroll{ margin-top:4px; overflow:auto; }
     table{ width:100%; border-collapse:separate; border-spacing:0; }
     th, td{ padding:11px var(--cell-pad-x); text-align:left; vertical-align:middle; border-bottom:1px solid var(--line); }
-    thead th{ font-weight:700; }
+    thead th{ font-weight: var(--title-weight); font-size: var(--label-size); }
     tr:hover td{ background:#fbfcff; }
     th.sortable{ cursor:pointer; user-select:none; }
     th.sortable:hover{ text-decoration: underline dotted; }
 
-    /* Filtros: checboxes de Tipo alinhados ao checkbox da tabela */
+    /* filtros */
     .filters .col{ display:flex; flex-direction:column; min-width:240px; }
-    .filters .col > label{ margin-left: var(--cell-pad-x); font-weight:600; }
+    .filters .col > label{ margin-left: var(--cell-pad-x); font-size: var(--label-size); font-weight: var(--label-weight); }
     .filters .col > .input{ margin-left: var(--cell-pad-x); }
+    /* Checkboxes de Tipo alinhados ao checkbox da tabela */
     #tiposBox{ margin-left: calc(var(--first-col-w) + var(--cell-pad-x)); }
-    .filters-actions{ margin: 10px 0 14px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+
+    .filters-actions{ margin:10px 0 14px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
 
     .row{ display:flex; gap:10px; }
     .row.center{ align-items:center; }
     .row-actions{ display:flex; gap:10px; margin-top:12px; margin-left: var(--cell-pad-x); }
     #count{ color:var(--muted); padding:8px var(--cell-pad-x); }
+
+    /* grid 2 colunas */
+    .grid-2{ display:grid; gap:18px; grid-template-columns: 1fr 1fr; }
+    @media (max-width: 980px){ .grid-2{ grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
 
-<!-- HEADER idêntico ao index.html (usa classes do style.css) -->
+<!-- HEADER idêntico ao index.html (estrutura/classes) -->
 <header class="header">
   <div class="container">
     <div class="brand">
@@ -73,8 +102,8 @@
 </header>
 
 <main class="container" style="padding-top:18px; padding-bottom:18px;">
-  <div class="grid grid-2" style="display:grid; gap:18px; grid-template-columns: 1fr 1fr;">
-    <!-- ESQUERDA: formulário -->
+  <div class="grid-2">
+    <!-- ESQUERDA -->
     <section class="card pad">
       <h2 class="card-title">Cadastro</h2>
 
@@ -144,7 +173,7 @@
       </form>
     </section>
 
-    <!-- DIREITA: lista -->
+    <!-- DIREITA -->
     <section class="card pad">
       <h2 class="card-title">Lista e filtros</h2>
 
@@ -178,7 +207,9 @@
 
           <div class="col" style="flex:1 1 100%">
             <label for="tiposBox">Tipo</label>
-            <div id="tiposBox" class="row" style="gap:10px;flex-wrap:wrap"><span style="color:var(--muted-2); margin-left: var(--cell-pad-x)">carregando…</span></div>
+            <div id="tiposBox" class="row" style="gap:10px;flex-wrap:wrap">
+              <span style="color:var(--muted-2); margin-left: var(--cell-pad-x)">carregando…</span>
+            </div>
           </div>
         </div>
 
@@ -189,7 +220,7 @@
       </div>
 
       <div class="scroll">
-        <table class="table" id="tabela">
+        <table id="tabela">
           <thead>
             <tr>
               <th style="width:var(--first-col-w)"><input id="chkAll" type="checkbox" title="Marcar todos"></th>
@@ -218,14 +249,11 @@
 </footer>
 
 <script type="module">
-  import QRCode from 'https://esm.sh/qrcode@1.5.3';
-  const supa = await import('https://esm.sh/@supabase/supabase-js@2');
-
+  /* util */
   const $=(s)=>document.querySelector(s);
   const fmt=(iso)=>iso?new Date(iso).toLocaleDateString('pt-BR'):'';
   const PH120="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><rect width='100%25' height='100%25' fill='%23eef2f7' rx='12' ry='12'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='12' fill='%2390a4b8'>sem foto</text></svg>";
   const PH40 ="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect width='100%25' height='100%25' fill='%23eef2f7' rx='8' ry='8'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='16' fill='%2390a4b8'>?</text></svg>";
-  $('#preview').src=PH120;
 
   const norm=(s)=>String(s??'').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').trim();
   function displayStatus(rec){
@@ -241,23 +269,26 @@
 
   let sortCol='registro', sortAsc=true;
 
-  // Navegação
+  /* navegação */
   $('#btnSair')?.addEventListener('click',()=>{localStorage.removeItem('sessaoUsuario');location.href='index.html';});
   $('#btnChangePass')?.addEventListener('click',()=>{location.href='change-password.html';});
 
-  // Preview
-  $('#btnEscolherArquivo')?.addEventListener('click',()=>$('#arquivoFoto').click());
-  $('#arquivoFoto')?.addEventListener('change',(ev)=>{ const f=ev.target.files?.[0]; $('#preview').src=f?URL.createObjectURL(f):PH120; });
+  /* preview */
+  $('#btnEscolherArquivo').addEventListener('click',()=>$('#arquivoFoto').click());
+  $('#arquivoFoto').addEventListener('change',(ev)=>{ const f=ev.target.files?.[0]; $('#preview').src=f?URL.createObjectURL(f):PH120; });
 
-  // Config + Supabase
-  let cfg;{
+  /* config + supabase */
+  let cfg;
+  try{
     const r=await fetch('config.json',{cache:'no-store'});
-    if(!r.ok){alert('Falha ao carregar config.json');throw new Error('config.json');}
+    if(!r.ok) throw new Error('Falha ao carregar config.json');
     cfg=await r.json();
-  }
-  const supabase=supa.createClient(cfg.supabaseUrl,cfg.supabaseAnonKey);
+  }catch(e){ console.error(e); alert('Falha ao carregar config.json'); throw e; }
 
-  // Foto helpers
+  const supa = await import('https://esm.sh/@supabase/supabase-js@2');
+  const supabase = supa.createClient(cfg.supabaseUrl,cfg.supabaseAnonKey);
+
+  /* helpers foto */
   const UNITS_MAP=Object.create(null);
   const normalize=(p)=>String(p||'').replace(/^fotos\//i,'');
   const splitDir=(b)=>{const i=b.lastIndexOf('/');return i===-1?{dir:'',name:b}:{dir:b.slice(0,i),name:b.slice(i+1)};}
@@ -268,80 +299,87 @@
   async function deleteAllKnownPhotos(reg,currentKey){const bucket=cfg.storageBucket||'fotos';const keys=[reg+'.png',reg+'.jpg',reg+'.jpeg'];if(currentKey){const cur=normalize(currentKey);if(!keys.includes(cur))keys.push(cur)}try{await supabase.storage.from(bucket).remove(keys)}catch{}}
   async function uploadFotoSeHouver(reg){const file=$('#arquivoFoto').files?.[0];if(!file)return null;const ext=(file.name.split('.').pop()||'png').toLowerCase();const key=`${reg}.${ext}`;const bucket=cfg.storageBucket||'fotos';const contentType=file.type||(ext==='png'?'image/png':(ext==='jpg'||ext==='jpeg')?'image/jpeg':'application/octet-stream');const up=await supabase.storage.from(bucket).upload(key,file,{upsert:true,contentType});if(up.error)throw new Error(up.error.message||'Falha no upload da foto');await removeOtherExtAfterUpload(reg,key);return key;}
 
-  // Combos
+  /* combos */
   async function carregarCombos(){
     const [u,c]=await Promise.all([
       supabase.from('unidades').select('sigla,nome_da_unidade').order('sigla'),
       supabase.from('credenciais').select('cred_cod,descricao').order('cred_cod')
     ]);
+    if(u.error){ console.error(u.error); alert('Erro ao carregar unidades'); }
+    if(c.error){ console.error(c.error); alert('Erro ao carregar credenciais'); }
+
     const un=u.data||[], cr=c.data||[];
-    $('#sigla')?.nodeName && ($('#sigla').innerHTML=un.map(x=>{UNITS_MAP[x.sigla]=x.nome_da_unidade||'';return `<option value="${x.sigla}">${x.sigla} – ${x.nome_da_unidade||''}</option>`}).join(''));
-    $('#cred_cod')?.nodeName && ($('#cred_cod').innerHTML=cr.map(x=>`<option value="${x.cred_cod}">${x.cred_cod} – ${x.descricao||''}</option>`).join(''));
+    $('#sigla').innerHTML=un.map(x=>{UNITS_MAP[x.sigla]=x.nome_da_unidade||'';return `<option value="${x.sigla}">${x.sigla} – ${x.nome_da_unidade||''}</option>`}).join('');
+    $('#cred_cod').innerHTML=cr.map(x=>`<option value="${x.cred_cod}">${x.cred_cod} – ${x.descricao||''}</option>`).join('');
     $('#f_sigla').innerHTML=`<option value="">Todas</option>`+un.map(x=>`<option value="${x.sigla}">${x.sigla}</option>`).join('');
     const tipos=$('#tiposBox'); tipos.innerHTML = cr.length ? cr.map(x=>`<label style="display:inline-flex;align-items:center;gap:6px"><input type="checkbox" class="f_tipo" value="${x.cred_cod}"> ${x.cred_cod}</label>`).join('') : `<span style="color:var(--muted-2); margin-left: var(--cell-pad-x)">Nenhum tipo cadastrado</span>`;
   }
   const tiposSelecionados=()=>Array.from(document.querySelectorAll('.f_tipo:checked')).map(el=>el.value);
 
+  /* ordenação cabeçalho */
   function bindSortHeaders(){
     document.querySelectorAll('th.sortable').forEach(th=>{
-      th.onclick=()=>{const col=th.getAttribute('data-col');if(!col)return; if(sortCol===col) sortAsc=!sortAsc; else {sortCol=col;sortAsc=true;} carregarLista();}
+      th.onclick=()=>{const col=th.getAttribute('data-col');if(!col)return; if(sortCol===col) sortAsc=!sortAsc; else {sortCol=col;sortAsc=true;} carregarLista();};
     });
   }
 
+  /* lista */
   async function carregarLista(){
-    const nome=$('#f_nome').value.trim();
-    const regPart=$('#f_reg').value.trim();
-    const numPart=$('#f_numero').value.trim();
-    const fSig=$('#f_sigla').value;
-    const fTipos=tiposSelecionados();
+    try{
+      const nome=$('#f_nome').value.trim();
+      const regPart=$('#f_reg').value.trim();
+      const numPart=$('#f_numero').value.trim();
+      const fSig=$('#f_sigla').value;
+      const fTipos=tiposSelecionados();
 
-    let query=supabase.from('empregados').select('registro,nome,sigla,cred_num,cred_cod,validade,status,foto_path');
-    if(nome) query=query.ilike('nome',`%${nome}%`);
-    if(fSig) query=query.eq('sigla',fSig);
-    if(fTipos.length) query=query.in('cred_cod', fTipos.map(Number));
+      let query=supabase.from('empregados').select('registro,nome,sigla,cred_num,cred_cod,validade,status,foto_path');
 
-    if (sortCol !== 'status') { query = query.order(sortCol,{ascending:sortAsc}); }
-    query = query.order('registro',{ascending:true});
+      if(nome) query=query.ilike('nome',`%${nome}%`);
+      if(fSig) query=query.eq('sigla',fSig);
+      if(fTipos.length) query=query.in('cred_cod', fTipos.map(Number));
 
-    const res=await query;
-    if(res.error){console.error(res.error);alert('Erro ao carregar lista');return;}
-    let data=res.data||[];
+      if (sortCol !== 'status') query = query.order(sortCol,{ascending:sortAsc});
+      query = query.order('registro',{ascending:true});
 
-    const fs = ($('#f_status').value||'').trim();
-    if (fs) data = data.filter(r => displayStatus(r) === fs);
+      const res=await query;
+      if(res.error){ console.error(res.error); alert('Erro ao carregar lista'); return; }
+      let data=res.data||[];
 
-    if(regPart) data=data.filter(x=>String(x.registro||'').includes(regPart));
-    if(numPart) data=data.filter(x=>String(x.cred_num||'').includes(numPart));
+      const fs = ($('#f_status').value||'').trim();
+      if (fs) data = data.filter(r => displayStatus(r) === fs);
 
-    if (sortCol === 'status') {
-      data.sort((a,b)=>{ const sa=displayStatus(a), sb=displayStatus(b); const cmp=sa.localeCompare(sb,'pt-BR'); return sortAsc?cmp:-cmp; });
-    }
+      if(regPart) data=data.filter(x=>String(x.registro||'').includes(regPart));
+      if(numPart) data=data.filter(x=>String(x.cred_num||'').includes(numPart));
 
-    const linhas=await Promise.all(data.map(async x=>{
-      const url=await getFotoUrlFlexible(x.registro,x.foto_path,{strict:!x.foto_path});
-      const avatar=url||PH40;
-      const chip = statusChip(displayStatus(x));
-      return `<tr data-reg="${x.registro}">
-        <td><input type="checkbox" class="chkRow" value="${x.registro}"></td>
-        <td><img src="${avatar}" width="40" height="40" style="border-radius:10px;object-fit:cover;border:1px solid var(--line);background:#f2f5fa" onerror="this.src='${PH40}'"></td>
-        <td>${x.registro}</td>
-        <td>${x.nome||''}</td>
-        <td>${x.sigla||''}</td>
-        <td>${x.cred_num||''}</td>
-        <td>${x.cred_cod||''}</td>
-        <td>${fmt(x.validade)}</td>
-        <td>${chip}</td>
-        <td><button class="btn sm" data-acao="editar">Editar</button> <a class="btn sm" target="_blank" href="public.html?reg=${x.registro}">Público</a></td>
-      </tr>`;
-    }));
-    $('#tbody').innerHTML=linhas.join('')||'<tr><td colspan="10" style="color:var(--muted); padding:10px var(--cell-pad-x)">Nenhum registro</td></tr>';
-    $('#count').textContent=String(data.length)+' registro(s)';
+      if (sortCol === 'status') {
+        data.sort((a,b)=>{ const sa=displayStatus(a), sb=displayStatus(b); const cmp=sa.localeCompare(sb,'pt-BR'); return sortAsc?cmp:-cmp; });
+      }
 
-    $('#chkAll').checked=false;
-    $('#chkAll').onchange=(ev)=>{document.querySelectorAll('.chkRow').forEach(ch=>ch.checked=ev.target.checked);};
+      const linhas=await Promise.all(data.map(async x=>{
+        const url=await getFotoUrlFlexible(x.registro,x.foto_path,{strict:!x.foto_path});
+        const avatar=url||PH40;
+        const chip = statusChip(displayStatus(x));
+        return `<tr data-reg="${x.registro}">
+          <td><input type="checkbox" class="chkRow" value="${x.registro}"></td>
+          <td><img src="${avatar}" width="40" height="40" style="border-radius:10px;object-fit:cover;border:1px solid var(--line);background:#f2f5fa" onerror="this.src='${PH40}'"></td>
+          <td>${x.registro}</td>
+          <td>${x.nome||''}</td>
+          <td>${x.sigla||''}</td>
+          <td>${x.cred_num||''}</td>
+          <td>${x.cred_cod||''}</td>
+          <td>${fmt(x.validade)}</td>
+          <td>${chip}</td>
+          <td><button class="btn sm" data-acao="editar">Editar</button> <a class="btn sm" target="_blank" href="public.html?reg=${x.registro}">Público</a></td>
+        </tr>`;
+      }));
+      $('#tbody').innerHTML=linhas.join('')||'<tr><td colspan="10" style="color:var(--muted); padding:10px var(--cell-pad-x)">Nenhum registro</td></tr>';
+      $('#count').textContent=String(data.length)+' registro(s)';
+      $('#chkAll').checked=false;
+      $('#chkAll').onchange=(ev)=>{document.querySelectorAll('.chkRow').forEach(ch=>ch.checked=ev.target.checked);};
+    }catch(e){ console.error('Falha em carregarLista:', e); alert('Erro inesperado ao listar.'); }
   }
 
-  // Clique em “Editar”
+  /* editar */
   $('#tbody').addEventListener('click',async (ev)=>{
     const btn=ev.target.closest?.('[data-acao="editar"]'); const tr=ev.target.closest('tr');
     const reg=tr?.getAttribute('data-reg'); if(!tr||!btn) return;
@@ -355,9 +393,10 @@
     $('#preview').src=url||PH120;$('#arquivoFoto').value='';
   });
 
-  // Ações
+  /* novo */
   $('#btnNovo').addEventListener('click',()=>{$('#formCad').reset();$('#preview').src=PH120;$('#arquivoFoto').value='';$('#status').value='Em andamento';$('#registro').focus();});
 
+  /* remover foto */
   $('#btnRemoverFoto').addEventListener('click',async()=>{
     const reg=$('#registro').value.trim(); if(!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).');
     const cur=await supabase.from('empregados').select('foto_path').eq('registro',reg).maybeSingle();
@@ -366,8 +405,10 @@
     $('#arquivoFoto').value='';$('#preview').src=PH120;await carregarLista();
   });
 
+  /* obter nome da unidade para gravar junto (evita NOT NULL) */
   async function nomeUnidade(sig){ if(UNITS_MAP[sig]!=null)return UNITS_MAP[sig]; const ru=await supabase.from('unidades').select('nome_da_unidade').eq('sigla',sig).maybeSingle(); const v=ru?.data?.nome_da_unidade||''; UNITS_MAP[sig]=v; return v; }
 
+  /* salvar */
   $('#formCad').addEventListener('submit',async(ev)=>{
     ev.preventDefault();
     const reg=$('#registro').value.trim(); if(!/^\d{6}$/.test(reg)) return alert('Registro inválido (6 dígitos).');
@@ -383,21 +424,20 @@
     }catch(err){console.error(err);alert('Falha ao salvar: '+(err?.message||String(err))); }
   });
 
-  // QR
+  /* QR Code */
   function publicUrlFor(reg){const base=new URL('public.html',location.href);base.searchParams.set('reg',reg);return base.href;}
-  async function gerarQrDataUrl(reg,size=512){return await QRCode.toDataURL(publicUrlFor(reg),{width:size,margin:2,errorCorrectionLevel:'M'});}
+  async function gerarQrDataUrl(reg,size=512){const {default:QRCode}=await import('https://esm.sh/qrcode@1.5.3');return await QRCode.toDataURL(publicUrlFor(reg),{width:size,margin:2,errorCorrectionLevel:'M'});}
   function downloadDataUrl(u,fn){const a=document.createElement('a');a.href=u;a.download=fn;document.body.appendChild(a);a.click();a.remove();}
   $('#btnQR').addEventListener('click',async()=>{try{const reg=$('#registro').value.trim();if(!/^\d{6}$/.test(reg))return alert('Informe um registro válido (6 dígitos).');downloadDataUrl(await gerarQrDataUrl(reg,512),`QR_${reg}.png`);}catch(e){console.error(e);alert('Falha ao gerar QR.');}});
   $('#btnQrSelecionados').addEventListener('click',async()=>{const regs=Array.from(document.querySelectorAll('.chkRow:checked')).map(ch=>ch.value);if(!regs.length)return alert('Selecione ao menos um registro.');for(const r of regs){try{downloadDataUrl(await gerarQrDataUrl(r,512),`QR_${r}.png`);}catch(e){console.error('QR falhou para',r,e);}}});
 
-  // Filtros e ordenação
+  /* binds e carregamento */
   $('#btnReload').addEventListener('click',carregarLista);
   $('#f_sigla').addEventListener('change',carregarLista);
   $('#f_status').addEventListener('change',carregarLista);
   ['f_numero','f_reg','f_nome'].forEach(id=>$('#'+id).addEventListener('input',()=>{clearTimeout(window['_deb'+id]);window['_deb'+id]=setTimeout(carregarLista,250);} ));
   document.addEventListener('change',(e)=>{if(e.target?.classList?.contains('f_tipo'))carregarLista();});
 
-  function bindSortHeaders(){ document.querySelectorAll('th.sortable').forEach(th=>{ th.onclick=()=>{const col=th.getAttribute('data-col'); if(!col)return; if(sortCol===col) sortAsc=!sortAsc; else {sortCol=col;sortAsc=true;} carregarLista();}; }); }
   bindSortHeaders();
   await carregarCombos();
   await carregarLista();
