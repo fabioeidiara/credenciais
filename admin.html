@@ -7,79 +7,93 @@
   <link href="style.css" rel="stylesheet">
   <meta name="color-scheme" content="light">
   <link rel="icon" href="data:,">
-  <style>
+    <style>
     :root{
-      /* régua de alinhamento */
-      --cell-pad-x: 14px;
-      --first-col-w: 34px;   /* coluna checkbox na tabela */
-      --foto-col-w: 56px;    /* coluna foto */
-      --radius-xl: 16px;
-
-      /* tipografia unificada (admin L e R + consulta) */
-      --title-size: 18px;
+      /* tamanhos/cores padronizados p/ TODOS os títulos e labels */
+      --title-size: 16px;       /* menor que antes */
       --title-weight: 700;
-      --label-size: 14px;
+      --title-color: #3f4b5a;   /* azul-acinzentado suave (igual vibe do 1º painel) */
+  
+      --label-size: 13px;       /* menor e consistente */
       --label-weight: 600;
-
-      /* linhas / tons */
+      --label-color: #6b7787;   /* cinza MAIS CLARO, como você pediu */
+  
+      /* layout já usado anteriormente */
+      --cell-pad-x: 14px;
+      --first-col-w: 34px;      /* coluna checkbox */
+      --foto-col-w: 56px;       /* coluna foto  */
+      --radius-xl: 16px;
       --line: #e5e9f1;
       --muted: #64748b;
       --muted-2: #94a3b8;
     }
-
+  
     .container{ max-width:1200px; margin:0 auto; padding:0 16px; }
     .card{ background:#fff; border:1px solid var(--line); border-radius:var(--radius-xl); }
     .pad{ padding:18px; }
-
-    /* header compatível com index.html (usa classes existentes em style.css) */
-    .header .brand h1{ font-size: var(--title-size); font-weight: var(--title-weight); margin:0; }
-
-    /* TÍTULOS: iguais nos DOIS painéis */
+  
+    /* HEADER seguindo o index.html (apenas garante tamanho) */
+    .header .brand h1{
+      font-size: var(--title-size) !important;
+      font-weight: var(--title-weight) !important;
+      color: var(--title-color) !important;
+      margin: 0;
+    }
+  
+    /* TÍTULOS (ESQ e DIR idênticos): */
     .card-title{
       margin:2px 0 14px 0;
       padding-left: var(--cell-pad-x);
-      font-size: var(--title-size);
-      font-weight: var(--title-weight);
+      font-size: var(--title-size) !important;
+      font-weight: var(--title-weight) !important;
+      color: var(--title-color) !important;
     }
-
-    /* LABELS: iguais nos DOIS painéis */
+  
+    /* LABELS (ESQ e DIR idênticos): */
+    .form label,
+    .filters label,
     label{
       margin-left: var(--cell-pad-x);
-      font-size: var(--label-size);
-      font-weight: var(--label-weight);
+      font-size: var(--label-size) !important;
+      font-weight: var(--label-weight) !important;
+      color: var(--label-color) !important;
     }
     .req::after{ content:" *"; color:#ef4444; }
-
+  
     .input{
       margin-left: var(--cell-pad-x);
       border-radius:12px;
     }
     .input::placeholder{ color:var(--muted-2); }
-
-    /* tabela/lista */
+  
+    /* TABELA – cabeçalho com MESMA tipografia dos labels: */
     .scroll{ margin-top:4px; overflow:auto; }
     table{ width:100%; border-collapse:separate; border-spacing:0; }
-    th, td{ padding:11px var(--cell-pad-x); text-align:left; vertical-align:middle; border-bottom:1px solid var(--line); }
-    thead th{ font-weight: var(--title-weight); font-size: var(--label-size); }
+    thead th{
+      font-size: var(--label-size) !important;
+      font-weight: var(--label-weight) !important;
+      color: var(--label-color) !important;
+    }
+    th, td{
+      padding:11px var(--cell-pad-x);
+      text-align:left; vertical-align:middle; border-bottom:1px solid var(--line);
+    }
     tr:hover td{ background:#fbfcff; }
     th.sortable{ cursor:pointer; user-select:none; }
     th.sortable:hover{ text-decoration: underline dotted; }
-
-    /* filtros */
+  
+    /* FILTROS – checkbox “Tipo” alinhado com checkbox da tabela */
     .filters .col{ display:flex; flex-direction:column; min-width:240px; }
-    .filters .col > label{ margin-left: var(--cell-pad-x); font-size: var(--label-size); font-weight: var(--label-weight); }
     .filters .col > .input{ margin-left: var(--cell-pad-x); }
-    /* Checkboxes de Tipo alinhados ao checkbox da tabela */
     #tiposBox{ margin-left: calc(var(--first-col-w) + var(--cell-pad-x)); }
-
+  
     .filters-actions{ margin:10px 0 14px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
-
+  
     .row{ display:flex; gap:10px; }
     .row.center{ align-items:center; }
     .row-actions{ display:flex; gap:10px; margin-top:12px; margin-left: var(--cell-pad-x); }
     #count{ color:var(--muted); padding:8px var(--cell-pad-x); }
-
-    /* grid 2 colunas */
+  
     .grid-2{ display:grid; gap:18px; grid-template-columns: 1fr 1fr; }
     @media (max-width: 980px){ .grid-2{ grid-template-columns: 1fr; } }
   </style>
