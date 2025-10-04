@@ -60,10 +60,11 @@
 <footer class="footer"><div class="container">Piloto – CETESB</div></footer>
 
 <script type="module">
-  // Utils
   const $  = (s)=>document.querySelector(s);
-  const $$ = (s)=>Array.from(document.querySelectorAll(s));
   const formatData = (iso)=> iso ? new Date(iso).toLocaleDateString('pt-BR') : '';
+
+  // Placeholders embutidos
+  const PH40  = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect width='100%25' height='100%25' fill='%23e5e7eb'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='16' fill='%2364748b'>?</text></svg>";
 
   // Sair imediato
   document.getElementById('btnSair')?.addEventListener('click', ()=>{
@@ -123,14 +124,14 @@
     if (error) { console.error(error); alert('Erro ao carregar'); return; }
 
     const rows = (data||[]).map(x=>{
-      const foto = buildFotoUrl(x.foto_path) || 'https://via.placeholder.com/40?text=%F0%9F%92%AC';
+      const foto = buildFotoUrl(x.foto_path) || PH40;
       const statusChip =
         (x.status==='Ativo' && new Date(x.validade) >= new Date().setHours(0,0,0,0)) ? `<span class="chip success">Ativo</span>` :
         (x.status==='Em andamento') ? `<span class="chip warn">Em andamento</span>` :
         `<span class="chip danger">Inativo/Vencido</span>`;
 
       return `<tr>
-        <td><img src="${foto}" alt="foto" width="40" height="40" style="border-radius:6px;object-fit:cover;border:1px solid #ddd" onerror="this.src='https://via.placeholder.com/40?text=%3F'"></td>
+        <td><img src="${foto}" alt="foto" width="40" height="40" style="border-radius:6px;object-fit:cover;border:1px solid #ddd" onerror="this.src='${PH40}'"></td>
         <td>${x.registro}</td>
         <td>${x.nome||''}</td>
         <td>${x.sigla||''}</td>
@@ -147,10 +148,10 @@
   }
 
   // Eventos
-  $('#btnReload').addEventListener('click', carregar);
-  $('#q').addEventListener('input', ()=>{ clearTimeout(window._t); window._t=setTimeout(carregar,250); });
-  $('#f_sigla').addEventListener('change', carregar);
-  $('#f_status').addEventListener('change', carregar);
+  document.getElementById('btnReload').addEventListener('click', carregar);
+  document.getElementById('q').addEventListener('input', ()=>{ clearTimeout(window._t); window._t=setTimeout(carregar,250); });
+  document.getElementById('f_sigla').addEventListener('change', carregar);
+  document.getElementById('f_status').addEventListener('change', carregar);
 
   // Start
   await carregarCombos();
