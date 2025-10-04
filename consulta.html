@@ -4,33 +4,37 @@
   <meta charset="utf-8">
   <title>Consulta – CETESB Credenciais</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link href="style.css?v=256" rel="stylesheet">
+  <link href="style.css?v=257" rel="stylesheet">
   <meta name="color-scheme" content="light">
   <link rel="icon" href="data:,">
   <style>
-    .wrap{max-width:1200px;margin:0 auto;padding:0 24px}
-    .header{border-bottom:1px solid #eef2f7;background:#fbfdff}
-    .header .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
-    .brand{display:flex;align-items:center;gap:10px}
-    .brand h1{font-size:18px;margin:0}
-    .actions{display:flex;gap:10px}
+    /* usar a mesma .container para header e conteúdo */
+    .header { border-bottom:1px solid #eef2f7; background:#fbfdff; }
+    .header .container { display:flex; align-items:center; justify-content:space-between; height:64px; }
+    .brand{display:flex; align-items:center; gap:10px}
+    .brand h1{font-size:18px; margin:0}
+    .actions{display:flex; gap:10px}
 
     .label-like{ font-size:12px; color:#64748b }
     .muted{ color:#6b7280 }
     .filters-row{ display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end }
     .filters-row .stack{ display:flex; flex-direction:column; gap:6px }
-    .filters-row .grow{ flex:1 1 220px }
+    /* manter 1ª linha estável */
+    #f_nome{ min-width:240px }
+    #f_reg{ min-width:160px }
+    #f_numero{ min-width:160px }
+    #f_status{ min-width:140px }
     .tags{ display:flex; gap:10px; flex-wrap:wrap; padding:8px 10px; border-radius:10px; border:1px solid #e5e7eb }
     .filters-actions{ width:100%; display:flex; justify-content:center; gap:12px; margin-top:6px }
     .filters-actions .btn{ width:auto; white-space:nowrap; min-width:max-content }
-    .input::placeholder{ color:#a8b3c0; opacity:1 }
+
     th.sortable{ cursor:pointer; user-select:none }
     th.sortable:hover{ text-decoration: underline dotted }
   </style>
 </head>
 <body>
 <header class="header">
-  <div class="wrap">
+  <div class="container">
     <div class="brand">
       <img src="media/cetesb-logo.png" alt="CETESB" onerror="this.style.display='none'">
       <h1>CETESB – Consulta de Credenciais</h1>
@@ -43,12 +47,12 @@
 </header>
 
 <main>
-  <div class="wrap">
+  <div class="container">
     <section class="card pad">
       <h2 class="card-title">Lista e filtros</h2>
 
       <div class="filters-row">
-        <div class="stack grow">
+        <div class="stack">
           <label class="label-like" for="f_nome">Nome</label>
           <input id="f_nome" class="input" placeholder="Ex.: MARIA">
         </div>
@@ -112,27 +116,27 @@
   </div>
 </main>
 
-<footer class="footer"><div class="wrap">Piloto – CETESB</div></footer>
+<footer class="footer"><div class="container">Piloto – CETESB</div></footer>
 
 <script type="module">
   const $  = (s)=>document.querySelector(s);
   const fmt = (iso)=> iso ? new Date(iso).toLocaleDateString('pt-BR') : '';
   const PH40  = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect width='100%25' height='100%25' fill='%23eef2f7' rx='8' ry='8'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='16' fill='%2390a4b8'>?</text></svg>";
 
-  // Config
+  // config
   let cfg; { const r=await fetch('config.json',{cache:'no-store'}); if(!r.ok){ alert('Falha ao carregar config.json'); throw new Error('config.json HTTP '+r.status);} cfg=JSON.parse(await r.text()); }
 
-  // Supabase
+  // supabase
   const supa = await import('https://esm.sh/@supabase/supabase-js@2');
   const supabase = supa.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
-  // Foto utils
+  // foto utils
   const splitDir=(b)=>{const i=b.lastIndexOf('/');return i===-1?{dir:'',name:b}:{dir:b.slice(0,i),name:b.slice(i+1)};}
   async function objectExists(bucket, fullpath){const t=splitDir(fullpath);const r=await supabase.storage.from(bucket).list(t.dir||'',{search:t.name,limit:1});if(r.error)return false;return (r.data||[]).some(x=>x.name===t.name);}
   async function getFotoUrlIfExists(path){const bucket=cfg.storageBucket||'fotos';if(!await objectExists(bucket,path))return null;const s=await supabase.storage.from(bucket).createSignedUrl(path,3600);if(s?.data?.signedUrl)return s.data.signedUrl;const p=supabase.storage.from(bucket).getPublicUrl(path);return p?.data?.publicUrl||null;}
   async function getFotoUrl(reg, foto_path){const list=[];if(foto_path)list.push(foto_path);list.push(reg+'.png',reg+'.jpg',reg+'.jpeg');for(const k of list){const u=await getFotoUrlIfExists(k);if(u)return u}return null;}
 
-  // Combos
+  // combos
   async function carregarCombos(){
     const [u,c]=await Promise.all([
       supabase.from('unidades').select('sigla').order('sigla'),
@@ -144,15 +148,19 @@
   }
   const tiposSelecionados=()=>Array.from(document.querySelectorAll('.f_tipo:checked')).map(el=>el.value);
 
-  // Ordenação
+  // ordenação
   let sortCol='registro', sortAsc=true;
   function bindSortHeaders(){
     document.querySelectorAll('th.sortable').forEach(th=>{
-      th.onclick=()=>{const col=th.getAttribute('data-col'); if(!col)return; if(sortCol===col)sortAsc=!sortAsc; else{sortCol=col;sortAsc=true;} carregarLista();}
+      th.addEventListener('click', ()=>{
+        const col=th.getAttribute('data-col'); if(!col) return;
+        if(sortCol===col) sortAsc=!sortAsc; else { sortCol=col; sortAsc=true; }
+        carregarLista();
+      });
     });
   }
 
-  // Filtro robusto de status (variações)
+  // filtro robusto status
   function applyStatusFilter(query, fs) {
     if (!fs) return query;
     const map = {
@@ -160,11 +168,10 @@
       'Inativo': ['Inativo','INATIVO','inativo','Inativo/Vencido','INATIVO/VENCIDO','inativo/vencido'],
       'Em andamento': ['Em andamento','EM ANDAMENTO','em andamento']
     };
-    const variants = map[fs] || [fs];
-    return query.in('status', variants);
+    return query.in('status', map[fs] || [fs]);
   }
 
-  // Lista (busca parcial p/ matrícula e número)
+  // lista
   async function carregarLista(){
     const nome=$('#f_nome').value.trim();
     const regPart=$('#f_reg').value.trim();
@@ -212,14 +219,14 @@
     $('#count').textContent = String(data.length)+' registro(s)';
   }
 
-  // Eventos
+  // eventos
   $('#btnReload').addEventListener('click', carregarLista);
   $('#f_sigla').addEventListener('change', carregarLista);
   $('#f_status').addEventListener('change', carregarLista);
   ['f_numero','f_reg','f_nome'].forEach(id=> $('#'+id).addEventListener('input', ()=>{ clearTimeout(window['_d'+id]); window['_d'+id]=setTimeout(carregarLista,250); }));
   $('#tiposBox').addEventListener('change', carregarLista);
 
-  // Init
+  // init
   bindSortHeaders();
   await carregarCombos();
   await carregarLista();
