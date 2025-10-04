@@ -8,14 +8,18 @@
   <meta name="color-scheme" content="light">
   <link rel="icon" href="data:,">
   <style>
-    /* Correção do logo gigante (sem tocar no grid/base do seu style.css) */
+    /* Cabeçalho: logo, título e botões */
     .brand-logo{ max-height:28px; width:auto; display:block; }
+    .title{ font-size:22px; line-height:1.25; margin:0; }
+    .topbar-bar{ display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+    .topbar-left{ display:flex; align-items:center; gap:10px; }
+    .topbar-right{ display:flex; align-items:center; gap:10px; }
 
-    /* Cabeçalhos clicáveis p/ ordenar (sem ícones) */
+    /* Ordenação por cabeçalho (sem ícones) */
     th.sortable{ cursor:pointer; user-select:none }
     th.sortable:hover{ text-decoration: underline dotted }
 
-    /* Placeholders e microtexto */
+    /* Placeholders/microtexto */
     .label-like{ font-size:12px; color:#64748b }
     .input::placeholder{ color:#a8b3c0; opacity:1 }
   </style>
@@ -23,12 +27,12 @@
 <body>
 
 <header class="topbar">
-  <div class="container row between center">
-    <div class="row center" style="gap:10px">
+  <div class="container topbar-bar">
+    <div class="topbar-left">
       <img class="brand-logo" src="media/cetesb-logo.png" alt="CETESB" onerror="this.style.display='none'">
       <h1 class="title">CETESB – Administração de Credenciais</h1>
     </div>
-    <div class="row" style="gap:10px">
+    <div class="topbar-right">
       <a class="btn" href="consulta.html">Consulta</a>
       <button class="btn" id="btnChangePass">Trocar senha</button>
       <button class="btn danger" id="btnSair">Sair</button>
@@ -189,7 +193,7 @@
   const PH40 ="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect width='100%25' height='100%25' fill='%23eef2f7' rx='8' ry='8'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='16' fill='%2390a4b8'>?</text></svg>";
   $('#preview').src=PH120;
 
-  /* ---------- Status exibido (única fonte da verdade p/ filtro e ordenação) ---------- */
+  /* ---------- Status exibido (única fonte para filtro/ordenação) ---------- */
   function normStatus(s){
     return String(s ?? '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').trim();
   }
@@ -250,8 +254,7 @@
       supabase.from('credenciais').select('cred_cod,descricao').order('cred_cod')
     ]);
     const un=u.data||[], cr=c.data||[];
-    $('#sigla').innerHTML=un.map(x=>{UNITS_MAP[x.sigla]=x.nome_da_unidade||'';return `<option value="${x.sigla}">${x.sigla} – ${x.nome_da_unidade||''}</option>`}).join('');
-    $('#cred_cod').innerHTML=cr.map(x=>`<option value="${x.cred_cod}">${x.cred_cod} – ${x.descricao||''}</option>`).join('');
+    $('#sigla')?.insertAdjacentHTML('beforeend',''); // (admin somente; aqui não há)
     $('#f_sigla').innerHTML=`<option value="">Todas</option>`+un.map(x=>`<option value="${x.sigla}">${x.sigla}</option>`).join('');
     const tipos=$('#tiposBox'); tipos.innerHTML = cr.length ? cr.map(x=>`<label class="label-like" style="display:inline-flex;align-items:center;gap:6px"><input type="checkbox" class="f_tipo" value="${x.cred_cod}"> ${x.cred_cod}</label>`).join('') : `<span class="label-like">Nenhum tipo cadastrado</span>`;
   }
@@ -277,11 +280,9 @@
     if(fSig) query=query.eq('sigla',fSig);
     if(fTipos.length) query=query.in('cred_cod', fTipos.map(Number));
 
-    // Se o usuário pediu ordenação por status, NÃO deixo o servidor ordenar por status
     if (sortCol !== 'status') {
       query = query.order(sortCol,{ascending:sortAsc});
     }
-    // ordenação estável secundária
     query = query.order('registro',{ascending:true});
 
     const res=await query;
@@ -311,8 +312,7 @@
       const avatar=url||PH40;
       const dlabel = displayStatus(x);
       const chip = statusChip(dlabel);
-      return `<tr data-reg="${x.registro}">
-        <td><input type="checkbox" class="chkRow" value="${x.registro}"></td>
+      return `<tr>
         <td><img src="${avatar}" width="40" height="40" style="border-radius:6px;object-fit:cover;border:1px solid #ddd" onerror="this.src='${PH40}'"></td>
         <td>${x.registro}</td>
         <td>${x.nome||''}</td>
@@ -321,80 +321,21 @@
         <td>${x.cred_cod||''}</td>
         <td>${fmt(x.validade)}</td>
         <td>${chip}</td>
-        <td><button class="btn sm" data-acao="editar">Editar</button> <a class="btn sm" target="_blank" href="public.html?reg=${x.registro}">Público</a></td>
+        <td><a class="btn sm" target="_blank" href="public.html?reg=${x.registro}">Público</a></td>
       </tr>`;
     }));
-    $('#tbody').innerHTML=linhas.join('')||'<tr><td colspan="10" class="label-like">Nenhum registro</td></tr>';
+    $('#tbody').innerHTML=linhas.join('')||'<tr><td colspan="9" class="label-like">Nenhum registro</td></tr>';
     $('#count').textContent=String(data.length)+' registro(s)';
-
-    $('#chkAll').checked=false;
-    $('#chkAll').onchange=(ev)=>{document.querySelectorAll('.chkRow').forEach(ch=>ch.checked=ev.target.checked);};
   }
 
-  // editar
-  $('#tbody').addEventListener('click',async (ev)=>{
-    const btn=ev.target.closest?.('[data-acao="editar"]'); const tr=ev.target.closest('tr');
-    const reg=tr?.getAttribute('data-reg'); if(!tr||!btn) return;
-    const res=await supabase.from('empregados').select('*').eq('registro',reg).maybeSingle();
-    if(res.error){alert('Erro ao carregar registro');return;}
-    const d=res.data||{};
-    $('#registro').value=d.registro||'';$('#nome').value=d.nome||'';$('#sigla').value=d.sigla||'';
-    $('#cred_cod').value=d.cred_cod||'';$('#cred_num').value=d.cred_num||'';$('#validade').value=d.validade?String(d.validade).slice(0,10):'';
-    $('#status').value=d.status||'Em andamento';$('#doe').value=d.doe||'';
-    const url=await getFotoUrlFlexible(d.registro,d.foto_path,{strict:!d.foto_path});
-    $('#preview').src=url||PH120;$('#arquivoFoto').value='';
-  });
-
-  // novo
-  $('#btnNovo').addEventListener('click',()=>{$('#formCad').reset();$('#preview').src=PH120;$('#arquivoFoto').value='';$('#status').value='Em andamento';$('#registro').focus();});
-
-  // remover foto
-  $('#btnRemoverFoto').addEventListener('click',async()=>{
-    const reg=$('#registro').value.trim(); if(!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).');
-    const cur=await supabase.from('empregados').select('foto_path').eq('registro',reg).maybeSingle();
-    await deleteAllKnownPhotos(reg,cur.data?.foto_path||null);
-    await supabase.from('empregados').update({foto_path:null}).eq('registro',reg);
-    $('#arquivoFoto').value='';$('#preview').src=PH120;await carregarLista();
-  });
-
-  // salvar
-  async function nomeUnidade(sig){if(UNITS_MAP[sig]!=null)return UNITS_MAP[sig];const ru=await supabase.from('unidades').select('nome_da_unidade').eq('sigla',sig).maybeSingle();const v=ru?.data?.nome_da_unidade||'';UNITS_MAP[sig]=v;return v;}
-  $('#formCad').addEventListener('submit',async(ev)=>{
-    ev.preventDefault();
-    const reg=$('#registro').value.trim(); if(!/^\d{6}$/.test(reg)) return alert('Registro inválido (6 dígitos).');
-    const sig=$('#sigla').value;
-    const payload={registro:reg,nome:$('#nome').value.trim(),sigla:sig,nome_da_unidade:await nomeUnidade(sig),
-      cred_cod:Number($('#cred_cod').value),cred_num:$('#cred_num').value.trim(),validade:$('#validade').value,
-      status:$('#status').value,doe:$('#doe').value.trim()||null};
-    try{
-      const fotoKey=await uploadFotoSeHouver(reg); if(fotoKey) payload.foto_path=fotoKey;
-      const resp=await supabase.from('empregados').upsert(payload,{onConflict:'registro'}); if(resp.error) throw new Error(resp.error.message||'Erro ao salvar');
-      const url=await getFotoUrlFlexible(reg,fotoKey||null,{strict:!fotoKey});$('#preview').src=url||PH120;$('#arquivoFoto').value='';
-      await carregarLista();alert('Registro salvo com sucesso.');
-    }catch(err){console.error(err);alert('Falha ao salvar: '+(err?.message||String(err))); }
-  });
-
-  // QR
-  function publicUrlFor(reg){const base=new URL('public.html',location.href);base.searchParams.set('reg',reg);return base.href;}
-  async function gerarQrDataUrl(reg,size=512){return await QRCode.toDataURL(publicUrlFor(reg),{width:size,margin:2,errorCorrectionLevel:'M'});}
-  function downloadDataUrl(u,fn){const a=document.createElement('a');a.href=u;a.download=fn;document.body.appendChild(a);a.click();a.remove();}
-  $('#btnQR').addEventListener('click',async()=>{try{const reg=$('#registro').value.trim();if(!/^\d{6}$/.test(reg))return alert('Informe um registro válido (6 dígitos).');downloadDataUrl(await gerarQrDataUrl(reg,512),`QR_${reg}.png`);}catch(e){console.error(e);alert('Falha ao gerar QR.');}});
-  $('#btnQrSelecionados').addEventListener('click',async()=>{const regs=Array.from(document.querySelectorAll('.chkRow:checked')).map(ch=>ch.value);if(!regs.length)return alert('Selecione ao menos um registro.');for(const r of regs){try{downloadDataUrl(await gerarQrDataUrl(r,512),`QR_${r}.png`);}catch(e){console.error('QR falhou para',r,e);}}});
-
-  // eventos filtros
-  $('#btnReload').addEventListener('click',carregarLista);
+  // eventos
+  $('#btnReload')?.addEventListener('click',carregarLista);
   $('#f_sigla').addEventListener('change',carregarLista);
   $('#f_status').addEventListener('change',carregarLista);
   ['f_numero','f_reg','f_nome'].forEach(id=>$('#'+id).addEventListener('input',()=>{clearTimeout(window['_deb'+id]);window['_deb'+id]=setTimeout(carregarLista,250);} ));
   document.addEventListener('change',(e)=>{if(e.target?.classList?.contains('f_tipo'))carregarLista();});
 
-  // init
-  (function bindSortHeaders(){
-    document.querySelectorAll('th.sortable').forEach(th=>{
-      th.onclick=()=>{const col=th.getAttribute('data-col');if(!col)return; if(sortCol===col) sortAsc=!sortAsc; else {sortCol=col;sortAsc=true;} carregarLista();}
-    });
-  })();
-
+  bindSortHeaders();
   await carregarCombos();
   await carregarLista();
 </script>
