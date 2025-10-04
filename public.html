@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>Credencial do Agente – CETESB</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link href="style.css?v=240" rel="stylesheet">
+  <link href="style.css?v=241" rel="stylesheet">
   <meta name="color-scheme" content="light">
 </head>
 <body>
@@ -51,72 +51,73 @@
 </main>
 
 <script type="module">
-(async () => {
-  const $  = (s)=>document.querySelector(s);
-  const qs = (k)=> new URL(location.href).searchParams.get(k);
-  const show = (el, on)=> el?.classList[on ? 'remove' : 'add']('hidden');
-  const formatData = (iso)=> iso ? new Date(iso).toLocaleDateString('pt-BR') : '';
+(async function(){
+  function $(s){ return document.querySelector(s); }
+  function qs(k){ return new URL(location.href).searchParams.get(k); }
+  function show(el, on){ if(!el) return; if(on) el.classList.remove('hidden'); else el.classList.add('hidden'); }
+  function fmt(iso){ return iso ? new Date(iso).toLocaleDateString('pt-BR') : ''; }
 
   // Placeholder embutido
-  const PH120 = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><rect width='100%25' height='100%25' fill='%23e5e7eb'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='12' fill='%2364748b'>sem foto</text></svg>";
+  var PH120 = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><rect width='100%25' height='100%25' fill='%23e5e7eb'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='12' fill='%2364748b'>sem foto</text></svg>";
   $('#foto').src = PH120;
 
-  // ?reg=000001
-  const reg = qs('reg');
-  if(!/^\d{6}$/.test(reg||'')){ $('#loading').innerHTML='<div><strong>Parâmetro inválido.</strong> Use ?reg=000001</div>'; return; }
+  // ?reg=
+  var reg = qs('reg');
+  if(!/^\d{6}$/.test(reg||'')){ $('#loading').innerHTML = '<div><strong>Parâmetro inválido.</strong> Use ?reg=000001</div>'; return; }
 
-  // Config
-  let cfg;
+  // config.json
+  var cfg;
   try{
-    const res = await fetch('config.json',{cache:'no-store'});
-    if(!res.ok) throw new Error(`config.json HTTP ${res.status}`);
-    const txt = await res.text();
-    try{ cfg = JSON.parse(txt); } catch(e){ console.error('config.json inválido:', txt); alert('config.json inválido'); return; }
+    var r = await fetch('config.json',{cache:'no-store'});
+    if(!r.ok) throw new Error('config.json HTTP '+r.status);
+    var txt = await r.text();
+    try{ cfg = JSON.parse(txt); }catch(e){ console.error('config.json inválido:', txt); alert('config.json inválido'); return; }
   }catch(e){ console.error('Falha ao carregar config.json', e); alert('Falha ao carregar config.json'); return; }
 
   // Supabase
-  import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-  const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+  const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+  var supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
-  const normalizeFotoPath = (p)=> String(p||'').replace(/^fotos\//i,'');
-  const buildFotoUrl = (fp)=>{
+  function normalizeFotoPath(p){ return String(p||'').replace(/^fotos\//i,''); }
+  function buildFotoUrl(fp){
     if(!fp) return null;
-    const bucket = (cfg.storageBucket || 'fotos');
-    const path = normalizeFotoPath(fp);
-    const { data } = supabase.storage.from(bucket).getPublicUrl(path);
-    return data?.publicUrl || null;
-  };
+    var bucket = cfg.storageBucket || 'fotos';
+    var path = normalizeFotoPath(fp);
+    var resp = supabase.storage.from(bucket).getPublicUrl(path);
+    return (resp && resp.data && resp.data.publicUrl) ? resp.data.publicUrl : null;
+  }
 
   // Dados
-  const empQ = supabase.from('empregados')
+  var empQ = supabase.from('empregados')
     .select('registro,nome,sigla,nome_da_unidade,cred_cod,cred_num,validade,status,foto_path')
     .eq('registro', reg).maybeSingle();
 
-  const crQ  = supabase.from('credenciais').select('cred_cod,descricao');
+  var crQ  = supabase.from('credenciais').select('cred_cod,descricao');
 
-  const [{ data: emp, error: eEmp }, { data: catCred }] = await Promise.all([empQ, crQ]);
+  var res = await Promise.all([empQ, crQ]);
+  var emp = res[0].data, eEmp = res[0].error;
+  var catCred = res[1].data;
 
   if(eEmp){ console.error(eEmp); $('#loading').innerHTML='<div>Erro ao carregar dados.</div>'; return; }
   if(!emp){ show($('#loading'), false); show($('#notfound'), true); return; }
 
-  const mapCred = Object.fromEntries((catCred||[]).map(x=>[String(x.cred_cod), x.descricao]));
-  const credDesc = mapCred[String(emp.cred_cod)] || `Tipo ${emp.cred_cod}`;
+  var mapCred = {};
+  (catCred||[]).forEach(function(x){ mapCred[String(x.cred_cod)] = x.descricao; });
+  var credDesc = mapCred[String(emp.cred_cod)] || ('Tipo '+emp.cred_cod);
 
   $('#nome').textContent = emp.nome || '—';
   $('#registro').textContent = emp.registro || '—';
-  $('#credencial').textContent = `${credDesc}${emp.cred_num ? ' • Nº ' + emp.cred_num : ''}`;
-  $('#validade').textContent = formatData(emp.validade);
-  $('#unidade').textContent  = emp.nome_da_unidade ? `${emp.sigla} – ${emp.nome_da_unidade}` : (emp.sigla || '—');
+  $('#credencial').textContent = credDesc + (emp.cred_num ? ' • Nº '+emp.cred_num : '');
+  $('#validade').textContent = fmt(emp.validade);
+  $('#unidade').textContent  = emp.nome_da_unidade ? (emp.sigla+' – '+emp.nome_da_unidade) : (emp.sigla || '—');
 
-  const chip = $('#chipStatus');
-  const hoje0 = new Date(); hoje0.setHours(0,0,0,0);
-  let cls = 'chip', label = '—';
-  if (emp.status==='Em andamento'){ cls+=' warn'; label='Em andamento'; }
-  else if (emp.status==='Ativo' && emp.validade && new Date(emp.validade) >= hoje0){ cls+=' success'; label='Ativo'; }
-  else { cls+=' danger'; label='Inativo/Vencido'; }
-  chip.className = cls; chip.textContent = label;
+  var chip = $('#chipStatus');
+  var hoje0 = new Date(); hoje0.setHours(0,0,0,0);
+  var ok = (emp.status==='Ativo' && emp.validade && new Date(emp.validade) >= hoje0);
+  chip.className = 'chip ' + (emp.status==='Em andamento' ? 'warn' : (ok ? 'success' : 'danger'));
+  chip.textContent = (emp.status==='Em andamento' ? 'Em andamento' : (ok ? 'Ativo' : 'Inativo/Vencido'));
 
-  const url = buildFotoUrl(emp.foto_path);
+  var url = buildFotoUrl(emp.foto_path);
   $('#foto').src = url || PH120;
 
   show($('#loading'), false);
