@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>Admin – CETESB Credenciais</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link href="style.css?v=233" rel="stylesheet">
+  <link href="style.css?v=240" rel="stylesheet">
   <meta name="color-scheme" content="light">
 </head>
 <body>
@@ -24,7 +24,7 @@
 
 <main class="container">
   <div class="grid grid-2">
-    <!-- ESQUERDA: FORM (estruturas e classes preservadas) -->
+    <!-- ESQUERDA: FORM -->
     <section class="card pad">
       <h2 class="card-title">Cadastro</h2>
 
@@ -76,29 +76,22 @@
 
         <div class="field">
           <label>Foto</label>
-
           <div class="row" style="gap:12px;align-items:center;flex-wrap:wrap">
-            <img id="preview" alt="Prévia da foto" width="120" height="120"
-                 style="border-radius:8px;object-fit:cover;border:1px solid #ddd">
-
-            <!-- Input de arquivo customizado (PT-BR) -->
-            <div>
-              <input id="arquivoFoto" type="file" accept="image/*" style="display:none">
-              <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap">
-                <button type="button" class="btn" id="btnEscolherArquivo">Selecionar arquivo</button>
-                <span id="arquivoNome" class="muted">Nenhum arquivo selecionado</span>
-              </div>
-
-              <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap">
-                <button type="button" class="btn" id="btnUploadFoto">Enviar/Atualizar foto</button>
-                <button type="button" class="btn danger" id="btnRemoverFoto">Remover foto</button>
-              </div>
-              <small class="muted">O nome do arquivo no Storage será &lt;registro&gt;.jpg/.png</small>
+            <img id="preview" alt="Prévia da foto" width="120" height="120" style="border-radius:8px;object-fit:cover;border:1px solid #ddd">
+            <div class="input-file">
+              <input id="arquivoFoto" type="file" accept="image/*">
+              <button type="button" class="btn btn-file" id="btnEscolherArquivo">Selecionar arquivo</button>
+              <span id="arquivoNome" class="filename">Nenhum arquivo selecionado</span>
             </div>
+
+            <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap">
+              <button type="button" class="btn" id="btnUploadFoto">Enviar/Atualizar foto</button>
+              <button type="button" class="btn danger" id="btnRemoverFoto">Remover foto</button>
+            </div>
+            <small class="muted">O nome do arquivo no Storage será &lt;registro&gt;.jpg/.png</small>
           </div>
         </div>
 
-        <!-- Linha de ações com classe própria para evitar “sanfona” -->
         <div class="row-actions">
           <button id="btnNovo" type="button" class="btn">Novo</button>
           <button id="btnExcluir" type="button" class="btn danger">Excluir</button>
@@ -149,92 +142,63 @@
 <footer class="footer"><div class="container">Piloto – CETESB</div></footer>
 
 <script type="module">
-  // -------------------------
-  // Utilitários e constantes
-  // -------------------------
+  // Utils
   const $  = (s)=>document.querySelector(s);
   const $$ = (s)=>Array.from(document.querySelectorAll(s));
-  const toast = (msg)=>{ console.log(msg); };
+  const toast = (m)=>console.log(m);
 
   // Placeholders embutidos (sem rede)
   const PH120 = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><rect width='100%25' height='100%25' fill='%23e5e7eb'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='12' fill='%2364748b'>sem foto</text></svg>";
   const PH40  = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect width='100%25' height='100%25' fill='%23e5e7eb'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='16' fill='%2364748b'>?</text></svg>";
 
-  // Define placeholder inicial do preview sem depender de onerror
-  $('#preview').src = PH120;
+  // Sair/Trocar senha: sempre ativos
+  $('#btnSair')?.addEventListener('click', ()=>{ localStorage.removeItem('sessaoUsuario'); location.href='index.html'; });
+  $('#btnChangePass')?.addEventListener('click', ()=>{ location.href='change-password.html'; });
 
-  // Sair / Trocar senha: registra IMEDIATAMENTE
-  document.getElementById('btnSair')?.addEventListener('click', ()=>{
-    localStorage.removeItem('sessaoUsuario');
-    location.href = 'index.html';
-  });
-  document.getElementById('btnChangePass')?.addEventListener('click', ()=>{
-    location.href = 'change-password.html';
-  });
-
-  // Botão "Selecionar arquivo" (PT-BR)
+  // Botão de arquivo (PT-BR)
   $('#btnEscolherArquivo').addEventListener('click', ()=> $('#arquivoFoto').click());
   $('#arquivoFoto').addEventListener('change', (ev)=>{
-    const file = ev.target.files?.[0];
-    $('#arquivoNome').textContent = file ? file.name : 'Nenhum arquivo selecionado';
-    if (file){
-      const objUrl = URL.createObjectURL(file);
-      $('#preview').src = objUrl; // prévia local imediata
-    } else {
-      $('#preview').src = PH120;
-    }
+    const f = ev.target.files?.[0];
+    $('#arquivoNome').textContent = f ? f.name : 'Nenhum arquivo selecionado';
+    $('#preview').src = f ? URL.createObjectURL(f) : PH120;
   });
 
-  // -------------------------
-  // Carrega config.json (robusto)
-  // -------------------------
+  // Config robusto
   let cfg;
-  try {
-    const res = await fetch('config.json', { cache:'no-store' });
-    if (!res.ok) throw new Error(`config.json HTTP ${res.status}`);
+  try{
+    const res = await fetch('config.json', {cache:'no-store'});
+    if(!res.ok) throw new Error(`config.json HTTP ${res.status}`);
     const txt = await res.text();
-    try { cfg = JSON.parse(txt); }
-    catch(e){ console.error('config.json inválido:', txt); alert('config.json inválido'); throw e; }
-  } catch (e) {
-    console.error('Falha ao carregar config.json', e);
-    alert('Falha ao carregar config.json');
-    throw e; // listeners essenciais já estão ativos
-  }
+    try{ cfg = JSON.parse(txt); } catch(e){ console.error('config.json inválido:', txt); alert('config.json inválido'); throw e; }
+  }catch(e){ console.error('Falha ao carregar config.json', e); alert('Falha ao carregar config.json'); throw e; }
 
-  // -------------------------
   // Supabase
-  // -------------------------
   import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
   const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
+  // Helpers
   const normalizeFotoPath = (p)=> String(p||'').replace(/^fotos\//i,'');
-  const buildFotoUrl = (foto_path)=>{
-    if (!foto_path) return null;
+  const buildFotoUrl = (fp)=>{
+    if(!fp) return null;
     const bucket = (cfg.storageBucket || 'fotos');
-    const path = normalizeFotoPath(foto_path);
+    const path = normalizeFotoPath(fp);
     const { data } = supabase.storage.from(bucket).getPublicUrl(path);
     return data?.publicUrl || null;
   };
   const formatData = (iso)=> iso ? new Date(iso).toLocaleDateString('pt-BR') : '';
 
-  // -------------------------
   // Combos
-  // -------------------------
   async function carregarCombos(){
-    const [u, c] = await Promise.all([
+    const [u,c] = await Promise.all([
       supabase.from('unidades').select('sigla,nome_da_unidade').order('sigla'),
       supabase.from('credenciais').select('cred_cod,descricao').order('cred_cod')
     ]);
-    $('#sigla').innerHTML = (u.data||[]).map(x=>`<option value="${x.sigla}">${x.sigla} – ${x.nome_da_unidade||''}</option>`).join('');
-    $('#cred_cod').innerHTML = (c.data||[]).map(x=>`<option value="${x.cred_cod}">${x.cred_cod} – ${x.descricao||''}</option>`).join('');
-
-    // filtros
+    $('#sigla').innerHTML   = (u.data||[]).map(x=>`<option value="${x.sigla}">${x.sigla} – ${x.nome_da_unidade||''}</option>`).join('');
+    $('#cred_cod').innerHTML= (c.data||[]).map(x=>`<option value="${x.cred_cod}">${x.cred_cod} – ${x.descricao||''}</option>`).join('');
     $('#f_sigla').innerHTML = `<option value="">Todas</option>` + (u.data||[]).map(x=>`<option value="${x.sigla}">${x.sigla}</option>`).join('');
   }
 
-  // -------------------------
   // Lista
-  // -------------------------
   async function carregarLista(){
     const q = $('#q').value.trim();
     const fs = $('#f_status').value;
@@ -242,16 +206,16 @@
 
     let query = supabase.from('empregados').select('registro,nome,sigla,validade,status,foto_path').order('registro');
 
-    if (q){
+    if(q){
       const isNum = /^\d+$/.test(q);
       if (isNum) query = query.or(`registro.eq.${q},cred_num.eq.${q}`);
       else query = query.ilike('nome', `%${q}%`);
     }
-    if (fs)  query = query.eq('status', fs);
-    if (fSig) query = query.eq('sigla', fSig);
+    if(fs)  query = query.eq('status', fs);
+    if(fSig)query = query.eq('sigla', fSig);
 
     const { data, error } = await query;
-    if (error) { console.error(error); alert('Erro ao carregar lista'); return; }
+    if(error){ console.error(error); alert('Erro ao carregar lista'); return; }
 
     const rows = (data||[]).map(x=>{
       const foto = buildFotoUrl(x.foto_path) || PH40;
@@ -278,16 +242,13 @@
     $('#count').textContent = `${data?.length||0} registro(s)`;
   }
 
-  // Click na tabela → carrega no form
+  // Editar → carrega no form
   $('#tbody').addEventListener('click', async (ev)=>{
-    const btn = ev.target.closest('[data-acao="editar"]');
-    if (!btn) return;
-    const tr = ev.target.closest('tr');
-    const reg = tr?.getAttribute('data-reg');
-    if (!reg) return;
+    const btn = ev.target.closest('[data-acao="editar"]'); if(!btn) return;
+    const tr = ev.target.closest('tr'); const reg = tr?.getAttribute('data-reg'); if(!reg) return;
 
     const { data, error } = await supabase.from('empregados').select('*').eq('registro', reg).maybeSingle();
-    if (error) { alert('Erro ao carregar registro'); return; }
+    if(error){ alert('Erro ao carregar registro'); return; }
 
     $('#registro').value  = data.registro || '';
     $('#nome').value      = data.nome || '';
@@ -298,83 +259,67 @@
     $('#status').value    = data.status || 'Em andamento';
     $('#doe').value       = data.doe || '';
 
-    // atualiza prévia
     const url = buildFotoUrl(data.foto_path);
     $('#preview').src = url || PH120;
   });
 
   // Botões
   $('#btnReload').addEventListener('click', carregarLista);
-  $('#btnNovo').addEventListener('click', ()=>{
-    $('#formCad').reset();
-    $('#arquivoNome').textContent = 'Nenhum arquivo selecionado';
-    $('#preview').src = PH120;
-  });
+  $('#btnNovo').addEventListener('click', ()=>{ $('#formCad').reset(); $('#arquivoNome').textContent='Nenhum arquivo selecionado'; $('#preview').src=PH120; });
 
   $('#btnExcluir').addEventListener('click', async ()=>{
     const reg = $('#registro').value.trim();
-    if (!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).');
-    if (!confirm(`Excluir ${reg}?`)) return;
-
+    if(!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).');
+    if(!confirm(`Excluir ${reg}?`)) return;
     const { error } = await supabase.from('empregados').delete().eq('registro', reg);
-    if (error) { alert('Erro ao excluir'); return; }
-    toast('Excluído');
-    carregarLista();
+    if(error){ alert('Erro ao excluir'); return; }
+    toast('Excluído'); carregarLista();
   });
 
   $('#btnQR').addEventListener('click', ()=>{
     const reg = $('#registro').value.trim();
-    if (!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).');
-    const url = new URL(location.href);
-    url.pathname = url.pathname.replace(/admin\.html$/,'public.html');
-    url.search = `?reg=${reg}`;
+    if(!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).');
+    const url = new URL(location.href); url.pathname = url.pathname.replace(/admin\.html$/,'public.html'); url.search = `?reg=${reg}`;
     window.open(`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url.href)}`,'_blank');
   });
 
   $('#btnUploadFoto').addEventListener('click', async ()=>{
     const reg = $('#registro').value.trim();
-    if (!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).');
-    const file = $('#arquivoFoto').files?.[0];
-    if (!file) return alert('Selecione um arquivo de imagem.');
+    if(!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).');
+    const file = $('#arquivoFoto').files?.[0]; if(!file) return alert('Selecione um arquivo de imagem.');
 
     const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
     const key = `${reg}.${ext}`;
     const bucket = (cfg.storageBucket || 'fotos');
 
     const { error: upErr } = await supabase.storage.from(bucket).upload(key, file, { upsert:true, contentType:file.type });
-    if (upErr) { console.error(upErr); return alert('Falha no upload'); }
+    if(upErr){ console.error(upErr); return alert('Falha no upload'); }
 
     const { error: dbErr } = await supabase.from('empregados').update({ foto_path: key }).eq('registro', reg);
-    if (dbErr) { console.error(dbErr); return alert('Falha ao gravar foto no banco'); }
+    if(dbErr){ console.error(dbErr); return alert('Falha ao gravar foto no banco'); }
 
-    const url = buildFotoUrl(key);
-    $('#preview').src = url || PH120;
+    $('#preview').src = buildFotoUrl(key) || PH120;
     toast('Foto atualizada.');
   });
 
   $('#btnRemoverFoto').addEventListener('click', async ()=>{
     const reg = $('#registro').value.trim();
-    if (!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).');
+    if(!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).');
 
     const { data } = await supabase.from('empregados').select('foto_path').eq('registro', reg).maybeSingle();
     const key = normalizeFotoPath(data?.foto_path);
     const bucket = (cfg.storageBucket || 'fotos');
-
-    if (key){
-      await supabase.storage.from(bucket).remove([key]).catch(()=>{});
-    }
+    if(key){ await supabase.storage.from(bucket).remove([key]).catch(()=>{}); }
     await supabase.from('empregados').update({ foto_path: null }).eq('registro', reg);
 
-    $('#preview').src = PH120;
-    $('#arquivoFoto').value = '';
-    $('#arquivoNome').textContent = 'Nenhum arquivo selecionado';
+    $('#preview').src = PH120; $('#arquivoFoto').value=''; $('#arquivoNome').textContent='Nenhum arquivo selecionado';
     toast('Foto removida.');
   });
 
   $('#formCad').addEventListener('submit', async (ev)=>{
     ev.preventDefault();
     const reg = $('#registro').value.trim();
-    if (!/^\d{6}$/.test(reg)) return alert('Registro inválido.');
+    if(!/^\d{6}$/.test(reg)) return alert('Registro inválido.');
 
     const payload = {
       registro: reg,
@@ -388,13 +333,12 @@
     };
 
     const { error } = await supabase.from('empregados').upsert(payload, { onConflict:'registro' });
-    if (error) { console.error(error); return alert('Erro ao salvar'); }
-
-    toast('Salvo com sucesso.');
-    carregarLista();
+    if(error){ console.error(error); return alert('Erro ao salvar'); }
+    toast('Salvo com sucesso.'); carregarLista();
   });
 
-  // Inicialização
+  // Start
+  $('#preview').src = PH120;
   await carregarCombos();
   await carregarLista();
 </script>
