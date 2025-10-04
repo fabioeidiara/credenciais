@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>Admin – CETESB Credenciais</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link href="style.css?v=243" rel="stylesheet">
+  <link href="style.css?v=244" rel="stylesheet">
   <meta name="color-scheme" content="light">
   <link rel="icon" href="data:,">
 </head>
@@ -178,26 +178,44 @@
   var supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
   function normalizeFotoPath(p){ return String(p||'').replace(/^fotos\//i,''); }
+  function splitDir(basepath){
+    var i = basepath.lastIndexOf('/');
+    return i === -1 ? { dir:'', name:basepath } : { dir:basepath.slice(0,i), name:basepath.slice(i+1) };
+  }
+  async function objectExists(bucket, fullpath){
+    var t = splitDir(fullpath);
+    var res = await supabase.storage.from(bucket).list(t.dir || '', { search: t.name, limit: 1 });
+    if(res.error) return false;
+    return (res.data||[]).some(function(x){ return x.name === t.name; });
+  }
 
-  // URL da foto (tenta caminho do DB; se não houver, tenta padrões por registro)
-  async function getFotoUrlFlexible(reg, foto_path){
+  // URL da foto sem barulho no console:
+  // 1) checa existência com list(); 2) se existe, assina; 3) senão, tenta público; 4) se nada, null.
+  async function getFotoUrlIfExists(path){
     var bucket = cfg.storageBucket || 'fotos';
-    var candidates = [];
+    var ok = await objectExists(bucket, path);
+    if(!ok) return null;
 
+    // tenta assinada
+    var s = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
+    if(s && !s.error && s.data && s.data.signedUrl) return s.data.signedUrl;
+
+    // tenta pública (para bucket público)
+    var p = supabase.storage.from(bucket).getPublicUrl(path);
+    if(p && p.data && p.data.publicUrl) return p.data.publicUrl;
+
+    return null;
+  }
+
+  // Fallback inteligente: foto_path → ou padrões <registro>.png/.jpg/.jpeg
+  async function getFotoUrlFlexible(reg, foto_path){
+    var candidates = [];
     if (foto_path) candidates.push(normalizeFotoPath(foto_path));
-    // tentativas por nome padrão
     candidates.push(reg + '.png', reg + '.jpg', reg + '.jpeg');
 
     for (var i=0;i<candidates.length;i++){
-      var path = candidates[i];
-      try{
-        // tenta URL assinada (privado/público)
-        var s = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
-        if (s && !s.error && s.data && s.data.signedUrl) return s.data.signedUrl;
-        // se não assinou (ou bucket público), tenta pública
-        var p = supabase.storage.from(bucket).getPublicUrl(path);
-        if (p && p.data && p.data.publicUrl) return p.data.publicUrl;
-      }catch(_){}
+      var url = await getFotoUrlIfExists(candidates[i]);
+      if(url) return url;
     }
     return null;
   }
@@ -319,7 +337,6 @@
     var up = await supabase.storage.from(bucket).upload(key, file, { upsert:true, contentType:file.type });
     if(up.error){ console.error(up.error); return alert('Falha no upload'); }
 
-    // grava caminho exato no DB
     var upd = await supabase.from('empregados').update({ foto_path: key }).eq('registro', reg);
     if(upd.error){ console.error(upd.error); return alert('Falha ao gravar foto no banco'); }
 
