@@ -8,20 +8,74 @@
   <meta name="color-scheme" content="light">
   <link rel="icon" href="data:,">
   <style>
-    /* Cabeçalho: logo, título e botões */
+    /* ============== ESTÉTICA (mesma linha do admin) ============== */
+    :root{
+      --bg:#f6f8fb; --card:#fff; --ink:#1f2a37; --ink-2:#334155; --muted:#64748b; --muted-2:#94a3b8;
+      --primary:#2563eb; --primary-2:#1d4ed8; --line:#e5e9f1;
+      --chip-green:#e9f8ee; --chip-green-ink:#176a3a;
+      --chip-yellow:#fff7e6; --chip-yellow-ink:#8a5a05;
+      --chip-red:#ffecec; --chip-red-ink:#8a1a1a;
+      --elev-1:0 8px 26px rgba(15,23,42,.06),0 2px 8px rgba(15,23,42,.05);
+      --elev-0:0 1px 3px rgba(15,23,42,.06),0 1px 2px rgba(15,23,42,.05);
+      --cell-pad-x:14px; --first-col-w:34px; --btn-gap-y-top:10px; --btn-gap-y-bottom:14px;
+      --radius-xl:16px; --radius-lg:12px; --radius-md:10px;
+    }
+    html,body{ background:var(--bg); color:var(--ink); }
+
+    .topbar{
+      position: sticky; top:0; z-index:50;
+      backdrop-filter: saturate(120%) blur(6px);
+      background: linear-gradient(180deg, rgba(255,255,255,.86), rgba(255,255,255,.72));
+      border-bottom: 1px solid var(--line);
+    }
     .brand-logo{ max-height:28px; width:auto; display:block; }
-    .title{ font-size:22px; line-height:1.25; margin:0; }
-    .topbar-bar{ display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+    .title{ font-size:22px; line-height:1.25; margin:0; color:var(--ink); letter-spacing:.2px; }
+    .topbar-bar{ display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; padding:14px 0; }
     .topbar-left{ display:flex; align-items:center; gap:10px; }
     .topbar-right{ display:flex; align-items:center; gap:10px; }
 
-    /* Ordenação por cabeçalho (sem ícones) */
-    th.sortable{ cursor:pointer; user-select:none }
-    th.sortable:hover{ text-decoration: underline dotted }
+    .btn{ border-radius:999px; box-shadow:var(--elev-0); transform:translateZ(0); transition:all .18s ease; }
+    .btn:hover{ filter:saturate(110%); transform:translateY(-1px); }
+    .btn:active{ transform:translateY(0); }
 
-    /* Placeholders/microtexto */
-    .label-like{ font-size:12px; color:#64748b }
-    .input::placeholder{ color:#a8b3c0; opacity:1 }
+    .container{ max-width:1200px; margin:0 auto; padding:0 16px; }
+    .card{ background:var(--card); border:1px solid var(--line); border-radius:var(--radius-xl); box-shadow:var(--elev-1); }
+    .pad{ padding:18px; }
+    .card-title{ margin:2px 2px 14px 2px; color:var(--ink-2); font-weight:700; }
+
+    .label-like{ font-size:12px; color:var(--muted); }
+    .input{ border-radius:12px; background:#fbfdff; border:1px solid var(--line); }
+    .input:focus{ outline:none; border-color:var(--primary); box-shadow:0 0 0 3px rgba(37,99,235,.15); }
+    .input::placeholder{ color:var(--muted-2); }
+
+    .chip{ border-radius:999px; padding:6px 10px; font-weight:600; }
+    .chip.success{ background:var(--chip-green); color:var(--chip-green-ink); }
+    .chip.warn{ background:var(--chip-yellow); color:var(--chip-yellow-ink); }
+    .chip.danger{ background:var(--chip-red); color:var(--chip-red-ink); }
+
+    .scroll{ margin-top:4px; overflow:auto; }
+    .table{ border-collapse:separate; border-spacing:0; width:100%; }
+    .table thead{ position:sticky; top:0; z-index:1; background:linear-gradient(180deg,#fff, #fffdfc); }
+    .table th, .table td{ padding:11px var(--cell-pad-x); text-align:left; vertical-align:middle; border-bottom:1px solid var(--line); }
+    .table thead th{ font-weight:700; color:var(--ink-2); }
+    .table tr:hover td{ background:#fbfcff; }
+    th.sortable{ cursor:pointer; user-select:none; }
+    th.sortable:hover{ text-decoration: underline dotted; }
+
+    /* filtros alinhados com tabela */
+    .filters .col > label{ display:block; margin-left: var(--cell-pad-x); }
+    .filters .col > .input{ margin-left: var(--cell-pad-x); }
+    #tiposBox{ margin-left: calc(var(--first-col-w) + var(--cell-pad-x)); }
+    .filters-actions{
+      margin-top: var(--btn-gap-y-top);
+      margin-bottom: var(--btn-gap-y-bottom);
+      display:flex; gap:12px; justify-content:center; flex-wrap:wrap;
+    }
+
+    .row{ display:flex; gap:10px; }
+    .col{ display:flex; flex-direction:column; min-width:240px; }
+
+    .footer{ color:#7a8797; padding:22px 0; text-align:center; }
   </style>
 </head>
 <body>
@@ -39,45 +93,45 @@
   </div>
 </header>
 
-<main class="container">
+<main class="container" style="padding-top:18px; padding-bottom:18px;">
   <section class="card pad">
     <h2 class="card-title">Lista e filtros</h2>
 
-    <div class="row" style="gap:10px;flex-wrap:wrap;align-items:flex-end">
-      <div class="col">
-        <label class="label-like" for="f_nome">Nome</label>
-        <input id="f_nome" class="input" placeholder="Ex.: MARIA">
-      </div>
-      <div class="col">
-        <label class="label-like" for="f_reg">Matrícula</label>
-        <input id="f_reg" class="input" placeholder="Ex.: 000123" maxlength="6">
-      </div>
-      <div class="col">
-        <label class="label-like" for="f_numero">Número (credencial)</label>
-        <input id="f_numero" class="input" placeholder="Ex.: 0042" maxlength="4">
-      </div>
-      <div class="col">
-        <label class="label-like" for="f_status">Status</label>
-        <select id="f_status" class="input">
-          <option value="">Todos</option>
-          <option>Ativo</option>
-          <option>Em andamento</option>
-          <option>Inativo</option>
-        </select>
-      </div>
-      <div class="col">
-        <label class="label-like" for="f_sigla">Unidade</label>
-        <select id="f_sigla" class="input"></select>
-      </div>
+    <div class="filters">
+      <div class="row" style="gap:10px;flex-wrap:wrap;align-items:flex-end">
+        <div class="col">
+          <label class="label-like" for="f_nome">Nome</label>
+          <input id="f_nome" class="input" placeholder="Ex.: MARIA">
+        </div>
+        <div class="col">
+          <label class="label-like" for="f_reg">Matrícula</label>
+          <input id="f_reg" class="input" placeholder="Ex.: 000123" maxlength="6">
+        </div>
+        <div class="col">
+          <label class="label-like" for="f_numero">Número (credencial)</label>
+          <input id="f_numero" class="input" placeholder="Ex.: 0042" maxlength="4">
+        </div>
+        <div class="col">
+          <label class="label-like" for="f_status">Status</label>
+          <select id="f_status" class="input">
+            <option value="">Todos</option>
+            <option>Ativo</option>
+            <option>Em andamento</option>
+            <option>Inativo</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="label-like" for="f_sigla">Unidade</label>
+          <select id="f_sigla" class="input"></select>
+        </div>
 
-      <div class="col" style="flex:1 1 100%">
-        <span class="label-like">Tipo</span>
-        <div id="tiposBox" class="row" style="gap:10px;flex-wrap:wrap">
-          <span class="label-like">carregando…</span>
+        <div class="col" style="flex:1 1 100%">
+          <span class="label-like" style="margin-left:var(--cell-pad-x)">Tipo</span>
+          <div id="tiposBox" class="row" style="gap:10px;flex-wrap:wrap"><span class="label-like">carregando…</span></div>
         </div>
       </div>
 
-      <div class="row" style="gap:12px;width:100%;justify-content:center">
+      <div class="filters-actions">
         <button id="btnReload" class="btn">Recarregar</button>
       </div>
     </div>
@@ -101,7 +155,7 @@
       </table>
     </div>
 
-    <div id="count" class="label-like">0 registro(s)</div>
+    <div id="count" class="label-like" style="padding:8px var(--cell-pad-x);">0 registro(s)</div>
   </section>
 </main>
 
@@ -110,17 +164,11 @@
 </footer>
 
 <script type="module">
-  // utilidade
   const $=(s)=>document.querySelector(s);
   const fmt=(iso)=>iso?new Date(iso).toLocaleDateString('pt-BR'):'';
+  const PH40 ="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect width='100%25' height='100%25' fill='%23eef2f7' rx='8' ry='8'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='16' fill='%2390a4b8'>?</text></svg>";
 
-  // placeholder local (sem via.placeholder.com)
-  const PH40="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect width='100%25' height='100%25' fill='%23eef2f7' rx='8' ry='8'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='16' fill='%2390a4b8'>?</text></svg>";
-
-  /* ---------- Status exibido: fonte da verdade p/ filtro e ordenação ---------- */
-  function normStatus(s){
-    return String(s ?? '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').trim();
-  }
+  function normStatus(s){ return String(s ?? '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').trim(); }
   function displayStatus(rec){
     const raw = normStatus(rec.status);
     const hoje = new Date(new Date().toDateString());
@@ -137,11 +185,9 @@
     return '<span class="chip danger">Inativo</span>';
   }
 
-  // ordenação
-  let sortCol='registro';
-  let sortAsc=true;
+  let sortCol='registro'; let sortAsc=true;
 
-  // config + supabase
+  // config & supabase
   let cfg;{
     const r=await fetch('config.json',{cache:'no-store'});
     if(!r.ok){ alert('Falha ao carregar config.json'); throw new Error('config.json HTTP '+r.status); }
@@ -150,7 +196,7 @@
   const supa=await import('https://esm.sh/@supabase/supabase-js@2');
   const supabase=supa.createClient(cfg.supabaseUrl,cfg.supabaseAnonKey);
 
-  // fotos (mesma lógica resiliente do admin)
+  // fotos
   const splitDir=(b)=>{const i=b.lastIndexOf('/');return i===-1?{dir:'',name:b}:{dir:b.slice(0,i),name:b.slice(i+1)};}
   async function objExists(bucket,full){const t=splitDir(full);const r=await supabase.storage.from(bucket).list(t.dir||'',{search:t.name,limit:1});if(r.error)return false;return (r.data||[]).some(x=>x.name===t.name);}
   async function getFotoUrlIfExists(path){const bucket=cfg.storageBucket||'fotos';if(!await objExists(bucket,path))return null;const s=await supabase.storage.from(bucket).createSignedUrl(path,3600);if(s?.data?.signedUrl)return s.data.signedUrl;const p=supabase.storage.from(bucket).getPublicUrl(path);return p?.data?.publicUrl||null;}
@@ -170,17 +216,15 @@
   }
   const tiposSelecionados=()=>Array.from(document.querySelectorAll('.f_tipo:checked')).map(el=>el.value);
 
-  // sort pelos cabeçalhos
   function bindSortHeaders(){
     document.querySelectorAll('th.sortable').forEach(th=>{
       th.onclick=()=>{const col=th.getAttribute('data-col'); if(!col)return;
-        if(sortCol===col) sortAsc=!sortAsc; else { sortCol=col; sortAsc=true; }
+        if (sortCol===col) sortAsc=!sortAsc; else { sortCol=col; sortAsc=true; }
         carregarLista();
       };
     });
   }
 
-  // LISTA
   async function carregarLista(){
     const nome=$('#f_nome').value.trim();
     const regPart=$('#f_reg').value.trim();
@@ -188,46 +232,35 @@
     const fSig=$('#f_sigla').value;
     const fTipos=tiposSelecionados();
 
-    let query=supabase.from('empregados')
-      .select('registro,nome,sigla,cred_num,cred_cod,validade,status,foto_path');
+    let query=supabase.from('empregados').select('registro,nome,sigla,cred_num,cred_cod,validade,status,foto_path');
+    if(nome) query=query.ilike('nome',`%${nome}%`);
+    if(fSig) query=query.eq('sigla',fSig);
+    if(fTipos.length) query=query.in('cred_cod',fTipos.map(Number));
 
-    if (nome) query=query.ilike('nome',`%${nome}%`);
-    if (fSig)  query=query.eq('sigla',fSig);
-    if (fTipos.length) query=query.in('cred_cod',fTipos.map(Number));
-
-    if (sortCol !== 'status') {
-      query = query.order(sortCol,{ascending:sortAsc});
-    }
-    query = query.order('registro',{ascending:true}); // ordem estável
+    if (sortCol !== 'status') query = query.order(sortCol,{ascending:sortAsc});
+    query = query.order('registro',{ascending:true});
 
     const res=await query;
     if(res.error){ console.error(res.error); alert('Erro ao carregar lista'); return; }
     let data=res.data||[];
 
-    // filtro de status pelo rótulo exibido
     const fs = ($('#f_status').value||'').trim();
     if (fs) data = data.filter(r => displayStatus(r) === fs);
 
-    // buscas parciais
     if (regPart) data = data.filter(x => String(x.registro||'').includes(regPart));
     if (numPart) data = data.filter(x => String(x.cred_num||'').includes(numPart));
 
-    // ordenação por status no client
     if (sortCol === 'status') {
-      data.sort((a,b)=>{
-        const sa=displayStatus(a), sb=displayStatus(b);
-        const cmp = sa.localeCompare(sb,'pt-BR');
-        return sortAsc ? cmp : -cmp;
-      });
+      data.sort((a,b)=>{ const sa=displayStatus(a), sb=displayStatus(b); const cmp=sa.localeCompare(sb,'pt-BR'); return sortAsc?cmp:-cmp; });
     }
 
-    const linhas = await Promise.all(data.map(async x=>{
-      const url = await getFotoUrlFlexible(x.registro,x.foto_path,{strict:!x.foto_path});
-      const avatar = url || PH40;
-      const dlabel = displayStatus(x);
-      const chip = statusChip(dlabel);
+    const linhas=await Promise.all(data.map(async x=>{
+      const url=await getFotoUrlFlexible(x.registro,x.foto_path,{strict:!x.foto_path});
+      const avatar=url||PH40;
+      const dlabel=displayStatus(x);
+      const chip=statusChip(dlabel);
       return `<tr>
-        <td><img src="${avatar}" width="40" height="40" style="border-radius:6px;object-fit:cover;border:1px solid #ddd" onerror="this.src='${PH40}'"></td>
+        <td><img src="${avatar}" width="40" height="40" style="border-radius:10px;object-fit:cover;border:1px solid var(--line);background:#f2f5fa" onerror="this.src='${PH40}'"></td>
         <td>${x.registro}</td>
         <td>${x.nome||''}</td>
         <td>${x.sigla||''}</td>
@@ -238,12 +271,10 @@
         <td><a class="btn sm" target="_blank" href="public.html?reg=${x.registro}">Público</a></td>
       </tr>`;
     }));
-
     $('#tbody').innerHTML = linhas.join('') || '<tr><td colspan="9" class="label-like">Nenhum registro</td></tr>';
     $('#count').textContent = String(data.length)+' registro(s)';
   }
 
-  // eventos
   $('#btnReload')?.addEventListener('click', carregarLista);
   $('#f_sigla').addEventListener('change', carregarLista);
   $('#f_status').addEventListener('change', carregarLista);
@@ -253,9 +284,7 @@
       window['_deb'+id]=setTimeout(carregarLista,250);
     });
   });
-  document.addEventListener('change',(e)=>{
-    if (e.target?.classList?.contains('f_tipo')) carregarLista();
-  });
+  document.addEventListener('change',(e)=>{ if (e.target?.classList?.contains('f_tipo')) carregarLista(); });
 
   bindSortHeaders();
   await carregarCombos();
