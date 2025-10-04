@@ -4,18 +4,16 @@
   <meta charset="utf-8">
   <title>Consulta – CETESB Credenciais</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link href="style.css?v=254" rel="stylesheet">
+  <link href="style.css?v=256" rel="stylesheet">
   <meta name="color-scheme" content="light">
   <link rel="icon" href="data:,">
   <style>
-    /* === Alinhamento consistente do header com o conteúdo === */
-    .header .container,
-    main .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding-left: 24px;
-      padding-right: 24px;
-    }
+    .wrap{max-width:1200px;margin:0 auto;padding:0 24px}
+    .header{border-bottom:1px solid #eef2f7;background:#fbfdff}
+    .header .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
+    .brand{display:flex;align-items:center;gap:10px}
+    .brand h1{font-size:18px;margin:0}
+    .actions{display:flex;gap:10px}
 
     .label-like{ font-size:12px; color:#64748b }
     .muted{ color:#6b7280 }
@@ -32,7 +30,7 @@
 </head>
 <body>
 <header class="header">
-  <div class="container">
+  <div class="wrap">
     <div class="brand">
       <img src="media/cetesb-logo.png" alt="CETESB" onerror="this.style.display='none'">
       <h1>CETESB – Consulta de Credenciais</h1>
@@ -44,95 +42,97 @@
   </div>
 </header>
 
-<main class="container">
-  <section class="card pad">
-    <h2 class="card-title">Lista e filtros</h2>
+<main>
+  <div class="wrap">
+    <section class="card pad">
+      <h2 class="card-title">Lista e filtros</h2>
 
-    <div class="filters-row">
-      <div class="stack grow">
-        <label class="label-like" for="f_nome">Nome</label>
-        <input id="f_nome" class="input" placeholder="Ex.: MARIA">
+      <div class="filters-row">
+        <div class="stack grow">
+          <label class="label-like" for="f_nome">Nome</label>
+          <input id="f_nome" class="input" placeholder="Ex.: MARIA">
+        </div>
+
+        <div class="stack">
+          <label class="label-like" for="f_reg">Matrícula</label>
+          <input id="f_reg" class="input" placeholder="Ex.: 000123" maxlength="6">
+        </div>
+
+        <div class="stack">
+          <label class="label-like" for="f_numero">Número (credencial)</label>
+          <input id="f_numero" class="input" placeholder="Ex.: 0042" maxlength="4">
+        </div>
+
+        <div class="stack">
+          <label class="label-like" for="f_status">Status</label>
+          <select id="f_status" class="input">
+            <option value="">Todos</option>
+            <option>Ativo</option>
+            <option>Em andamento</option>
+            <option>Inativo</option>
+          </select>
+        </div>
+
+        <div class="stack">
+          <label class="label-like" for="f_sigla">Unidade</label>
+          <select id="f_sigla" class="input"></select>
+        </div>
+
+        <div class="stack" style="flex:1 1 100%">
+          <span class="label-like">Tipo</span>
+          <div id="tiposBox" class="tags"><span class="muted">carregando…</span></div>
+        </div>
+
+        <div class="filters-actions">
+          <button id="btnReload" class="btn">Recarregar</button>
+        </div>
       </div>
 
-      <div class="stack">
-        <label class="label-like" for="f_reg">Matrícula</label>
-        <input id="f_reg" class="input" placeholder="Ex.: 000123" maxlength="6">
+      <div class="scroll">
+        <table class="table" id="tabela">
+          <thead>
+            <tr>
+              <th style="width:56px">Foto</th>
+              <th class="sortable" data-col="registro">Matrícula</th>
+              <th class="sortable" data-col="nome">Nome</th>
+              <th class="sortable" data-col="sigla">Unidade</th>
+              <th class="sortable" data-col="cred_num">Número</th>
+              <th class="sortable" data-col="cred_cod">Tipo</th>
+              <th class="sortable" data-col="validade">Validade</th>
+              <th class="sortable" data-col="status">Status</th>
+              <th style="width:120px">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
       </div>
 
-      <div class="stack">
-        <label class="label-like" for="f_numero">Número (credencial)</label>
-        <input id="f_numero" class="input" placeholder="Ex.: 0042" maxlength="4">
-      </div>
-
-      <div class="stack">
-        <label class="label-like" for="f_status">Status</label>
-        <select id="f_status" class="input">
-          <option value="">Todos</option>
-          <option>Ativo</option>
-          <option>Em andamento</option>
-          <option>Inativo</option>
-        </select>
-      </div>
-
-      <div class="stack">
-        <label class="label-like" for="f_sigla">Unidade</label>
-        <select id="f_sigla" class="input"></select>
-      </div>
-
-      <div class="stack" style="flex:1 1 100%">
-        <span class="label-like">Tipo</span>
-        <div id="tiposBox" class="tags"><span class="muted">carregando…</span></div>
-      </div>
-
-      <div class="filters-actions">
-        <button id="btnReload" class="btn">Recarregar</button>
-      </div>
-    </div>
-
-    <div class="scroll">
-      <table class="table" id="tabela">
-        <thead>
-          <tr>
-            <th style="width:56px">Foto</th>
-            <th class="sortable" data-col="registro">Matrícula</th>
-            <th class="sortable" data-col="nome">Nome</th>
-            <th class="sortable" data-col="sigla">Unidade</th>
-            <th class="sortable" data-col="cred_num">Número</th>
-            <th class="sortable" data-col="cred_cod">Tipo</th>
-            <th class="sortable" data-col="validade">Validade</th>
-            <th class="sortable" data-col="status">Status</th>
-            <th style="width:120px">Ações</th>
-          </tr>
-        </thead>
-        <tbody id="tbody"></tbody>
-      </table>
-    </div>
-
-    <div id="count" class="label-like">0 registro(s)</div>
-  </section>
+      <div id="count" class="label-like">0 registro(s)</div>
+    </section>
+  </div>
 </main>
 
-<footer class="footer"><div class="container">Piloto – CETESB</div></footer>
+<footer class="footer"><div class="wrap">Piloto – CETESB</div></footer>
 
 <script type="module">
   const $  = (s)=>document.querySelector(s);
   const fmt = (iso)=> iso ? new Date(iso).toLocaleDateString('pt-BR') : '';
   const PH40  = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect width='100%25' height='100%25' fill='%23eef2f7' rx='8' ry='8'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='16' fill='%2390a4b8'>?</text></svg>";
 
-  // config
+  // Config
   let cfg; { const r=await fetch('config.json',{cache:'no-store'}); if(!r.ok){ alert('Falha ao carregar config.json'); throw new Error('config.json HTTP '+r.status);} cfg=JSON.parse(await r.text()); }
 
-  // supabase
+  // Supabase
   const supa = await import('https://esm.sh/@supabase/supabase-js@2');
   const supabase = supa.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
-  // foto utils (consulta usa fallback sempre)
+  // Foto utils
   const splitDir=(b)=>{const i=b.lastIndexOf('/');return i===-1?{dir:'',name:b}:{dir:b.slice(0,i),name:b.slice(i+1)};}
   async function objectExists(bucket, fullpath){const t=splitDir(fullpath);const r=await supabase.storage.from(bucket).list(t.dir||'',{search:t.name,limit:1});if(r.error)return false;return (r.data||[]).some(x=>x.name===t.name);}
   async function getFotoUrlIfExists(path){const bucket=cfg.storageBucket||'fotos';if(!await objectExists(bucket,path))return null;const s=await supabase.storage.from(bucket).createSignedUrl(path,3600);if(s?.data?.signedUrl)return s.data.signedUrl;const p=supabase.storage.from(bucket).getPublicUrl(path);return p?.data?.publicUrl||null;}
   async function getFotoUrl(reg, foto_path){const list=[];if(foto_path)list.push(foto_path);list.push(reg+'.png',reg+'.jpg',reg+'.jpeg');for(const k of list){const u=await getFotoUrlIfExists(k);if(u)return u}return null;}
 
-  // combos
+  // Combos
   async function carregarCombos(){
     const [u,c]=await Promise.all([
       supabase.from('unidades').select('sigla').order('sigla'),
@@ -144,7 +144,7 @@
   }
   const tiposSelecionados=()=>Array.from(document.querySelectorAll('.f_tipo:checked')).map(el=>el.value);
 
-  // ordenação
+  // Ordenação
   let sortCol='registro', sortAsc=true;
   function bindSortHeaders(){
     document.querySelectorAll('th.sortable').forEach(th=>{
@@ -152,7 +152,19 @@
     });
   }
 
-  // lista (com busca parcial de matrícula e número)
+  // Filtro robusto de status (variações)
+  function applyStatusFilter(query, fs) {
+    if (!fs) return query;
+    const map = {
+      'Ativo': ['Ativo','ATIVO','ativo'],
+      'Inativo': ['Inativo','INATIVO','inativo','Inativo/Vencido','INATIVO/VENCIDO','inativo/vencido'],
+      'Em andamento': ['Em andamento','EM ANDAMENTO','em andamento']
+    };
+    const variants = map[fs] || [fs];
+    return query.in('status', variants);
+  }
+
+  // Lista (busca parcial p/ matrícula e número)
   async function carregarLista(){
     const nome=$('#f_nome').value.trim();
     const regPart=$('#f_reg').value.trim();
@@ -164,8 +176,7 @@
     let query = supabase.from('empregados').select('registro,nome,sigla,cred_num,cred_cod,validade,status,foto_path');
 
     if(nome) query = query.ilike('nome', `%${nome}%`);
-    // matrícula e número: filtrar no cliente para garantir parcial
-    if(fs)   query = query.eq('status', fs);
+    query = applyStatusFilter(query, fs);
     if(fSig) query = query.eq('sigla', fSig);
     if(fTipos.length) query = query.in('cred_cod', fTipos.map(Number));
 
@@ -181,10 +192,9 @@
     const linhas = await Promise.all(data.map(async x=>{
       const url = await getFotoUrl(x.registro, x.foto_path);
       const avatar = url || PH40;
-      const ok = (x.status==='Ativo' && x.validade && new Date(x.validade) >= new Date(new Date().toDateString()));
+      const ok=(x.status==='Ativo' && x.validade && new Date(x.validade) >= new Date(new Date().toDateString()));
       const chip = ok ? '<span class="chip success">Ativo</span>' :
-                (x.status==='Em andamento' ? '<span class="chip warn">Em andamento</span>' :
-                                              '<span class="chip danger">Inativo</span>');
+                (x.status==='Em andamento' ? '<span class="chip warn">Em andamento</span>' : '<span class="chip danger">Inativo</span>');
       return `<tr>
         <td><img src="${avatar}" alt="foto" width="40" height="40" style="border-radius:6px;object-fit:cover;border:1px solid #ddd" onerror="this.src='${PH40}'"></td>
         <td>${x.registro}</td>
@@ -202,14 +212,14 @@
     $('#count').textContent = String(data.length)+' registro(s)';
   }
 
-  // filtros
+  // Eventos
   $('#btnReload').addEventListener('click', carregarLista);
   $('#f_sigla').addEventListener('change', carregarLista);
   $('#f_status').addEventListener('change', carregarLista);
   ['f_numero','f_reg','f_nome'].forEach(id=> $('#'+id).addEventListener('input', ()=>{ clearTimeout(window['_d'+id]); window['_d'+id]=setTimeout(carregarLista,250); }));
   $('#tiposBox').addEventListener('change', carregarLista);
 
-  // init
+  // Init
   bindSortHeaders();
   await carregarCombos();
   await carregarLista();
