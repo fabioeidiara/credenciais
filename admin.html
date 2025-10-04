@@ -4,14 +4,25 @@
   <meta charset="utf-8">
   <title>Admin – CETESB Credenciais</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link href="style.css?v=249" rel="stylesheet">
+  <link href="style.css?v=250" rel="stylesheet">
   <meta name="color-scheme" content="light">
   <link rel="icon" href="data:,">
   <style>
     .label-like{ font-size:12px; color:#64748b; }
     .file-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap }
     .file-row .btn{ margin:0 }
+    .filters{ display:grid; grid-template-columns: 1fr 150px 160px 180px; gap:10px; align-items:end }
+    .filters .w-full{ grid-column: 1 / -1 }
+    .filters .stack{ display:flex; flex-direction:column; gap:6px }
+    .tags{ display:flex; gap:10px; flex-wrap:wrap; padding:8px 10px; border-radius:10px; border:1px solid #e5e7eb; }
+    .tbl-check{ width: 34px }
+    .muted{ color:#6b7280 }
+    @media (max-width: 900px){
+      .filters{ grid-template-columns: 1fr 1fr; }
+    }
   </style>
+  <!-- QR code lib (gera PNG local, sem API externa) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 </head>
 <body>
 <header class="header">
@@ -104,35 +115,62 @@
     <section class="card pad">
       <h2 class="card-title">Lista e filtros</h2>
 
-      <div class="row" style="gap:10px;align-items:flex-start;flex-wrap:wrap">
-        <input id="q" class="input" style="flex:1 1 220px" placeholder="Buscar por nome, registro, número">
-        <input id="f_numero" class="input" style="width:120px" placeholder="Número">
-        <select id="f_status" class="input" style="min-width:140px">
-          <option value="">Todos</option>
-          <option>Ativo</option>
-          <option>Em andamento</option>
-          <option>Inativo</option>
-        </select>
-        <select id="f_sigla" class="input" style="min-width:140px"></select>
+      <div class="filters">
+        <div class="stack w-full">
+          <label class="label-like" for="q">Buscar (nome / matrícula / número-credencial)</label>
+          <input id="q" class="input" placeholder="Ex.: MARIA / 000123 / 42">
+        </div>
 
-        <div id="tiposBox" class="card" style="padding:8px 10px;border-radius:10px;display:flex;gap:8px;flex-wrap:wrap"></div>
+        <div class="stack">
+          <label class="label-like" for="f_numero">Número (credencial)</label>
+          <input id="f_numero" class="input" placeholder="Ex.: 42">
+        </div>
 
-        <button id="btnReload" class="btn">Recarregar</button>
+        <div class="stack">
+          <label class="label-like" for="f_status">Status</label>
+          <select id="f_status" class="input">
+            <option value="">Todos</option>
+            <option>Ativo</option>
+            <option>Em andamento</option>
+            <option>Inativo</option>
+          </select>
+        </div>
+
+        <div class="stack">
+          <label class="label-like" for="f_sigla">Unidade</label>
+          <select id="f_sigla" class="input"></select>
+        </div>
+
+        <div class="stack w-full">
+          <span class="label-like">Tipo</span>
+          <div id="tiposBox" class="tags"><span class="muted">carregando…</span></div>
+        </div>
+
+        <div class="stack">
+          <label class="label-like">&nbsp;</label>
+          <button id="btnReload" class="btn">Recarregar</button>
+        </div>
+
+        <div class="stack">
+          <label class="label-like">&nbsp;</label>
+          <button id="btnQrSelecionados" class="btn">Baixar QR selecionados</button>
+        </div>
       </div>
 
       <div class="scroll">
         <table class="table">
           <thead>
             <tr>
+              <th class="tbl-check"><input id="chkAll" type="checkbox" title="Marcar todos"></th>
               <th style="width:56px">Foto</th>
-              <th>Registro</th>
+              <th>Matrícula</th>
               <th>Nome</th>
               <th>Unidade</th>
               <th>Número</th>
               <th>Tipo</th>
               <th>Validade</th>
               <th>Status</th>
-              <th style="width:140px">Ações</th>
+              <th style="width:180px">Ações</th>
             </tr>
           </thead>
           <tbody id="tbody"></tbody>
@@ -181,6 +219,7 @@
   const createClient = supa.createClient;
   const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
+  // === fotos: helpers ===
   const normalizeFotoPath = (p)=> String(p||'').replace(/^fotos\//i,'');
   const splitDir = (basepath)=>{ const i=basepath.lastIndexOf('/'); return i===-1?{dir:'',name:basepath}:{dir:basepath.slice(0,i),name:basepath.slice(i+1)}; };
   async function objectExists(bucket, fullpath){
@@ -199,33 +238,21 @@
     if(p && p.data && p.data.publicUrl) return p.data.publicUrl;
     return null;
   }
-
-  // getFotoUrlFlexible com modo estrito
   async function getFotoUrlFlexible(reg, foto_path, opts){
     const strict = !!(opts && opts.strict);
     const list = [];
-
     if (foto_path) {
       list.push(normalizeFotoPath(foto_path));
-      // se foto_path existir mas estiver quebrado, podemos tentar outras extensões
-      if(!strict){
-        list.push(reg + '.png', reg + '.jpg', reg + '.jpeg');
-      }
+      if(!strict) list.push(reg + '.png', reg + '.jpg', reg + '.jpeg');
     } else {
-      // sem foto_path: no admin, usamos strict para NÃO procurar fallback
-      if(!strict){
-        list.push(reg + '.png', reg + '.jpg', reg + '.jpeg');
-      }
+      if(!strict) list.push(reg + '.png', reg + '.jpg', reg + '.jpeg');
     }
-
     for (let i=0;i<list.length;i++){
       const url = await getFotoUrlIfExists(list[i]);
       if(url) return url;
     }
     return null;
   }
-
-  // Remove todas as variantes conhecidas de uma matrícula
   async function deleteAllKnownPhotos(reg, currentKey){
     const bucket = cfg.storageBucket || 'fotos';
     const keys = [reg+'.png', reg+'.jpg', reg+'.jpeg'];
@@ -233,11 +260,8 @@
       const cur = normalizeFotoPath(currentKey);
       if (!keys.includes(cur)) keys.push(cur);
     }
-    // remove ignora inexistentes
     try { await supabase.storage.from(bucket).remove(keys); } catch(_) {}
   }
-
-  // Após upload, remova extensões concorrentes para não ressuscitar imagens antigas
   async function removeOtherExtAfterUpload(reg, keepKey){
     const keep = normalizeFotoPath(keepKey);
     const bucket = cfg.storageBucket || 'fotos';
@@ -245,8 +269,20 @@
     const toRemove = all.filter(k => k !== keep);
     try { await supabase.storage.from(bucket).remove(toRemove); } catch(_) {}
   }
+  async function uploadFotoSeHouver(reg){
+    const file = $('#arquivoFoto').files && $('#arquivoFoto').files[0];
+    if(!file) return null;
+    const ext = (file.name.split('.').pop() || 'png').toLowerCase();
+    const key = `${reg}.${ext}`;
+    const bucket = cfg.storageBucket || 'fotos';
+    const contentType = file.type || (ext==='png'?'image/png':(ext==='jpg'||ext==='jpeg')?'image/jpeg':'application/octet-stream');
+    const up = await supabase.storage.from(bucket).upload(key, file, { upsert:true, contentType });
+    if(up.error){ throw new Error(up.error.message || 'Falha no upload da foto'); }
+    await removeOtherExtAfterUpload(reg, key);
+    return key;
+  }
 
-  // ===== Combos / UNITS_MAP =====
+  // === Combos / filtros ===
   const UNITS_MAP = Object.create(null);
 
   async function carregarCombos(){
@@ -260,15 +296,20 @@
     $('#cred_cod').innerHTML = cr.map(x=>`<option value="${x.cred_cod}">${x.cred_cod} – ${x.descricao||''}</option>`).join('');
     $('#f_sigla').innerHTML  = `<option value="">Todas</option>` + un.map(x=>`<option value="${x.sigla}">${x.sigla}</option>`).join('');
 
+    // Corrige bug: usar 'cr' (não c.data) para renderizar checkboxes
     const tipos = $('#tiposBox');
-    tipos.innerHTML = `<span class="label-like">Tipo:</span>` + cr.map(x=>`
-      <label class="label-like" style="display:inline-flex;align-items:center;gap:6px">
-        <input type="checkbox" class="f_tipo" value="${x.cred_cod}"> ${x.cred_cod}
-      </label>`).join('');
+    if(cr.length){
+      tipos.innerHTML = cr.map(x=>`
+        <label class="label-like" style="display:inline-flex;align-items:center;gap:6px">
+          <input type="checkbox" class="f_tipo" value="${x.cred_cod}"> ${x.cred_cod}
+        </label>`).join('');
+    }else{
+      tipos.innerHTML = `<span class="muted">Nenhum tipo cadastrado</span>`;
+    }
   }
   const tiposSelecionados = ()=> Array.from(document.querySelectorAll('.f_tipo:checked')).map(el=>el.value);
 
-  // ===== Lista =====
+  // === Lista ===
   async function carregarLista(){
     const q  = $('#q').value.trim();
     const fs = $('#f_status').value;
@@ -292,8 +333,7 @@
     const data = res.data || [];
 
     const linhas = await Promise.all(data.map(async (x)=>{
-      // se não tem foto_path -> strict:true (não usar fallback no admin)
-      const strict = !x.foto_path;
+      const strict = !x.foto_path; // sem fallback no admin quando não há foto_path
       const fotoUrl = await getFotoUrlFlexible(x.registro, x.foto_path, {strict});
       const avatar = fotoUrl || PH40;
 
@@ -303,6 +343,7 @@
                                               '<span class="chip danger">Inativo</span>');
 
       return `<tr data-reg="${x.registro}">
+        <td class="tbl-check"><input type="checkbox" class="chkRow" value="${x.registro}"></td>
         <td><img src="${avatar}" alt="foto" width="40" height="40" style="border-radius:6px;object-fit:cover;border:1px solid #ddd" onerror="this.src='${PH40}'"></td>
         <td>${x.registro}</td>
         <td>${x.nome||''}</td>
@@ -311,20 +352,36 @@
         <td>${x.cred_cod||''}</td>
         <td>${fmt(x.validade)}</td>
         <td>${chip}</td>
-        <td><button class="btn sm" data-acao="editar">Editar</button> <a class="btn sm" target="_blank" href="public.html?reg=${x.registro}">Público</a></td>
+        <td>
+          <button class="btn sm" data-acao="editar">Editar</button>
+          <a class="btn sm" target="_blank" href="public.html?reg=${x.registro}">Público</a>
+          <button class="btn sm" data-acao="qr">QR</button>
+        </td>
       </tr>`;
     }));
 
-    $('#tbody').innerHTML = linhas.join('') || '<tr><td colspan="9" class="muted">Nenhum registro</td></tr>';
+    $('#tbody').innerHTML = linhas.join('') || '<tr><td colspan="10" class="muted">Nenhum registro</td></tr>';
     $('#count').textContent = String(data.length)+' registro(s)';
+
+    // select all
+    $('#chkAll').checked = false;
+    $('#chkAll').addEventListener('change', (ev)=>{
+      document.querySelectorAll('.chkRow').forEach(ch=> ch.checked = ev.target.checked);
+    });
   }
 
-  // ===== Editar → form =====
+  // === Editar → form
   $('#tbody').addEventListener('click', async (ev)=>{
-    const btn = ev.target.closest && ev.target.closest('[data-acao="editar"]');
-    if(!btn) return;
-    const tr = ev.target.closest('tr'); const reg = tr && tr.getAttribute('data-reg'); if(!reg) return;
+    const qrBtn = ev.target.closest && ev.target.closest('[data-acao="qr"]');
+    const editBtn = ev.target.closest && ev.target.closest('[data-acao="editar"]');
+    const tr = ev.target.closest('tr'); const reg = tr && tr.getAttribute('data-reg'); if(!tr) return;
 
+    if(qrBtn){
+      gerarQrDownload(reg);
+      return;
+    }
+
+    if(!editBtn) return;
     const res = await supabase.from('empregados').select('*').eq('registro', reg).maybeSingle();
     if(res.error){ alert('Erro ao carregar registro'); return; }
     const d = res.data || {};
@@ -338,50 +395,33 @@
     $('#status').value    = d.status || 'Em andamento';
     $('#doe').value       = d.doe || '';
 
-    // strict:true se foto_path estiver vazio
     const url = await getFotoUrlFlexible(d.registro, d.foto_path, {strict: !d.foto_path});
     $('#preview').src = url || PH120;
     $('#arquivoFoto').value='';
   });
 
-  // ===== Remover foto =====
+  // === Remover foto
   $('#btnRemoverFoto').addEventListener('click', async ()=>{
     const reg = $('#registro').value.trim();
     if(!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).');
 
-    // pega a foto atual do DB
     const cur = await supabase.from('empregados').select('foto_path').eq('registro', reg).maybeSingle();
-    const key = normalizeFotoPath(cur.data && cur.data.foto_path);
+    const key = cur.data && cur.data.foto_path ? cur.data.foto_path : null;
 
-    // remove todas as variantes conhecidas + a atual
     await deleteAllKnownPhotos(reg, key);
-
-    // zera no banco
     await supabase.from('empregados').update({ foto_path: null }).eq('registro', reg);
 
-    // zera no form + preview
     $('#arquivoFoto').value='';
     $('#preview').src = PH120;
-
-    // atualiza a linha na lista (sem fallback!)
     await carregarLista();
   });
 
-  // ===== Upload integrado ao Salvar =====
-  async function uploadFotoSeHouver(reg){
-    const file = $('#arquivoFoto').files && $('#arquivoFoto').files[0];
-    if(!file) return null;
-    const ext = (file.name.split('.').pop() || 'png').toLowerCase();
-    const key = `${reg}.${ext}`;
-    const bucket = cfg.storageBucket || 'fotos';
-    const contentType = file.type || (ext==='png'?'image/png':(ext==='jpg'||ext==='jpeg')?'image/jpeg':'application/octet-stream');
-
-    const up = await supabase.storage.from(bucket).upload(key, file, { upsert:true, contentType });
-    if(up.error){ throw new Error(up.error.message || 'Falha no upload da foto'); }
-
-    // limpa concorrentes (outras extensões) para não ressuscitar
-    await removeOtherExtAfterUpload(reg, key);
-    return key;
+  // === Salvar (com upload da foto se houver)
+  async function nomeUnidade(sig){
+    if(UNITS_MAP[sig]!=null) return UNITS_MAP[sig];
+    const ru = await supabase.from('unidades').select('nome_da_unidade').eq('sigla', sig).maybeSingle();
+    const v = (ru && ru.data && ru.data.nome_da_unidade) || '';
+    UNITS_MAP[sig]=v; return v;
   }
 
   $('#formCad').addEventListener('submit', async (ev)=>{
@@ -391,17 +431,11 @@
     if(!/^\d{6}$/.test(reg)) return alert('Registro inválido (6 dígitos).');
 
     const sig = $('#sigla').value;
-    let nomeUn = UNITS_MAP[sig];
-    if(nomeUn==null){
-      const ru = await supabase.from('unidades').select('nome_da_unidade').eq('sigla', sig).maybeSingle();
-      nomeUn = (ru && ru.data && ru.data.nome_da_unidade) || '';
-    }
-
     const payload = {
       registro: reg,
       nome: $('#nome').value.trim(),
       sigla: sig,
-      nome_da_unidade: nomeUn,
+      nome_da_unidade: await nomeUnidade(sig),
       cred_cod: Number($('#cred_cod').value),
       cred_num: $('#cred_num').value.trim(),
       validade: $('#validade').value,
@@ -410,14 +444,12 @@
     };
 
     try{
-      // sobe foto (se houver) e injeta foto_path
       const fotoKey = await uploadFotoSeHouver(reg);
       if(fotoKey) payload.foto_path = fotoKey;
 
       const resp = await supabase.from('empregados').upsert(payload, { onConflict:'registro' });
       if(resp.error) throw new Error(resp.error.message || 'Erro ao salvar');
 
-      // atualiza preview respeitando strict
       const url = await getFotoUrlFlexible(reg, fotoKey || null, {strict: !fotoKey});
       $('#preview').src = url || PH120;
       $('#arquivoFoto').value='';
@@ -430,7 +462,60 @@
     }
   });
 
-  // ===== Interações filtros =====
+  // === QR Code ===
+  function publicUrlFor(reg){
+    const base = new URL('public.html', location.href);
+    base.searchParams.set('reg', reg);
+    return base.href;
+  }
+  async function gerarQrDataUrl(reg, size=512){
+    const url = publicUrlFor(reg);
+    return await QRCode.toDataURL(url, {
+      width: size,
+      margin: 2,
+      errorCorrectionLevel: 'M' // suficiente para impressão clara
+    });
+  }
+  function downloadDataUrl(dataUrl, filename){
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+  async function gerarQrDownload(reg){
+    try{
+      const png = await gerarQrDataUrl(reg, 512);
+      downloadDataUrl(png, `QR_${reg}.png`);
+    }catch(e){
+      console.error(e);
+      alert('Falha ao gerar QR.');
+    }
+  }
+
+  // Botão “Gerar QR” (lado do form) — usa o valor digitado
+  $('#btnQR').addEventListener('click', async ()=>{
+    const reg = $('#registro').value.trim();
+    if(!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).');
+    await gerarQrDownload(reg);
+  });
+
+  // Baixar QR selecionados (em lote)
+  $('#btnQrSelecionados').addEventListener('click', async ()=>{
+    const regs = Array.from(document.querySelectorAll('.chkRow:checked')).map(ch=>ch.value);
+    if(!regs.length) return alert('Selecione ao menos um registro.');
+    for (const r of regs){
+      try{
+        const png = await gerarQrDataUrl(r, 512);
+        downloadDataUrl(png, `QR_${r}.png`);
+      }catch(e){
+        console.error('QR falhou para', r, e);
+      }
+    }
+  });
+
+  // === Interações filtros
   $('#btnReload').addEventListener('click', carregarLista);
   $('#q').addEventListener('input', ()=>{ clearTimeout(window._deb); window._deb=setTimeout(carregarLista,250); });
   $('#f_sigla').addEventListener('change', carregarLista);
@@ -438,7 +523,7 @@
   $('#f_numero').addEventListener('input', ()=>{ clearTimeout(window._deb2); window._deb2=setTimeout(carregarLista,250); });
   $('#tiposBox').addEventListener('change', carregarLista);
 
-  // ===== Init =====
+  // === Init
   await carregarCombos();
   await carregarLista();
 </script>
