@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>Credencial do Agente – CETESB</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link href="style.css" rel="stylesheet">
+  <link href="style.css?v=233" rel="stylesheet">
   <meta name="color-scheme" content="light">
 </head>
 <body>
@@ -16,25 +16,31 @@
       <h1>CETESB – Credencial do Agente</h1>
     </div>
     <div class="actions">
-      <a class="btn" href="index.html">Área restrita</a>
+      <a class="btn" href="index.html">Início</a>
     </div>
   </div>
 </header>
 
-<main class="container public-center">
+<main class="container">
   <!-- CARD -->
   <div id="card" class="card pad hidden">
-    <div class="qr-card">
-      <img id="foto" class="avatar" src="https://via.placeholder.com/120x120?text=sem+foto" alt="Foto do agente">
-      <div>
+    <div class="grid grid-2">
+      <div class="col photo-col">
+        <img id="foto" alt="Foto do agente" width="120" height="120"
+             style="border-radius:8px;object-fit:cover;border:1px solid #ddd"
+             src="https://via.placeholder.com/120x120?text=sem+foto">
+      </div>
+      <div class="col">
         <h2 id="nome">—</h2>
-        <p class="muted" id="desc">—</p>
-        <div class="pillrow mt-8">
-          <span id="statusChip" class="chip">Status</span>
-          <span id="validadeChip" class="chip">Validade</span>
+        <div class="row" style="gap:8px;align-items:center">
+          <div class="muted">Registro:</div>
+          <div id="registro">—</div>
+          <div id="chipStatus" class="chip">—</div>
         </div>
-        <div class="row mt-12"><div class="label">Nº da credencial:</div><div id="crednum">—</div></div>
-        <div class="row"><div class="label">Registro:</div><div id="registro">—</div></div>
+
+        <hr>
+        <div class="row"><div class="label">Credencial:</div><div id="credencial">—</div></div>
+        <div class="row"><div class="label">Validade:</div><div id="validade">—</div></div>
         <div class="row"><div class="label">Unidade:</div><div id="unidade">—</div></div>
       </div>
     </div>
@@ -42,81 +48,101 @@
 
   <!-- ALERTAS (abaixo do card) -->
   <div id="loading" class="alert"><div><strong>Carregando…</strong> Aguarde um instante.</div></div>
-  <div id="notfound" class="alert error hidden"><div><strong>Registro não encontrado ou credencial inativa.</strong><div class="small">Verifique o número ou entre em contato com a CETESB.</div></div></div>
+  <div id="notfound" class="alert error hidden"><div><strong>Registro não encontrado.</strong> Verifique o número ou entre em contato com a CETESB.</div></div>
 
-  <p class="footer">Confirme o domínio: <strong>*.github.io</strong> (piloto) ou <strong>*.cetesb.sp.gov.br</strong> (produção).</p>
+  <p class="footer">
+    Confirme o domínio: <strong>*.github.io</strong> (piloto) ou <strong>*.cetesb.sp.gov.br</strong> (produção).
+  </p>
 </main>
 
 <script type="module">
 (async () => {
-  const $ = (s)=>document.querySelector(s);
-  const show = (el, v=true)=> el.classList.toggle('hidden', !v);
-  const fail = (msg)=>{ $('#loading').innerHTML = `<div><strong>${msg}</strong></div>`; };
+  const $  = (s)=>document.querySelector(s);
+  const qs = (key)=> new URL(location.href).searchParams.get(key);
 
-  const todayZero = ()=>{ const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); };
-  const isVigente = (iso)=>{ if(!iso) return false; const [y,m,d]=iso.split('-').map(Number); return new Date(y,m-1,d) >= todayZero(); };
+  const show = (el, on)=> el?.classList[on ? 'remove' : 'add']('hidden');
+  const formatData = (iso)=> iso ? new Date(iso).toLocaleDateString('pt-BR') : '';
 
-  // config
-  let cfg;
-  try{
-    const res = await fetch('config.json', {cache:'no-store'});
-    if(!res.ok) throw new Error('config.json '+res.status);
-    cfg = await res.json();
-  }catch(e){ fail('Falha ao carregar configuração.'); console.error(e); return; }
-
-  // sdk
-  let createClient;
-  try{
-    ({ createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'));
-  }catch(e2){ fail('Falha ao carregar SDK do Supabase.'); console.error(e2); return; }
-
-  const reg = (new URLSearchParams(location.search).get('reg')||'').trim();
-  if(!/^[0-9]{6}$/.test(reg)){ fail('Parâmetro inválido. Use ?reg=000001'); return; }
-
-  const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
-  const empResp = await supabase.from('empregados')
-    .select('registro,cred_num,validade,status,nome,sigla,nome_da_unidade,cred_cod,foto_path')
-    .eq('registro', reg).maybeSingle();
-
-  if(empResp.error){ fail('Erro ao consultar a credencial.'); console.error(empResp.error); return; }
-  const emp = empResp.data;
-  if(!emp){ show($('#loading'), false); show($('#notfound'), true); return; }
-
-  let descricao = '—';
-  if (emp.cred_cod != null){
-    const cResp = await supabase.from('credenciais').select('descricao').eq('cred_cod', emp.cred_cod).maybeSingle();
-    if(!cResp.error && cResp.data) descricao = cResp.data.descricao;
+  // 1) Lê parametro ?reg=000001
+  const reg = qs('reg');
+  if (!/^\d{6}$/.test(reg||'')) {
+    $('#loading').innerHTML = '<div><strong>Parâmetro inválido.</strong> Use ?reg=000001</div>';
+    return;
   }
 
-  const vigente = isVigente(emp.validade);
-  let label = 'Inativo', cls = 'inativo';
-  if (emp.status === 'Em andamento'){ label = 'Em andamento'; cls = 'andamento'; }
-  else if (emp.status === 'Ativo' && vigente){ label = 'Ativo'; cls = 'ativo'; }
+  // 2) Carrega config de forma robusta
+  let cfg;
+  try {
+    const res = await fetch('config.json', { cache: 'no-store' });
+    if (!res.ok) throw new Error(`config.json HTTP ${res.status}`);
+    const txt = await res.text();
+    try { cfg = JSON.parse(txt); }
+    catch(e){ console.error('config.json inválido:', txt); alert('config.json inválido'); throw e; }
+  } catch (e) {
+    console.error('Falha ao carregar config.json', e);
+    alert('Falha ao carregar config.json');
+    return;
+  }
 
-  const validadeFmt = emp.validade ? (()=>{ const [y,m,d]=emp.validade.split('-'); return `${d}/${m}/${y}`; })() : '—';
+  // 3) Supabase
+  import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+  const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
-  $('#nome').textContent = emp.nome||'—';
-  $('#registro').textContent = emp.registro||'—';
-  $('#crednum').textContent = emp.cred_num||'—';
-  $('#unidade').textContent = emp.nome_da_unidade ? `${emp.nome_da_unidade} (${emp.sigla})` : (emp.sigla||'—');
-  $('#desc').textContent = descricao||'—';
+  // helpers de foto
+  const normalizeFotoPath = (p)=> String(p||'').replace(/^fotos\//i,'');
+  const buildFotoUrl = (foto_path)=>{
+    if (!foto_path) return null;
+    const bucket = (cfg.storageBucket || 'fotos');
+    const path = normalizeFotoPath(foto_path);
+    const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+    return data?.publicUrl || null;
+  };
 
-  const st = $('#statusChip'); st.textContent = label; st.className = 'chip ' + cls;
-  $('#validadeChip').textContent = `Validade: ${validadeFmt}`;
+  // 4) Consulta o empregado e (opcional) a descrição da credencial
+  const empQ = supabase.from('empregados')
+    .select('registro,nome,sigla,nome_da_unidade,cred_cod,cred_num,validade,status,foto_path')
+    .eq('registro', reg).maybeSingle();
 
+  const crQ  = supabase.from('credenciais')
+    .select('cred_cod,descricao');
+
+  const [{ data: emp, error: eEmp }, { data: catCred, error: eCr }] = await Promise.all([empQ, crQ]);
+
+  if (eEmp) { console.error(eEmp); $('#loading').innerHTML = '<div>Erro ao carregar dados.</div>'; return; }
+  if (!emp) { show($('#loading'), false); show($('#notfound'), true); return; }
+
+  // mapa de credenciais
+  const mapCred = Object.fromEntries((catCred||[]).map(x=>[String(x.cred_cod), x.descricao]));
+  const credDesc = mapCred[String(emp.cred_cod)] || `Tipo ${emp.cred_cod}`;
+
+  // 5) Preenche campos
+  $('#nome').textContent     = emp.nome || '—';
+  $('#registro').textContent = emp.registro || '—';
+  $('#credencial').textContent = `${credDesc}${emp.cred_num ? ' • Nº ' + emp.cred_num : ''}`;
+  $('#validade').textContent = formatData(emp.validade);
+  $('#unidade').textContent  = emp.nome_da_unidade ? `${emp.sigla} – ${emp.nome_da_unidade}` : (emp.sigla || '—');
+
+  // status derivado pela validade
+  const chip = $('#chipStatus');
+  const hoje0 = new Date(); hoje0.setHours(0,0,0,0);
+  let cls = 'chip';
+  let label = '—';
+  if (emp.status === 'Em andamento') { cls += ' warn'; label = 'Em andamento'; }
+  else if (emp.status === 'Ativo' && emp.validade && new Date(emp.validade) >= hoje0) { cls += ' success'; label = 'Ativo'; }
+  else { cls += ' danger'; label = 'Inativo/Vencido'; }
+  chip.className = cls; chip.textContent = label;
+
+  // 6) Foto (com normalização do caminho e fallback)
   const fotoEl = $('#foto');
   if (emp.foto_path){
-    const bucket = (cfg.storageBucket || 'fotos');
-    // normaliza: remove qualquer prefixo "fotos/" que tenha vindo no DB
-    const path = String(emp.foto_path || '').replace(/^fotos\//i, '');
-    const pub  = supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
-
+    const url = buildFotoUrl(emp.foto_path);
     fotoEl.onerror = ()=>{ fotoEl.src='https://via.placeholder.com/120x120?text=sem+foto'; };
-    fotoEl.src = pub;
+    fotoEl.src = url || 'https://via.placeholder.com/120x120?text=sem+foto';
   } else {
     fotoEl.src='https://via.placeholder.com/120x120?text=sem+foto';
   }
 
+  // exibe cartão
   show($('#loading'), false);
   show($('#card'), true);
 })();
