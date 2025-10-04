@@ -8,6 +8,15 @@
   <meta name="color-scheme" content="light">
   <link rel="icon" href="data:,">
   <style>
+    /* === Alinhamento consistente do header com o conteúdo === */
+    .header .container,
+    main .container {
+      max-width: 1200px;           /* ajuste fino: use o mesmo valor do seu layout */
+      margin: 0 auto;
+      padding-left: 24px;          /* idem do conteúdo */
+      padding-right: 24px;
+    }
+
     .label-like{ font-size:12px; color:#64748b; }
     .file-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap }
     .file-row .btn{ margin:0 }
