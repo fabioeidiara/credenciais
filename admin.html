@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>Admin – CETESB Credenciais</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link href="style.css?v=224" rel="stylesheet">
+  <link href="style.css?v=232" rel="stylesheet">
   <meta name="color-scheme" content="light">
 </head>
 <body>
@@ -15,7 +15,7 @@
       <h1>CETESB – Administração de Credenciais</h1>
     </div>
     <div class="actions">
-      <a class="btn" href="consulta.html">Cadastro</a>
+      <a class="btn" href="consulta.html">Consulta</a>
       <a class="btn" href="change-password.html">Senha</a>
       <button id="btnSair" class="btn danger">Sair</button>
     </div>
@@ -89,7 +89,8 @@
           <div class="field media-preview">
             <div>
               <label>Pré-visualização</label>
-              <img id="preview" class="avatar" alt="Prévia" src="https://via.placeholder.com/120x120?text=pre%CC%81via">
+              <img id="preview" class="avatar" alt="Prévia"
+                   src="https://via.placeholder.com/120x120?text=pre%CC%81via">
             </div>
           </div>
         </div>
@@ -148,7 +149,7 @@
   const toast = (t, kind='success')=>{
     const el = $('#toast'); const m = $('#toastMsg');
     el.className = 'toast alert '+(kind==='error'?'error':kind==='warn'?'warn':'success');
-    m.textContent = t; el.classList.remove('hidden'); setTimeout(()=>el.classList.add('hidden'), 1800);
+    m.textContent = t; el.classList.remove('hidden'); setTimeout(()=>el.classList.add('hidden'), 2200);
   };
 
   // Sessão
@@ -238,50 +239,67 @@
     img.src = url;
   });
 
-  // Lista + filtros
+  // LISTA + FILTROS (com erro detalhado)
   async function carregarLista(){
-    const q = ($('#q').value||'').trim().toLowerCase();
-    const fSigla = $('#f_sigla').value||''; const fStatus = $('#f_status').value||'';
-    let query = supabase.from('empregados')
-      .select('registro,nome,sigla,validade,status', { count:'exact' })
-      .order('registro', { ascending:true });
+    try {
+      const q = ($('#q').value||'').trim().toLowerCase();
+      const fSigla = $('#f_sigla').value||''; 
+      const fStatus = $('#f_status').value||'';
 
-    if (fSigla) query = query.eq('sigla', fSigla);
-    if (q) query = query.or(`nome.ilike.%${q}%,registro.ilike.%${q}%`);
+      let query = supabase
+        .from('empregados')
+        .select('registro,nome,sigla,validade,status', { count:'exact' })
+        .order('registro', { ascending:true });
 
-    const { data, error } = await query;
-    if (error){ console.error(error); toast('Erro ao carregar lista','error'); return; }
-    let rows = data||[];
-    if (fStatus) rows = rows.filter(r=> statusDerivado(r).label === fStatus);
+      if (fSigla) query = query.eq('sigla', fSigla);
+      if (q)     query = query.or(`nome.ilike.%${q}%,registro.ilike.%${q}%`);
 
-    const tbody = $('#tbody');
-    tbody.innerHTML = rows.map(r=>{
-      const sd = statusDerivado(r);
-      return `<tr>
-        <td>${r.registro}</td>
-        <td>${r.nome||'—'}</td>
-        <td>${r.sigla||'—'}</td>
-        <td>${fmtBR(r.validade)||'—'}</td>
-        <td><span class="chip ${sd.cls}">${sd.label}</span></td>
-        <td class="right table-actions">
-          <button class="btn" data-edit="${r.registro}">Editar</button>
-          <a class="btn" target="_blank" rel="noopener" href="public.html?reg=${r.registro}">Abrir</a>
-        </td>
-      </tr>`;
-    }).join('');
+      const { data, error } = await query;
 
-    tbody.querySelectorAll('button[data-edit]').forEach(btn=>{
-      btn.addEventListener('click', ()=> editar(btn.getAttribute('data-edit')));
-    });
+      if (error) {
+        console.error('ERRO SELECT empregados:', error);
+        toast('Erro ao carregar lista: ' + (error.message || JSON.stringify(error)), 'error');
+        $('#tbody').innerHTML = '';
+        $('#count').textContent = '0 registro(s)';
+        return;
+      }
 
-    $('#count').textContent = `${rows.length} registro(s)`;
+      let rows = data||[];
+      if (fStatus) rows = rows.filter(r=> statusDerivado(r).label === fStatus);
+
+      const tbody = $('#tbody');
+      tbody.innerHTML = rows.map(r=>{
+        const sd = statusDerivado(r);
+        return `<tr>
+          <td>${r.registro}</td>
+          <td>${r.nome||'—'}</td>
+          <td>${r.sigla||'—'}</td>
+          <td>${fmtBR(r.validade)||'—'}</td>
+          <td><span class="chip ${sd.cls}">${sd.label}</span></td>
+          <td class="right table-actions">
+            <button class="btn" data-edit="${r.registro}">Editar</button>
+            <a class="btn" target="_blank" rel="noopener" href="public.html?reg=${r.registro}">Abrir</a>
+          </td>
+        </tr>`;
+      }).join('');
+
+      tbody.querySelectorAll('button[data-edit]').forEach(btn=>{
+        btn.addEventListener('click', ()=> editar(btn.getAttribute('data-edit')));
+      });
+
+      $('#count').textContent = `${rows.length} registro(s)`;
+
+    } catch (e) {
+      console.error('EXCEPTION carregarLista:', e);
+      toast('Falha inesperada ao listar: ' + (e.message||e), 'error');
+    }
   }
 
   async function editar(registro){
     const { data, error } = await supabase.from('empregados')
       .select('registro,cred_num,cred_cod,status,nome,sigla,nome_da_unidade,validade,doe,foto_path')
       .eq('registro', registro).maybeSingle();
-    if (error || !data){ toast('Erro ao abrir','error'); return; }
+    if (error || !data){ toast('Erro ao abrir: '+(error?.message||'registro não encontrado'),'error'); return; }
 
     $('#formCad').reset();
     $('#registro').value = data.registro||'';
@@ -328,12 +346,12 @@
     if(!confirm(`Excluir ${reg}?`)) return;
 
     const { error } = await supabase.from('empregados').delete().eq('registro', reg);
-    if(error){ console.error(error); toast('Erro ao excluir','error'); return; }
+    if(error){ console.error(error); toast('Erro ao excluir: '+error.message,'error'); return; }
 
     try{
       const bucket = (cfg.storageBucket || 'fotos');
       await supabase.storage.from(bucket).remove([`${reg}.jpg`, `${reg}.png`]);
-    }catch(e){}
+    }catch(e){ console.warn('remover fotos (warning):', e); }
 
     $('#btnNovo').click();
     carregarLista();
@@ -348,7 +366,7 @@
     window.open(`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}`,'_blank','noopener');
   });
 
-  // Salvar
+  // Salvar (com fallback se não houver índice único para onConflict)
   $('#formCad').addEventListener('submit', async (ev)=>{
     ev.preventDefault();
 
@@ -368,48 +386,56 @@
 
     const payload = { registro, cred_num, cred_cod, status, nome, sigla, nome_da_unidade, validade, doe };
 
-    // Upsert (não toca no foto_path se não enviar arquivo)
-    const { error } = await supabase.from('empregados').upsert(payload, { onConflict:'registro' });
-    if (error){ console.error(error); toast('Erro ao salvar','error'); return; }
+    // Tenta upsert com onConflict; se o esquema não tiver índice único, cai no fallback
+    let upErr = null;
+    {
+      const { error } = await supabase.from('empregados').upsert(payload, { onConflict:'registro' });
+      if (error) upErr = error;
+    }
+    if (upErr) {
+      console.warn('UPSERT onConflict falhou:', upErr.message || upErr);
+      // Fallback: decide por update/insert manual
+      const { data:ex } = await supabase.from('empregados').select('registro').eq('registro', registro).maybeSingle();
+      if (ex) {
+        const { error:e2 } = await supabase.from('empregados').update(payload).eq('registro', registro);
+        if (e2){ console.error('UPDATE error:', e2); toast('Erro ao salvar: '+(e2.message||'update'), 'error'); return; }
+      } else {
+        const { error:e3 } = await supabase.from('empregados').insert(payload);
+        if (e3){ console.error('INSERT error:', e3); toast('Erro ao salvar: '+(e3.message||'insert'), 'error'); return; }
+      }
+    }
 
-    // Upload da foto (opcional) — PATCH DIAGNÓSTICO
+    // Upload da foto (opcional) — com diagnóstico
     const file = $('#fotoInput').files?.[0];
     if (file) {
       const ext = (file.name.split('.').pop()||'jpg').toLowerCase();
       const bucket = (cfg.storageBucket || 'fotos');
-      const path = `${registro}.${ext}`; // sem prefixo "fotos/"
-    
-      // Desliga momentaneamente a prévia “intranet” para não conflitar
+      const path = `${registro}.${ext}`; // SEM prefixo “fotos/”
+
       fotoFonte = 'upload';
-    
       try {
         console.log('Uploading to bucket:', bucket, 'path:', path, 'file:', file && file.name);
-    
-        // remove versões antigas (jpg/png) – ignore erro silenciosamente
+
         try { await supabase.storage.from(bucket).remove([`${registro}.jpg`, `${registro}.png`]); } catch (e) {
           console.warn('remove(old) warning:', e);
         }
-    
+
         const up = await supabase.storage.from(bucket)
           .upload(path, file, { upsert:true, cacheControl:'3600', contentType:file.type||'image/jpeg' });
-    
+
         console.log('Upload response:', up);
-    
+
         if (up.error) {
-          // Mostra mensagem de erro clara
           const msg = up.error.message || JSON.stringify(up.error);
           console.error('UPLOAD ERROR:', up.error);
           toast(`Erro ao subir a foto: ${msg}`, 'error');
-          // Volta a prévia a um estado neutro
           $('#preview').src = 'https://via.placeholder.com/120x120?text=pre%CC%81via';
         } else {
-          // Atualiza o caminho no banco
           const upd = await supabase.from('empregados').update({ foto_path: path }).eq('registro', registro);
           if (upd.error) {
             console.error('DB foto_path update error:', upd.error);
             toast(`Erro ao salvar caminho da foto: ${upd.error.message}`, 'error');
           } else {
-            // Gera URL pública oficial
             const pub = supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
             $('#preview').src = pub;
             toast(`Foto enviada: ${path}`, 'success');
@@ -419,12 +445,6 @@
         console.error('UPLOAD EXCEPTION:', e);
         toast(`Falha inesperada no upload: ${e.message||e}`, 'error');
         $('#preview').src = 'https://via.placeholder.com/120x120?text=pre%CC%81via';
-      }
-    } else {
-        await supabase.from('empregados').update({ foto_path: path }).eq('registro', registro);
-        const pub = supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
-        $('#preview').src = pub;
-        fotoFonte = 'storage';
       }
     }
 
