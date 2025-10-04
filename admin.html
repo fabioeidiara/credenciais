@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>Admin – CETESB Credenciais</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link href="style.css?v=248" rel="stylesheet">
+  <link href="style.css?v=249" rel="stylesheet">
   <meta name="color-scheme" content="light">
   <link rel="icon" href="data:,">
   <style>
@@ -148,244 +148,279 @@
 
 <script type="module">
   // ===== Helpers =====
-  function $(s){ return document.querySelector(s); }
-  function fmt(iso){ return iso ? new Date(iso).toLocaleDateString('pt-BR') : ''; }
+  const $  = (s)=>document.querySelector(s);
+  const fmt = (iso)=> iso ? new Date(iso).toLocaleDateString('pt-BR') : '';
 
-  // Placeholders embutidos
-  var PH120 = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><rect width='100%25' height='100%25' fill='%23eef2f7' rx='12' ry='12'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='12' fill='%2390a4b8'>sem foto</text></svg>";
-  var PH40  = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect width='100%25' height='100%25' fill='%23eef2f7' rx='8' ry='8'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='16' fill='%2390a4b8'>?</text></svg>";
+  // Placeholders
+  const PH120 = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><rect width='100%25' height='100%25' fill='%23eef2f7' rx='12' ry='12'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='12' fill='%2390a4b8'>sem foto</text></svg>";
+  const PH40  = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect width='100%25' height='100%25' fill='%23eef2f7' rx='8' ry='8'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='16' fill='%2390a4b8'>?</text></svg>";
   $('#preview').src = PH120;
 
   // Sair / Trocar senha
-  $('#btnSair')?.addEventListener('click', function(){ localStorage.removeItem('sessaoUsuario'); location.href='index.html'; });
-  $('#btnChangePass')?.addEventListener('click', function(){ location.href='change-password.html'; });
+  $('#btnSair')?.addEventListener('click', ()=>{ localStorage.removeItem('sessaoUsuario'); location.href='index.html'; });
+  $('#btnChangePass')?.addEventListener('click', ()=>{ location.href='change-password.html'; });
 
   // Arquivo
-  $('#btnEscolherArquivo').addEventListener('click', function(){ $('#arquivoFoto').click(); });
-  $('#arquivoFoto').addEventListener('change', function(ev){
-    var f = ev.target.files && ev.target.files[0];
-    if(!f){ $('#preview').src = PH120; return; }
-    $('#preview').src = URL.createObjectURL(f);
+  $('#btnEscolherArquivo').addEventListener('click', ()=> $('#arquivoFoto').click());
+  $('#arquivoFoto').addEventListener('change', (ev)=>{
+    const f = ev.target.files && ev.target.files[0];
+    $('#preview').src = f ? URL.createObjectURL(f) : PH120;
   });
 
-  // ===== config.json =====
-  var cfg;
+  // ===== config =====
+  let cfg;
   try{
-    var r = await fetch('config.json', { cache:'no-store' });
+    const r = await fetch('config.json', { cache:'no-store' });
     if(!r.ok) throw new Error('config.json HTTP '+r.status);
-    var txt = await r.text();
-    try{ cfg = JSON.parse(txt); }catch(e){ console.error('config.json inválido:', txt); alert('config.json inválido'); throw e; }
+    const txt = await r.text();
+    cfg = JSON.parse(txt);
   }catch(e){ console.error(e); alert('Falha ao carregar config.json'); throw e; }
 
   // ===== Supabase =====
   const supa = await import('https://esm.sh/@supabase/supabase-js@2');
   const createClient = supa.createClient;
-  var supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+  const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
-  function normalizeFotoPath(p){ return String(p||'').replace(/^fotos\//i,''); }
-  function splitDir(basepath){
-    var i = basepath.lastIndexOf('/');
-    return i === -1 ? { dir:'', name:basepath } : { dir:basepath.slice(0,i), name:basepath.slice(i+1) };
-  }
+  const normalizeFotoPath = (p)=> String(p||'').replace(/^fotos\//i,'');
+  const splitDir = (basepath)=>{ const i=basepath.lastIndexOf('/'); return i===-1?{dir:'',name:basepath}:{dir:basepath.slice(0,i),name:basepath.slice(i+1)}; };
   async function objectExists(bucket, fullpath){
-    var t = splitDir(fullpath);
-    var res = await supabase.storage.from(bucket).list(t.dir || '', { search: t.name, limit: 1 });
+    const t = splitDir(fullpath);
+    const res = await supabase.storage.from(bucket).list(t.dir || '', { search:t.name, limit:1 });
     if(res.error) return false;
-    return (res.data||[]).some(function(x){ return x.name === t.name; });
+    return (res.data||[]).some(x=>x.name===t.name);
   }
   async function getFotoUrlIfExists(path){
-    var bucket = cfg.storageBucket || 'fotos';
-    var ok = await objectExists(bucket, path);
+    const bucket = cfg.storageBucket || 'fotos';
+    const ok = await objectExists(bucket, path);
     if(!ok) return null;
-    var s = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
+    const s = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
     if(s && !s.error && s.data && s.data.signedUrl) return s.data.signedUrl;
-    var p = supabase.storage.from(bucket).getPublicUrl(path);
+    const p = supabase.storage.from(bucket).getPublicUrl(path);
     if(p && p.data && p.data.publicUrl) return p.data.publicUrl;
     return null;
   }
-  async function getFotoUrlFlexible(reg, foto_path){
-    var candidates = [];
-    if (foto_path) candidates.push(normalizeFotoPath(foto_path));
-    candidates.push(reg + '.png', reg + '.jpg', reg + '.jpeg');
-    for (var i=0;i<candidates.length;i++){
-      var url = await getFotoUrlIfExists(candidates[i]);
+
+  // getFotoUrlFlexible com modo estrito
+  async function getFotoUrlFlexible(reg, foto_path, opts){
+    const strict = !!(opts && opts.strict);
+    const list = [];
+
+    if (foto_path) {
+      list.push(normalizeFotoPath(foto_path));
+      // se foto_path existir mas estiver quebrado, podemos tentar outras extensões
+      if(!strict){
+        list.push(reg + '.png', reg + '.jpg', reg + '.jpeg');
+      }
+    } else {
+      // sem foto_path: no admin, usamos strict para NÃO procurar fallback
+      if(!strict){
+        list.push(reg + '.png', reg + '.jpg', reg + '.jpeg');
+      }
+    }
+
+    for (let i=0;i<list.length;i++){
+      const url = await getFotoUrlIfExists(list[i]);
       if(url) return url;
     }
     return null;
   }
 
-  // ===== Combos =====
-  // Cache de sigla -> nome_da_unidade para cumprir NOT NULL
-  var UNITS_MAP = Object.create(null);
+  // Remove todas as variantes conhecidas de uma matrícula
+  async function deleteAllKnownPhotos(reg, currentKey){
+    const bucket = cfg.storageBucket || 'fotos';
+    const keys = [reg+'.png', reg+'.jpg', reg+'.jpeg'];
+    if (currentKey) {
+      const cur = normalizeFotoPath(currentKey);
+      if (!keys.includes(cur)) keys.push(cur);
+    }
+    // remove ignora inexistentes
+    try { await supabase.storage.from(bucket).remove(keys); } catch(_) {}
+  }
+
+  // Após upload, remova extensões concorrentes para não ressuscitar imagens antigas
+  async function removeOtherExtAfterUpload(reg, keepKey){
+    const keep = normalizeFotoPath(keepKey);
+    const bucket = cfg.storageBucket || 'fotos';
+    const all = [reg+'.png', reg+'.jpg', reg+'.jpeg'];
+    const toRemove = all.filter(k => k !== keep);
+    try { await supabase.storage.from(bucket).remove(toRemove); } catch(_) {}
+  }
+
+  // ===== Combos / UNITS_MAP =====
+  const UNITS_MAP = Object.create(null);
 
   async function carregarCombos(){
-    var resU = await supabase.from('unidades').select('sigla,nome_da_unidade').order('sigla');
-    var resC = await supabase.from('credenciais').select('cred_cod,descricao').order('cred_cod');
+    const [u,c] = await Promise.all([
+      supabase.from('unidades').select('sigla,nome_da_unidade').order('sigla'),
+      supabase.from('credenciais').select('cred_cod,descricao').order('cred_cod')
+    ]);
+    const un = u.data||[], cr = c.data||[];
 
-    var u = resU.data || [], c = resC.data || [];
+    $('#sigla').innerHTML    = un.map(x=>{ UNITS_MAP[x.sigla]=x.nome_da_unidade||''; return `<option value="${x.sigla}">${x.sigla} – ${x.nome_da_unidade||''}</option>`; }).join('');
+    $('#cred_cod').innerHTML = cr.map(x=>`<option value="${x.cred_cod}">${x.cred_cod} – ${x.descricao||''}</option>`).join('');
+    $('#f_sigla').innerHTML  = `<option value="">Todas</option>` + un.map(x=>`<option value="${x.sigla}">${x.sigla}</option>`).join('');
 
-    // popula selects
-    $('#sigla').innerHTML    = u.map(function(x){ 
-      UNITS_MAP[x.sigla] = x.nome_da_unidade || ''; 
-      return '<option value="'+x.sigla+'">'+x.sigla+' – '+(x.nome_da_unidade||'')+'</option>'; 
-    }).join('');
-    $('#cred_cod').innerHTML = c.map(function(x){ return '<option value="'+x.cred_cod+'">'+x.cred_cod+' – '+(x.descricao||'')+'</option>'; }).join('');
-    document.getElementById('f_sigla').innerHTML  = '<option value="">Todas</option>'+u.map(function(x){ return '<option value="'+x.sigla+'">'+x.sigla+'</option>'; }).join('');
-
-    // tipos (checkboxes)
-    var tipos = document.getElementById('tiposBox');
-    tipos.innerHTML = '<span class="label-like">Tipo:</span>' + (c.data||[]).map(function(x){
-      return '<label class="label-like" style="display:inline-flex;align-items:center;gap:6px"><input type="checkbox" class="f_tipo" value="'+x.cred_cod+'"> '+x.cred_cod+'</label>';
-    }).join('');
+    const tipos = $('#tiposBox');
+    tipos.innerHTML = `<span class="label-like">Tipo:</span>` + cr.map(x=>`
+      <label class="label-like" style="display:inline-flex;align-items:center;gap:6px">
+        <input type="checkbox" class="f_tipo" value="${x.cred_cod}"> ${x.cred_cod}
+      </label>`).join('');
   }
-
-  function filtrosTiposSelecionados(){
-    return Array.prototype.slice.call(document.querySelectorAll('.f_tipo:checked')).map(function(el){ return el.value; });
-  }
+  const tiposSelecionados = ()=> Array.from(document.querySelectorAll('.f_tipo:checked')).map(el=>el.value);
 
   // ===== Lista =====
   async function carregarLista(){
-    var q = document.getElementById('q').value.trim();
-    var fs = document.getElementById('f_status').value;
-    var fSig = document.getElementById('f_sigla').value;
-    var fNum = document.getElementById('f_numero').value.trim();
-    var fTipos = filtrosTiposSelecionados();
+    const q  = $('#q').value.trim();
+    const fs = $('#f_status').value;
+    const fSig = $('#f_sigla').value;
+    const fNum = $('#f_numero').value.trim();
+    const fTipos = tiposSelecionados();
 
-    var query = supabase.from('empregados').select('registro,nome,sigla,cred_num,cred_cod,validade,status,foto_path').order('registro');
+    let query = supabase.from('empregados').select('registro,nome,sigla,cred_num,cred_cod,validade,status,foto_path').order('registro');
 
     if(q){
-      var isNum = /^\d+$/.test(q);
-      query = isNum ? query.or('registro.eq.'+q+',cred_num.eq.'+q) : query.ilike('nome', '%'+q+'%');
+      const isNum = /^\d+$/.test(q);
+      query = isNum ? query.or(`registro.eq.${q},cred_num.eq.${q}`) : query.ilike('nome', `%${q}%`);
     }
     if(fs)   query = query.eq('status', fs);
     if(fSig) query = query.eq('sigla', fSig);
     if(fNum) query = query.eq('cred_num', fNum);
     if(fTipos.length) query = query.in('cred_cod', fTipos.map(Number));
 
-    var res = await query;
+    const res = await query;
     if(res.error){ console.error(res.error); alert('Erro ao carregar lista'); return; }
-    var data = res.data || [];
+    const data = res.data || [];
 
-    var linhas = await Promise.all(data.map(async function(x){
-      var fotoUrl = await getFotoUrlFlexible(x.registro, x.foto_path);
-      var avatar = fotoUrl || PH40;
+    const linhas = await Promise.all(data.map(async (x)=>{
+      // se não tem foto_path -> strict:true (não usar fallback no admin)
+      const strict = !x.foto_path;
+      const fotoUrl = await getFotoUrlFlexible(x.registro, x.foto_path, {strict});
+      const avatar = fotoUrl || PH40;
 
-      var ok = (x.status==='Ativo' && x.validade && new Date(x.validade) >= new Date(new Date().toDateString()));
-      var chip = ok ? '<span class="chip success">Ativo</span>' :
+      const ok = (x.status==='Ativo' && x.validade && new Date(x.validade) >= new Date(new Date().toDateString()));
+      const chip = ok ? '<span class="chip success">Ativo</span>' :
                 (x.status==='Em andamento' ? '<span class="chip warn">Em andamento</span>' :
                                               '<span class="chip danger">Inativo</span>');
 
-      return '<tr data-reg="'+x.registro+'">'+
-        '<td><img src="'+avatar+'" alt="foto" width="40" height="40" style="border-radius:6px;object-fit:cover;border:1px solid #ddd" onerror="this.src=\''+PH40+'\'"></td>'+
-        '<td>'+x.registro+'</td>'+
-        '<td>'+(x.nome||'')+'</td>'+
-        '<td>'+(x.sigla||'')+'</td>'+
-        '<td>'+(x.cred_num||'')+'</td>'+
-        '<td>'+(x.cred_cod||'')+'</td>'+
-        '<td>'+fmt(x.validade)+'</td>'+
-        '<td>'+chip+'</td>'+
-        '<td><button class="btn sm" data-acao="editar">Editar</button> <a class="btn sm" target="_blank" href="public.html?reg='+x.registro+'">Público</a></td>'+
-      '</tr>';
+      return `<tr data-reg="${x.registro}">
+        <td><img src="${avatar}" alt="foto" width="40" height="40" style="border-radius:6px;object-fit:cover;border:1px solid #ddd" onerror="this.src='${PH40}'"></td>
+        <td>${x.registro}</td>
+        <td>${x.nome||''}</td>
+        <td>${x.sigla||''}</td>
+        <td>${x.cred_num||''}</td>
+        <td>${x.cred_cod||''}</td>
+        <td>${fmt(x.validade)}</td>
+        <td>${chip}</td>
+        <td><button class="btn sm" data-acao="editar">Editar</button> <a class="btn sm" target="_blank" href="public.html?reg=${x.registro}">Público</a></td>
+      </tr>`;
     }));
 
-    document.getElementById('tbody').innerHTML = linhas.join('') || '<tr><td colspan="9" class="muted">Nenhum registro</td></tr>';
-    document.getElementById('count').textContent = String(data.length)+' registro(s)';
+    $('#tbody').innerHTML = linhas.join('') || '<tr><td colspan="9" class="muted">Nenhum registro</td></tr>';
+    $('#count').textContent = String(data.length)+' registro(s)';
   }
 
   // ===== Editar → form =====
-  document.getElementById('tbody').addEventListener('click', async function(ev){
-    var btn = ev.target.closest && ev.target.closest('[data-acao="editar"]');
+  $('#tbody').addEventListener('click', async (ev)=>{
+    const btn = ev.target.closest && ev.target.closest('[data-acao="editar"]');
     if(!btn) return;
-    var tr = ev.target.closest('tr'); var reg = tr && tr.getAttribute('data-reg'); if(!reg) return;
+    const tr = ev.target.closest('tr'); const reg = tr && tr.getAttribute('data-reg'); if(!reg) return;
 
-    var res = await supabase.from('empregados').select('*').eq('registro', reg).maybeSingle();
+    const res = await supabase.from('empregados').select('*').eq('registro', reg).maybeSingle();
     if(res.error){ alert('Erro ao carregar registro'); return; }
-    var d = res.data || {};
+    const d = res.data || {};
 
-    document.getElementById('registro').value  = d.registro || '';
-    document.getElementById('nome').value      = d.nome || '';
-    document.getElementById('sigla').value     = d.sigla || '';
-    document.getElementById('cred_cod').value  = d.cred_cod || '';
-    document.getElementById('cred_num').value  = d.cred_num || '';
-    document.getElementById('validade').value  = d.validade ? String(d.validade).slice(0,10) : '';
-    document.getElementById('status').value    = d.status || 'Em andamento';
-    document.getElementById('doe').value       = d.doe || '';
+    $('#registro').value  = d.registro || '';
+    $('#nome').value      = d.nome || '';
+    $('#sigla').value     = d.sigla || '';
+    $('#cred_cod').value  = d.cred_cod || '';
+    $('#cred_num').value  = d.cred_num || '';
+    $('#validade').value  = d.validade ? String(d.validade).slice(0,10) : '';
+    $('#status').value    = d.status || 'Em andamento';
+    $('#doe').value       = d.doe || '';
 
-    var url = await getFotoUrlFlexible(d.registro, d.foto_path);
-    document.getElementById('preview').src = url || PH120;
-    document.getElementById('arquivoFoto').value='';
+    // strict:true se foto_path estiver vazio
+    const url = await getFotoUrlFlexible(d.registro, d.foto_path, {strict: !d.foto_path});
+    $('#preview').src = url || PH120;
+    $('#arquivoFoto').value='';
   });
 
   // ===== Remover foto =====
-  document.getElementById('btnRemoverFoto').addEventListener('click', async function(){
-    var reg = document.getElementById('registro').value.trim();
+  $('#btnRemoverFoto').addEventListener('click', async ()=>{
+    const reg = $('#registro').value.trim();
     if(!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).');
 
-    var cur = await supabase.from('empregados').select('foto_path').eq('registro', reg).maybeSingle();
-    var key = normalizeFotoPath(cur.data && cur.data.foto_path);
-    var bucket = cfg.storageBucket || 'fotos';
-    if(key){ try{ await supabase.storage.from(bucket).remove([key]); }catch(_){} }
+    // pega a foto atual do DB
+    const cur = await supabase.from('empregados').select('foto_path').eq('registro', reg).maybeSingle();
+    const key = normalizeFotoPath(cur.data && cur.data.foto_path);
+
+    // remove todas as variantes conhecidas + a atual
+    await deleteAllKnownPhotos(reg, key);
+
+    // zera no banco
     await supabase.from('empregados').update({ foto_path: null }).eq('registro', reg);
 
-    document.getElementById('preview').src = PH120;
-    document.getElementById('arquivoFoto').value='';
+    // zera no form + preview
+    $('#arquivoFoto').value='';
+    $('#preview').src = PH120;
+
+    // atualiza a linha na lista (sem fallback!)
+    await carregarLista();
   });
 
-  // ===== Salvar (upload integrado) =====
+  // ===== Upload integrado ao Salvar =====
   async function uploadFotoSeHouver(reg){
-    var file = document.getElementById('arquivoFoto').files && document.getElementById('arquivoFoto').files[0];
+    const file = $('#arquivoFoto').files && $('#arquivoFoto').files[0];
     if(!file) return null;
-    var ext = (file.name.split('.').pop() || 'png').toLowerCase();
-    var key = reg+'.'+ext;
-    var bucket = cfg.storageBucket || 'fotos';
-    var contentType = file.type || (ext==='png'?'image/png':(ext==='jpg' || ext==='jpeg')?'image/jpeg':'application/octet-stream');
+    const ext = (file.name.split('.').pop() || 'png').toLowerCase();
+    const key = `${reg}.${ext}`;
+    const bucket = cfg.storageBucket || 'fotos';
+    const contentType = file.type || (ext==='png'?'image/png':(ext==='jpg'||ext==='jpeg')?'image/jpeg':'application/octet-stream');
 
-    var up = await supabase.storage.from(bucket).upload(key, file, { upsert:true, contentType });
+    const up = await supabase.storage.from(bucket).upload(key, file, { upsert:true, contentType });
     if(up.error){ throw new Error(up.error.message || 'Falha no upload da foto'); }
+
+    // limpa concorrentes (outras extensões) para não ressuscitar
+    await removeOtherExtAfterUpload(reg, key);
     return key;
   }
 
-  document.getElementById('formCad').addEventListener('submit', async function(ev){
+  $('#formCad').addEventListener('submit', async (ev)=>{
     ev.preventDefault();
 
-    var reg = document.getElementById('registro').value.trim();
+    const reg = $('#registro').value.trim();
     if(!/^\d{6}$/.test(reg)) return alert('Registro inválido (6 dígitos).');
 
-    var sig = document.getElementById('sigla').value;
-    var nomeUn = UNITS_MAP[sig]; // <- capturamos o nome_da_unidade a partir da sigla
-    if(!nomeUn){ 
-      // fallback de segurança (não deve ocorrer porque combos vêm de 'unidades')
-      var ru = await supabase.from('unidades').select('nome_da_unidade').eq('sigla', sig).maybeSingle();
+    const sig = $('#sigla').value;
+    let nomeUn = UNITS_MAP[sig];
+    if(nomeUn==null){
+      const ru = await supabase.from('unidades').select('nome_da_unidade').eq('sigla', sig).maybeSingle();
       nomeUn = (ru && ru.data && ru.data.nome_da_unidade) || '';
     }
 
-    var payload = {
+    const payload = {
       registro: reg,
-      nome: document.getElementById('nome').value.trim(),
+      nome: $('#nome').value.trim(),
       sigla: sig,
-      nome_da_unidade: nomeUn,            // <- **AGORA PREENCHIDO** (evita NOT NULL)
-      cred_cod: Number(document.getElementById('cred_cod').value),
-      cred_num: document.getElementById('cred_num').value.trim(),
-      validade: document.getElementById('validade').value,
-      status: document.getElementById('status').value,
-      doe: document.getElementById('doe').value.trim() || null
+      nome_da_unidade: nomeUn,
+      cred_cod: Number($('#cred_cod').value),
+      cred_num: $('#cred_num').value.trim(),
+      validade: $('#validade').value,
+      status: $('#status').value,
+      doe: $('#doe').value.trim() || null
     };
 
     try{
-      // 1) sobe foto se houver, e injeta foto_path para salvar junto
-      var fotoKey = await uploadFotoSeHouver(reg);
+      // sobe foto (se houver) e injeta foto_path
+      const fotoKey = await uploadFotoSeHouver(reg);
       if(fotoKey) payload.foto_path = fotoKey;
 
-      // 2) upsert do registro
-      var resp = await supabase.from('empregados').upsert(payload, { onConflict:'registro' });
+      const resp = await supabase.from('empregados').upsert(payload, { onConflict:'registro' });
       if(resp.error) throw new Error(resp.error.message || 'Erro ao salvar');
 
-      // 3) atualiza prévia e limpa input de arquivo
-      if(fotoKey){
-        var url = await getFotoUrlFlexible(reg, fotoKey);
-        document.getElementById('preview').src = url || PH120;
-        document.getElementById('arquivoFoto').value='';
-      }
+      // atualiza preview respeitando strict
+      const url = await getFotoUrlFlexible(reg, fotoKey || null, {strict: !fotoKey});
+      $('#preview').src = url || PH120;
+      $('#arquivoFoto').value='';
 
       await carregarLista();
       alert('Registro salvo com sucesso.');
@@ -396,12 +431,12 @@
   });
 
   // ===== Interações filtros =====
-  document.getElementById('btnReload').addEventListener('click', carregarLista);
-  document.getElementById('q').addEventListener('input', function(){ clearTimeout(window._deb); window._deb=setTimeout(carregarLista,250); });
-  document.getElementById('f_sigla').addEventListener('change', carregarLista);
-  document.getElementById('f_status').addEventListener('change', carregarLista);
-  document.getElementById('f_numero').addEventListener('input', function(){ clearTimeout(window._deb2); window._deb2=setTimeout(carregarLista,250); });
-  document.getElementById('tiposBox').addEventListener('change', carregarLista);
+  $('#btnReload').addEventListener('click', carregarLista);
+  $('#q').addEventListener('input', ()=>{ clearTimeout(window._deb); window._deb=setTimeout(carregarLista,250); });
+  $('#f_sigla').addEventListener('change', carregarLista);
+  $('#f_status').addEventListener('change', carregarLista);
+  $('#f_numero').addEventListener('input', ()=>{ clearTimeout(window._deb2); window._deb2=setTimeout(carregarLista,250); });
+  $('#tiposBox').addEventListener('change', carregarLista);
 
   // ===== Init =====
   await carregarCombos();
