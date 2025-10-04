@@ -4,15 +4,14 @@
   <meta charset="utf-8">
   <title>Credencial do Agente – CETESB</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link href="style.css?v=243" rel="stylesheet">
+  <link href="style.css?v=244" rel="stylesheet">
   <meta name="color-scheme" content="light">
   <link rel="icon" href="data:,">
   <style>
-    /* Layout do cartão público – rótulos e valores com boa hierarquia */
     .kv { display:grid; grid-template-columns:140px 1fr; gap:10px 14px; align-items:center; }
     .kv .k{ color:#6b7280; font-weight:700; }
-    .kv .v{ color:#111827; font-weight:400; } /* valores sem negrito */
-    .kv .v .mono{ font-variant-numeric: tabular-nums; }
+    .kv .v{ color:#111827; font-weight:400; }
+    .kv .mono{ font-variant-numeric:tabular-nums; letter-spacing:.2px; }
     .card-head{ display:flex; align-items:flex-start; gap:18px; }
     .fotoBox{ width:120px; height:120px; border:1px solid #e5e7eb; border-radius:12px; display:flex; align-items:center; justify-content:center; background:#eef2f7; overflow:hidden; }
     .fotoBox img{ width:120px; height:120px; object-fit:cover; }
@@ -49,17 +48,10 @@
           <span id="chipStatus" class="chip">—</span>
         </div>
         <div class="kv">
-          <div class="k">Credencial</div>
-          <div id="credencial" class="v">—</div>
-
-          <div class="k">Número</div>
-          <div id="numero" class="v mono">—</div>
-
-          <div class="k">Validade</div>
-          <div id="validade" class="v">—</div>
-
-          <div class="k">Unidade</div>
-          <div id="unidade" class="v">—</div>
+          <div class="k">Credencial</div><div id="credencial" class="v">—</div>
+          <div class="k">Número</div><div id="numero" class="v mono">—</div>
+          <div class="k">Validade</div><div id="validade" class="v">—</div>
+          <div class="k">Unidade</div><div id="unidade" class="v">—</div>
         </div>
       </div>
     </div>
@@ -82,46 +74,51 @@
   var PH120 = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><rect width='100%25' height='100%25' fill='%23eef2f7' rx='12' ry='12'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='12' fill='%2390a4b8'>sem foto</text></svg>";
   $('#foto').src = PH120;
 
-  // ?reg=
   var reg = qs('reg');
-  if(!/^\d{6}$/.test(reg||'')){
-    $('#loading').innerHTML = '<div><strong>Parâmetro inválido.</strong> Use ?reg=000001</div>';
-    return;
-  }
+  if(!/^\d{6}$/.test(reg||'')){ $('#loading').innerHTML = '<div><strong>Parâmetro inválido.</strong> Use ?reg=000001</div>'; return; }
 
-  // config.json
+  // config
   var cfg;
   try{
     var r = await fetch('config.json',{cache:'no-store'});
     if(!r.ok) throw new Error('config.json HTTP '+r.status);
     var txt = await r.text();
     try{ cfg = JSON.parse(txt); }catch(e){ console.error('config.json inválido:', txt); alert('config.json inválido'); return; }
-  }catch(e){
-    console.error('Falha ao carregar config.json', e);
-    alert('Falha ao carregar config.json');
-    return;
-  }
+  }catch(e){ console.error('Falha ao carregar config.json', e); alert('Falha ao carregar config.json'); return; }
 
-  // Supabase (import compatível)
+  // Supabase
   const supa = await import('https://esm.sh/@supabase/supabase-js@2');
   const createClient = supa.createClient;
   var supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
   function normalizeFotoPath(p){ return String(p||'').replace(/^fotos\//i,''); }
-  async function getFotoUrlFlexible(reg, foto_path){
+  function splitDir(basepath){
+    var i = basepath.lastIndexOf('/');
+    return i === -1 ? { dir:'', name:basepath } : { dir:basepath.slice(0,i), name:basepath.slice(i+1) };
+  }
+  async function objectExists(bucket, fullpath){
+    var t = splitDir(fullpath);
+    var res = await supabase.storage.from(bucket).list(t.dir || '', { search: t.name, limit: 1 });
+    if(res.error) return false;
+    return (res.data||[]).some(function(x){ return x.name === t.name; });
+  }
+  async function getFotoUrlIfExists(path){
     var bucket = cfg.storageBucket || 'fotos';
+    var ok = await objectExists(bucket, path);
+    if(!ok) return null;
+    var s = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
+    if(s && !s.error && s.data && s.data.signedUrl) return s.data.signedUrl;
+    var p = supabase.storage.from(bucket).getPublicUrl(path);
+    if(p && p.data && p.data.publicUrl) return p.data.publicUrl;
+    return null;
+  }
+  async function getFotoUrlFlexible(reg, foto_path){
     var candidates = [];
     if (foto_path) candidates.push(normalizeFotoPath(foto_path));
     candidates.push(reg + '.png', reg + '.jpg', reg + '.jpeg');
-
     for (var i=0;i<candidates.length;i++){
-      var path = candidates[i];
-      try{
-        var s = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
-        if (s && !s.error && s.data && s.data.signedUrl) return s.data.signedUrl;
-        var p = supabase.storage.from(bucket).getPublicUrl(path);
-        if (p && p.data && p.data.publicUrl) return p.data.publicUrl;
-      }catch(_){}
+      var url = await getFotoUrlIfExists(candidates[i]);
+      if(url) return url;
     }
     return null;
   }
@@ -145,7 +142,7 @@
   (catCred||[]).forEach(function(x){ mapCred[String(x.cred_cod)] = x.descricao; });
   var credDesc = mapCred[String(emp.cred_cod)] || ('Tipo '+emp.cred_cod);
 
-  // Preenche (valores sem negrito; número separado)
+  // Preenche
   $('#nome').textContent      = emp.nome || '—';
   $('#registro').textContent  = emp.registro || '—';
   $('#credencial').textContent= credDesc || '—';
@@ -160,11 +157,10 @@
   chip.className = 'chip ' + (emp.status==='Em andamento' ? 'warn' : (ativoValido ? 'success' : 'danger'));
   chip.textContent = (emp.status==='Em andamento' ? 'Em andamento' : (ativoValido ? 'Ativo' : 'Inativo/Vencido'));
 
-  // Foto (pública/assinada) – tenta por foto_path; senão, tenta 000001.png/.jpg/.jpeg
+  // Foto
   var url = await getFotoUrlFlexible(emp.registro, emp.foto_path);
   $('#foto').src = url || PH120;
 
-  // Mostrar
   show($('#loading'), false);
   show($('#card'), true);
 })();
