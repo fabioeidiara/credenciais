@@ -4,30 +4,29 @@
   <meta charset="utf-8">
   <title>Admin – CETESB Credenciais</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link href="style.css?v=257" rel="stylesheet">
+  <link href="style.css?v=258" rel="stylesheet">
   <meta name="color-scheme" content="light">
   <link rel="icon" href="data:,">
   <style>
-    /* usar a MESMA .container do seu style.css para header e conteúdo */
+    /* Usar a MESMA .container do seu style.css no header e no conteúdo */
     .header { border-bottom:1px solid #eef2f7; background:#fbfdff; }
-    .header .container { display:flex; align-items:center; justify-content:space-between; height:64px; }
+    .header .container { display:flex; align-items:center; height:64px; }
+    .header .actions { margin-left:auto; display:flex; gap:10px; }
     .brand{display:flex; align-items:center; gap:10px}
     .brand h1{font-size:18px; margin:0}
-    .actions{display:flex; gap:10px}
 
-    /* complementos estáveis */
+    /* Complementos estáveis */
     .label-like{ font-size:12px; color:#64748b }
     .muted{ color:#6b7280 }
     .input::placeholder{ color:#a8b3c0; opacity:1 }
 
-    /* filtros: manter 1ª linha estável, sem pular de linha por texto longo */
+    /* Tabela e rolagem */
+    .table { table-layout: fixed; }
+    .scroll { overflow-x: auto; }
+
+    /* Filtros: manter 1ª linha estável em telas largas */
     .filters-row{ display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end }
     .filters-row .stack{ display:flex; flex-direction:column; gap:6px }
-    /* bases estáveis por coluna da 1ª linha */
-    #f_nome{ min-width:240px; }
-    #f_reg{ min-width:160px; }
-    #f_numero{ min-width:160px; }
-    #f_status{ min-width:140px; }
     .filters-row .grow{ flex:1 1 240px }
     .tags{ display:flex; gap:10px; flex-wrap:wrap; padding:8px 10px; border-radius:10px; border:1px solid #e5e7eb }
     .filters-actions{ width:100%; display:flex; justify-content:center; gap:12px; margin-top:6px }
@@ -37,9 +36,18 @@
     .file-row .btn{ margin:0 }
     .tbl-check{ width:34px }
 
-    /* ordenação sem ícones */
+    /* Ordenação: sem ícones */
     th.sortable{ cursor:pointer; user-select:none }
     th.sortable:hover{ text-decoration: underline dotted }
+
+    @media (min-width: 992px){
+      .filters-row{ flex-wrap: nowrap; }
+      .filters-row .stack{ flex: 0 0 auto; }
+      #f_nome{ width:280px; min-width:280px; }
+      #f_reg, #f_numero{ width:180px; min-width:180px; }
+      #f_status{ width:160px; min-width:160px; }
+      #f_sigla{ width:160px; min-width:160px; }
+    }
   </style>
 </head>
 <body>
@@ -260,39 +268,21 @@
   let sortCol='registro', sortAsc=true;
   function bindSortHeaders(){
     document.querySelectorAll('th.sortable').forEach(th=>{
-      th.addEventListener('click', ()=>{
-        const col=th.getAttribute('data-col'); if(!col) return;
-        if(sortCol===col) sortAsc=!sortAsc; else { sortCol=col; sortAsc=true; }
-        carregarLista();
-      });
+      th.onclick=()=>{const col=th.getAttribute('data-col'); if(!col)return; if(sortCol===col)sortAsc=!sortAsc; else{sortCol=col;sortAsc=true;} carregarLista();}
     });
   }
 
-  /* filtro robusto de status */
-  function applyStatusFilter(query, fs) {
-    if (!fs) return query;
-    const map = {
-      'Ativo': ['Ativo','ATIVO','ativo'],
-      'Inativo': ['Inativo','INATIVO','inativo','Inativo/Vencido','INATIVO/VENCIDO','inativo/vencido'],
-      'Em andamento': ['Em andamento','EM ANDAMENTO','em andamento']
-    };
-    const variants = map[fs] || [fs];
-    return query.in('status', variants);
-  }
-
-  /* lista */
+  /* LISTA */
   async function carregarLista(){
     const nome=$('#f_nome').value.trim();
     const regPart=$('#f_reg').value.trim();
     const numPart=$('#f_numero').value.trim();
-    const fs=$('#f_status').value;
     const fSig=$('#f_sigla').value;
     const fTipos=tiposSelecionados();
 
     let query = supabase.from('empregados').select('registro,nome,sigla,cred_num,cred_cod,validade,status,foto_path');
 
     if(nome) query = query.ilike('nome', `%${nome}%`);
-    query = applyStatusFilter(query, fs);
     if(fSig) query = query.eq('sigla', fSig);
     if(fTipos.length) query = query.in('cred_cod', fTipos.map(Number));
 
@@ -302,6 +292,19 @@
     if(res.error){ console.error(res.error); alert('Erro ao carregar lista'); return; }
     let data = res.data || [];
 
+    /* Filtro de status robusto – client-side */
+    const fs = $('#f_status').value;
+    if (fs) {
+      const MAP = {
+        'Ativo': new Set(['Ativo','ATIVO','ativo']),
+        'Inativo': new Set(['Inativo','INATIVO','inativo','Inativo/Vencido','INATIVO/VENCIDO','inativo/vencido']),
+        'Em andamento': new Set(['Em andamento','EM ANDAMENTO','em andamento'])
+      };
+      const wanted = MAP[fs] || new Set([fs]);
+      data = data.filter(r => wanted.has(String(r.status || '').trim()));
+    }
+
+    // busca parcial local
     if(regPart) data = data.filter(x => String(x.registro||'').includes(regPart));
     if(numPart) data = data.filter(x => String(x.cred_num||'').includes(numPart));
 
@@ -383,14 +386,21 @@
   $('#btnQR').addEventListener('click', async ()=>{ try{ const reg=$('#registro').value.trim(); if(!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).'); downloadDataUrl(await gerarQrDataUrl(reg,512),`QR_${reg}.png`);}catch(e){ console.error(e); alert('Falha ao gerar QR.'); } });
   $('#btnQrSelecionados').addEventListener('click', async ()=>{ const regs=Array.from(document.querySelectorAll('.chkRow:checked')).map(ch=>ch.value); if(!regs.length) return alert('Selecione ao menos um registro.'); for(const r of regs){ try{ downloadDataUrl(await gerarQrDataUrl(r,512),`QR_${r}.png`);}catch(e){console.error('QR falhou para',r,e);} } });
 
-  // init
+  // eventos init
   $('#btnReload').addEventListener('click', carregarLista);
   $('#f_sigla').addEventListener('change', carregarLista);
   $('#f_status').addEventListener('change', carregarLista);
   ['f_numero','f_reg','f_nome'].forEach(id=> $('#'+id).addEventListener('input', ()=>{ clearTimeout(window['_deb'+id]); window['_deb'+id]=setTimeout(carregarLista,250); }));
   $('#tiposBox').addEventListener('change', carregarLista);
 
-  bindSortHeaders();
+  // ordenar
+  (function bindSortHeaders(){
+    document.querySelectorAll('th.sortable').forEach(th=>{
+      th.onclick=()=>{const col=th.getAttribute('data-col'); if(!col)return; if(sortCol===col)sortAsc=!sortAsc; else{sortCol=col;sortAsc=true;} carregarLista();}
+    });
+  })();
+  var sortCol='registro', sortAsc=true;
+
   await carregarCombos();
   await carregarLista();
 </script>
