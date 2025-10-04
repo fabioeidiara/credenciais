@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>Admin – CETESB Credenciais</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link href="style.css?v=242" rel="stylesheet">
+  <link href="style.css?v=243" rel="stylesheet">
   <meta name="color-scheme" content="light">
   <link rel="icon" href="data:,">
 </head>
@@ -88,7 +88,7 @@
               <button type="button" class="btn" id="btnUploadFoto">Enviar/Atualizar foto</button>
               <button type="button" class="btn danger" id="btnRemoverFoto">Remover foto</button>
             </div>
-            <small class="muted">O nome do arquivo no Storage será &lt;registro&gt;.jpg/.png</small>
+            <small class="muted">O nome do arquivo no Storage será &lt;registro&gt;.jpg/.png/.jpeg</small>
           </div>
         </div>
 
@@ -142,17 +142,16 @@
 <footer class="footer"><div class="container">Piloto – CETESB</div></footer>
 
 <script type="module">
-  // ===== Utils =====
+  // ===== Helpers =====
   function $(s){ return document.querySelector(s); }
-  function $all(s){ return Array.prototype.slice.call(document.querySelectorAll(s)); }
   function fmt(iso){ return iso ? new Date(iso).toLocaleDateString('pt-BR') : ''; }
 
-  // Placeholders embutidos (sem rede)
-  var PH120 = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><rect width='100%25' height='100%25' fill='%23e5e7eb'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='12' fill='%2364748b'>sem foto</text></svg>";
-  var PH40  = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect width='100%25' height='100%25' fill='%23e5e7eb'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='16' fill='%2364748b'>?</text></svg>";
+  // Placeholders embutidos
+  var PH120 = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><rect width='100%25' height='100%25' fill='%23eef2f7' rx='12' ry='12'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='12' fill='%2390a4b8'>sem foto</text></svg>";
+  var PH40  = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect width='100%25' height='100%25' fill='%23eef2f7' rx='8' ry='8'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='16' fill='%2390a4b8'>?</text></svg>";
   $('#preview').src = PH120;
 
-  // Sair / trocar senha
+  // Sair / Trocar senha
   $('#btnSair')?.addEventListener('click', function(){ localStorage.removeItem('sessaoUsuario'); location.href='index.html'; });
   $('#btnChangePass')?.addEventListener('click', function(){ location.href='change-password.html'; });
 
@@ -180,22 +179,30 @@
 
   function normalizeFotoPath(p){ return String(p||'').replace(/^fotos\//i,''); }
 
-  // URL da foto que funcione com bucket privado (signed) ou público
-  async function getFotoUrl(fp){
-    if(!fp) return null;
+  // URL da foto (tenta caminho do DB; se não houver, tenta padrões por registro)
+  async function getFotoUrlFlexible(reg, foto_path){
     var bucket = cfg.storageBucket || 'fotos';
-    var path = normalizeFotoPath(fp);
+    var candidates = [];
 
-    // tenta URL assinada (funciona p/ público e privado)
-    var signed = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
-    if(signed && !signed.error && signed.data && signed.data.signedUrl) return signed.data.signedUrl;
+    if (foto_path) candidates.push(normalizeFotoPath(foto_path));
+    // tentativas por nome padrão
+    candidates.push(reg + '.png', reg + '.jpg', reg + '.jpeg');
 
-    // fallback: pública (se o bucket for público)
-    var pub = supabase.storage.from(bucket).getPublicUrl(path);
-    if(pub && pub.data && pub.data.publicUrl) return pub.data.publicUrl;
-
+    for (var i=0;i<candidates.length;i++){
+      var path = candidates[i];
+      try{
+        // tenta URL assinada (privado/público)
+        var s = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
+        if (s && !s.error && s.data && s.data.signedUrl) return s.data.signedUrl;
+        // se não assinou (ou bucket público), tenta pública
+        var p = supabase.storage.from(bucket).getPublicUrl(path);
+        if (p && p.data && p.data.publicUrl) return p.data.publicUrl;
+      }catch(_){}
+    }
     return null;
   }
+
+  function formatData(iso){ return iso ? new Date(iso).toLocaleDateString('pt-BR') : ''; }
 
   // ===== Combos =====
   async function carregarCombos(){
@@ -205,14 +212,14 @@
     var u = resU.data || [], c = resC.data || [];
     $('#sigla').innerHTML    = u.map(function(x){ return '<option value="'+x.sigla+'">'+x.sigla+' – '+(x.nome_da_unidade||'')+'</option>'; }).join('');
     $('#cred_cod').innerHTML = c.map(function(x){ return '<option value="'+x.cred_cod+'">'+x.cred_cod+' – '+(x.descricao||'')+'</option>'; }).join('');
-    $('#f_sigla').innerHTML  = '<option value="">Todas</option>'+u.map(function(x){ return '<option value="'+x.sigla+'">'+x.sigla+'</option>'; }).join('');
+    document.getElementById('f_sigla').innerHTML  = '<option value="">Todas</option>'+u.map(function(x){ return '<option value="'+x.sigla+'">'+x.sigla+'</option>'; }).join('');
   }
 
   // ===== Lista =====
   async function carregarLista(){
-    var q = $('#q').value.trim();
-    var fs = $('#f_status').value;
-    var fSig = $('#f_sigla').value;
+    var q = document.getElementById('q').value.trim();
+    var fs = document.getElementById('f_status').value;
+    var fSig = document.getElementById('f_sigla').value;
 
     var query = supabase.from('empregados').select('registro,nome,sigla,validade,status,foto_path').order('registro');
 
@@ -225,15 +232,16 @@
 
     var res = await query;
     if(res.error){ console.error(res.error); alert('Erro ao carregar lista'); return; }
-
     var data = res.data || [];
-    // monta linhas com URLs de foto resolvidas (signed/pública)
+
     var linhas = await Promise.all(data.map(async function(x){
-      var foto = await getFotoUrl(x.foto_path);
-      var avatar = foto || PH40;
+      var fotoUrl = await getFotoUrlFlexible(x.registro, x.foto_path);
+      var avatar = fotoUrl || PH40;
 
       var ok = (x.status==='Ativo' && x.validade && new Date(x.validade) >= new Date(new Date().toDateString()));
-      var chip = ok ? '<span class="chip success">Ativo</span>' : (x.status==='Em andamento' ? '<span class="chip warn">Em andamento</span>' : '<span class="chip danger">Inativo/Vencido</span>');
+      var chip = ok ? '<span class="chip success">Ativo</span>' :
+                (x.status==='Em andamento' ? '<span class="chip warn">Em andamento</span>' :
+                                              '<span class="chip danger">Inativo/Vencido</span>');
 
       return '<tr data-reg="'+x.registro+'">'+
         '<td><img src="'+avatar+'" alt="foto" width="40" height="40" style="border-radius:6px;object-fit:cover;border:1px solid #ddd" onerror="this.src=\''+PH40+'\'"></td>'+
@@ -246,12 +254,12 @@
       '</tr>';
     }));
 
-    $('#tbody').innerHTML = linhas.join('') || '<tr><td colspan="7" class="muted">Nenhum registro</td></tr>';
-    $('#count').textContent = String(data.length)+' registro(s)';
+    document.getElementById('tbody').innerHTML = linhas.join('') || '<tr><td colspan="7" class="muted">Nenhum registro</td></tr>';
+    document.getElementById('count').textContent = String(data.length)+' registro(s)';
   }
 
   // ===== Editar → carrega no form =====
-  $('#tbody').addEventListener('click', async function(ev){
+  document.getElementById('tbody').addEventListener('click', async function(ev){
     var btn = ev.target.closest && ev.target.closest('[data-acao="editar"]');
     if(!btn) return;
     var tr = ev.target.closest('tr'); var reg = tr && tr.getAttribute('data-reg'); if(!reg) return;
@@ -260,25 +268,29 @@
     if(res.error){ alert('Erro ao carregar registro'); return; }
     var d = res.data || {};
 
-    $('#registro').value  = d.registro || '';
-    $('#nome').value      = d.nome || '';
-    $('#sigla').value     = d.sigla || '';
-    $('#cred_cod').value  = d.cred_cod || '';
-    $('#cred_num').value  = d.cred_num || '';
-    $('#validade').value  = d.validade ? String(d.validade).slice(0,10) : '';
-    $('#status').value    = d.status || 'Em andamento';
-    $('#doe').value       = d.doe || '';
+    document.getElementById('registro').value  = d.registro || '';
+    document.getElementById('nome').value      = d.nome || '';
+    document.getElementById('sigla').value     = d.sigla || '';
+    document.getElementById('cred_cod').value  = d.cred_cod || '';
+    document.getElementById('cred_num').value  = d.cred_num || '';
+    document.getElementById('validade').value  = d.validade ? String(d.validade).slice(0,10) : '';
+    document.getElementById('status').value    = d.status || 'Em andamento';
+    document.getElementById('doe').value       = d.doe || '';
 
-    var url = await getFotoUrl(d.foto_path);
-    $('#preview').src = url || PH120;
+    var url = await getFotoUrlFlexible(d.registro, d.foto_path);
+    document.getElementById('preview').src = url || PH120;
   });
 
   // ===== Botões =====
-  $('#btnReload').addEventListener('click', carregarLista);
-  $('#btnNovo').addEventListener('click', function(){ $('#formCad').reset(); $('#arquivoNome').textContent='Nenhum arquivo selecionado'; $('#preview').src=PH120; });
+  document.getElementById('btnReload').addEventListener('click', carregarLista);
+  document.getElementById('btnNovo').addEventListener('click', function(){
+    document.getElementById('formCad').reset();
+    document.getElementById('arquivoNome').textContent='Nenhum arquivo selecionado';
+    document.getElementById('preview').src=PH120;
+  });
 
-  $('#btnExcluir').addEventListener('click', async function(){
-    var reg = $('#registro').value.trim();
+  document.getElementById('btnExcluir').addEventListener('click', async function(){
+    var reg = document.getElementById('registro').value.trim();
     if(!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).');
     if(!confirm('Excluir '+reg+'?')) return;
 
@@ -287,17 +299,18 @@
     carregarLista();
   });
 
-  $('#btnQR').addEventListener('click', function(){
-    var reg = $('#registro').value.trim();
+  document.getElementById('btnQR').addEventListener('click', function(){
+    var reg = document.getElementById('registro').value.trim();
     if(!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).');
     var url = new URL(location.href); url.pathname = url.pathname.replace(/admin\.html$/,'public.html'); url.search='?reg='+reg;
     window.open('https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='+encodeURIComponent(url.href),'_blank');
   });
 
-  $('#btnUploadFoto').addEventListener('click', async function(){
-    var reg = $('#registro').value.trim();
+  document.getElementById('btnUploadFoto').addEventListener('click', async function(){
+    var reg = document.getElementById('registro').value.trim();
     if(!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).');
-    var file = $('#arquivoFoto').files && $('#arquivoFoto').files[0]; if(!file) return alert('Selecione um arquivo de imagem.');
+    var file = document.getElementById('arquivoFoto').files && document.getElementById('arquivoFoto').files[0];
+    if(!file) return alert('Selecione um arquivo de imagem.');
 
     var ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
     var key = reg+'.'+ext;
@@ -306,15 +319,16 @@
     var up = await supabase.storage.from(bucket).upload(key, file, { upsert:true, contentType:file.type });
     if(up.error){ console.error(up.error); return alert('Falha no upload'); }
 
+    // grava caminho exato no DB
     var upd = await supabase.from('empregados').update({ foto_path: key }).eq('registro', reg);
     if(upd.error){ console.error(upd.error); return alert('Falha ao gravar foto no banco'); }
 
-    var url = await getFotoUrl(key);
-    $('#preview').src = url || PH120;
+    var url = await getFotoUrlFlexible(reg, key);
+    document.getElementById('preview').src = url || PH120;
   });
 
-  $('#btnRemoverFoto').addEventListener('click', async function(){
-    var reg = $('#registro').value.trim();
+  document.getElementById('btnRemoverFoto').addEventListener('click', async function(){
+    var reg = document.getElementById('registro').value.trim();
     if(!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).');
 
     var cur = await supabase.from('empregados').select('foto_path').eq('registro', reg).maybeSingle();
@@ -323,23 +337,25 @@
     if(key){ try{ await supabase.storage.from(bucket).remove([key]); }catch(_){} }
     await supabase.from('empregados').update({ foto_path: null }).eq('registro', reg);
 
-    $('#preview').src = PH120; $('#arquivoFoto').value=''; $('#arquivoNome').textContent='Nenhum arquivo selecionado';
+    document.getElementById('preview').src = PH120;
+    document.getElementById('arquivoFoto').value='';
+    document.getElementById('arquivoNome').textContent='Nenhum arquivo selecionado';
   });
 
-  $('#formCad').addEventListener('submit', async function(ev){
+  document.getElementById('formCad').addEventListener('submit', async function(ev){
     ev.preventDefault();
-    var reg = $('#registro').value.trim();
+    var reg = document.getElementById('registro').value.trim();
     if(!/^\d{6}$/.test(reg)) return alert('Registro inválido.');
 
     var payload = {
       registro: reg,
-      nome: $('#nome').value.trim(),
-      sigla: $('#sigla').value,
-      cred_cod: Number($('#cred_cod').value),
-      cred_num: $('#cred_num').value.trim() || null,
-      validade: $('#validade').value,
-      status: $('#status').value,
-      doe: $('#doe').value.trim() || null
+      nome: document.getElementById('nome').value.trim(),
+      sigla: document.getElementById('sigla').value,
+      cred_cod: Number(document.getElementById('cred_cod').value),
+      cred_num: document.getElementById('cred_num').value.trim() || null,
+      validade: document.getElementById('validade').value,
+      status: document.getElementById('status').value,
+      doe: document.getElementById('doe').value.trim() || null
     };
 
     var resp = await supabase.from('empregados').upsert(payload, { onConflict:'registro' });
