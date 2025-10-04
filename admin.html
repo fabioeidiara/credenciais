@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>Admin – CETESB Credenciais</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link href="style.css?v=247" rel="stylesheet">
+  <link href="style.css?v=248" rel="stylesheet">
   <meta name="color-scheme" content="light">
   <link rel="icon" href="data:,">
   <style>
@@ -215,12 +215,20 @@
   }
 
   // ===== Combos =====
+  // Cache de sigla -> nome_da_unidade para cumprir NOT NULL
+  var UNITS_MAP = Object.create(null);
+
   async function carregarCombos(){
     var resU = await supabase.from('unidades').select('sigla,nome_da_unidade').order('sigla');
     var resC = await supabase.from('credenciais').select('cred_cod,descricao').order('cred_cod');
 
     var u = resU.data || [], c = resC.data || [];
-    $('#sigla').innerHTML    = u.map(function(x){ return '<option value="'+x.sigla+'">'+x.sigla+' – '+(x.nome_da_unidade||'')+'</option>'; }).join('');
+
+    // popula selects
+    $('#sigla').innerHTML    = u.map(function(x){ 
+      UNITS_MAP[x.sigla] = x.nome_da_unidade || ''; 
+      return '<option value="'+x.sigla+'">'+x.sigla+' – '+(x.nome_da_unidade||'')+'</option>'; 
+    }).join('');
     $('#cred_cod').innerHTML = c.map(function(x){ return '<option value="'+x.cred_cod+'">'+x.cred_cod+' – '+(x.descricao||'')+'</option>'; }).join('');
     document.getElementById('f_sigla').innerHTML  = '<option value="">Todas</option>'+u.map(function(x){ return '<option value="'+x.sigla+'">'+x.sigla+'</option>'; }).join('');
 
@@ -230,6 +238,7 @@
       return '<label class="label-like" style="display:inline-flex;align-items:center;gap:6px"><input type="checkbox" class="f_tipo" value="'+x.cred_cod+'"> '+x.cred_cod+'</label>';
     }).join('');
   }
+
   function filtrosTiposSelecionados(){
     return Array.prototype.slice.call(document.querySelectorAll('.f_tipo:checked')).map(function(el){ return el.value; });
   }
@@ -342,10 +351,19 @@
     var reg = document.getElementById('registro').value.trim();
     if(!/^\d{6}$/.test(reg)) return alert('Registro inválido (6 dígitos).');
 
+    var sig = document.getElementById('sigla').value;
+    var nomeUn = UNITS_MAP[sig]; // <- capturamos o nome_da_unidade a partir da sigla
+    if(!nomeUn){ 
+      // fallback de segurança (não deve ocorrer porque combos vêm de 'unidades')
+      var ru = await supabase.from('unidades').select('nome_da_unidade').eq('sigla', sig).maybeSingle();
+      nomeUn = (ru && ru.data && ru.data.nome_da_unidade) || '';
+    }
+
     var payload = {
       registro: reg,
       nome: document.getElementById('nome').value.trim(),
-      sigla: document.getElementById('sigla').value,
+      sigla: sig,
+      nome_da_unidade: nomeUn,            // <- **AGORA PREENCHIDO** (evita NOT NULL)
       cred_cod: Number(document.getElementById('cred_cod').value),
       cred_num: document.getElementById('cred_num').value.trim(),
       validade: document.getElementById('validade').value,
