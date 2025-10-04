@@ -27,8 +27,7 @@
     <div class="grid grid-2">
       <div class="col photo-col">
         <img id="foto" alt="Foto do agente" width="120" height="120"
-             style="border-radius:8px;object-fit:cover;border:1px solid #ddd"
-             src="https://via.placeholder.com/120x120?text=sem+foto">
+             style="border-radius:8px;object-fit:cover;border:1px solid #ddd">
       </div>
       <div class="col">
         <h2 id="nome">—</h2>
@@ -46,7 +45,7 @@
     </div>
   </div>
 
-  <!-- ALERTAS (abaixo do card) -->
+  <!-- ALERTAS -->
   <div id="loading" class="alert"><div><strong>Carregando…</strong> Aguarde um instante.</div></div>
   <div id="notfound" class="alert error hidden"><div><strong>Registro não encontrado.</strong> Verifique o número ou entre em contato com a CETESB.</div></div>
 
@@ -62,6 +61,10 @@
 
   const show = (el, on)=> el?.classList[on ? 'remove' : 'add']('hidden');
   const formatData = (iso)=> iso ? new Date(iso).toLocaleDateString('pt-BR') : '';
+
+  // Placeholders embutidos
+  const PH120 = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><rect width='100%25' height='100%25' fill='%23e5e7eb'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='12' fill='%2364748b'>sem foto</text></svg>";
+  $('#foto').src = PH120; // define um default imediato, sem depender de onerror
 
   // 1) Lê parametro ?reg=000001
   const reg = qs('reg');
@@ -98,13 +101,12 @@
     return data?.publicUrl || null;
   };
 
-  // 4) Consulta o empregado e (opcional) a descrição da credencial
+  // 4) Consulta o empregado e a descrição da credencial
   const empQ = supabase.from('empregados')
     .select('registro,nome,sigla,nome_da_unidade,cred_cod,cred_num,validade,status,foto_path')
     .eq('registro', reg).maybeSingle();
 
-  const crQ  = supabase.from('credenciais')
-    .select('cred_cod,descricao');
+  const crQ  = supabase.from('credenciais').select('cred_cod,descricao');
 
   const [{ data: emp, error: eEmp }, { data: catCred, error: eCr }] = await Promise.all([empQ, crQ]);
 
@@ -122,7 +124,7 @@
   $('#validade').textContent = formatData(emp.validade);
   $('#unidade').textContent  = emp.nome_da_unidade ? `${emp.sigla} – ${emp.nome_da_unidade}` : (emp.sigla || '—');
 
-  // status derivado pela validade
+  // status derivado
   const chip = $('#chipStatus');
   const hoje0 = new Date(); hoje0.setHours(0,0,0,0);
   let cls = 'chip';
@@ -132,14 +134,12 @@
   else { cls += ' danger'; label = 'Inativo/Vencido'; }
   chip.className = cls; chip.textContent = label;
 
-  // 6) Foto (com normalização do caminho e fallback)
-  const fotoEl = $('#foto');
+  // 6) Foto
   if (emp.foto_path){
     const url = buildFotoUrl(emp.foto_path);
-    fotoEl.onerror = ()=>{ fotoEl.src='https://via.placeholder.com/120x120?text=sem+foto'; };
-    fotoEl.src = url || 'https://via.placeholder.com/120x120?text=sem+foto';
+    $('#foto').src = url || PH120;
   } else {
-    fotoEl.src='https://via.placeholder.com/120x120?text=sem+foto';
+    $('#foto').src = PH120;
   }
 
   // exibe cartão
