@@ -2,49 +2,21 @@
 <html lang="pt-br">
 <head>
   <meta charset="utf-8">
-  <title>CETESB – Administração de Credenciais</title>
+  <title>CETESB – Consulta de Credenciais</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <link href="style.css" rel="stylesheet">
   <meta name="color-scheme" content="light">
   <link rel="icon" href="data:,">
   <style>
-    /* =========================
-       TEMA VISUAL / ESTÉTICA
-       ========================= */
     :root{
-      --bg: #f6f8fb;
-      --card: #ffffff;
-      --ink: #1f2a37;
-      --ink-2: #334155;
-      --muted: #64748b;
-      --muted-2: #94a3b8;
-      --line: #e5e9f1;
-
-      /* azul mais suave para botões primários */
-      --primary: #6b8df7;   /* suave */
-      --primary-2: #5278f0; /* hover */
-
-      /* chips */
-      --chip-green: #e9f8ee;      --chip-green-ink: #176a3a;
-      --chip-yellow: #fff7e6;     --chip-yellow-ink: #8a5a05;
-      --chip-red: #ffecec;        --chip-red-ink: #8a1a1a;
-
-      --elev-1: 0 8px 26px rgba(15,23,42,.06), 0 2px 8px rgba(15,23,42,.05);
-      --elev-0: 0 1px 3px rgba(15,23,42,.06), 0 1px 2px rgba(15,23,42,.05);
-
-      /* alinhamento fino */
-      --cell-pad-x: 14px;   /* recuo lateral que guia tudo */
-      --first-col-w: 34px;  /* largura da coluna checkbox da tabela */
-      --foto-col-w: 56px;
-
-      --btn-gap-y-top: 10px;
-      --btn-gap-y-bottom: 14px;
-
-      --radius-xl: 16px;
+      --bg:#f6f8fb; --card:#fff; --ink:#1f2a37; --ink-2:#334155; --muted:#64748b; --muted-2:#94a3b8; --line:#e5e9f1;
+      --elev-1:0 8px 26px rgba(15,23,42,.06),0 2px 8px rgba(15,23,42,.05);
+      --elev-0:0 1px 3px rgba(15,23,42,.06),0 1px 2px rgba(15,23,42,.05);
+      --cell-pad-x:14px; --first-col-w:56px;          /* alinhar com coluna Foto */
+      --btn-gap-y-top:10px; --btn-gap-y-bottom:14px; --radius-xl:16px;
     }
     html,body{ background:var(--bg); color:var(--ink); }
 
-    /* Topbar com leve "frost" */
     .topbar{
       position: sticky; top:0; z-index:50;
       backdrop-filter: saturate(120%) blur(6px);
@@ -57,56 +29,40 @@
     .topbar-left{ display:flex; align-items:center; gap:10px; }
     .topbar-right{ display:flex; align-items:center; gap:10px; }
 
-    /* botões */
     .btn{ border-radius:999px; box-shadow:var(--elev-0); transform:translateZ(0); transition:all .18s ease; }
     .btn:hover{ filter:saturate(110%); transform:translateY(-1px); }
-    .btn:active{ transform:translateY(0); }
-    .btn.primary{ background:var(--primary); border-color:var(--primary); }
-    .btn.primary:hover{ background:var(--primary-2); border-color:var(--primary-2); }
-    .btn.danger{ background:#fee2e2; color:#7f1d1d; border-color:#fecaca; }
-    .btn.danger:hover{ background:#fecaca; }
 
-    /* layout/cards */
     .container{ max-width:1200px; margin:0 auto; padding:0 16px; }
-    .grid{ display:grid; gap:18px; }
-    .grid-2{ grid-template-columns: 1fr 1fr; }
-    @media (max-width: 980px){ .grid-2{ grid-template-columns: 1fr; } }
-
     .card{ background:var(--card); border:1px solid var(--line); border-radius:var(--radius-xl); box-shadow:var(--elev-1); }
     .pad{ padding:18px; }
 
-    /* títulos alinhados aos inputs (idênticos nos dois painéis) */
-    .card-title{ margin:2px 0 14px 0; padding-left: var(--cell-pad-x); color:var(--ink-2); font-weight:700; letter-spacing:.2px; }
-
-    /* formulários: títulos idênticos aos do painel esquerdo */
+    /* Títulos e labels idênticos ao admin (e ao painel esquerdo) */
+    .card-title{ margin:2px 0 14px 0; padding-left: var(--cell-pad-x); color:var(--ink-2); font-weight:700; }
     label{ color:var(--ink-2); font-weight:600; margin-left: var(--cell-pad-x); }
-    .req::after{ content:" *"; color:#ef4444; }
+
     .input{ border-radius:12px; background:#fbfdff; border:1px solid var(--line); margin-left: var(--cell-pad-x); }
-    .input:focus{ outline:none; border-color:var(--primary); box-shadow:0 0 0 3px rgba(107,141,247,.18); }
+    .input:focus{ outline:none; border-color:#4775ff; box-shadow:0 0 0 3px rgba(71,117,255,.18); }
     .input::placeholder{ color:var(--muted-2); }
-    .form .field{ margin-bottom:12px; }
 
-    /* chips */
     .chip{ border-radius:999px; padding:6px 10px; font-weight:600; }
-    .chip.success{ background:var(--chip-green); color:var(--chip-green-ink); }
-    .chip.warn{ background:var(--chip-yellow); color:var(--chip-yellow-ink); }
-    .chip.danger{ background:var(--chip-red); color:var(--chip-red-ink); }
+    .chip.success{ background:#e9f8ee; color:#176a3a; }
+    .chip.warn{ background:#fff7e6; color:#8a5a05; }
+    .chip.danger{ background:#ffecec; color:#8a1a1a; }
 
-    /* tabela com cabeçalho alinhado aos dados */
     .scroll{ margin-top:4px; overflow:auto; }
     .table{ border-collapse:separate; border-spacing:0; width:100%; }
     .table thead{ position:sticky; top:0; z-index:1; background:linear-gradient(180deg,#fff, #fffdfc); }
     .table th, .table td{ padding:11px var(--cell-pad-x); text-align:left; vertical-align:middle; border-bottom:1px solid var(--line); }
     .table thead th{ font-weight:700; color:var(--ink-2); }
-    .table tr:hover td{ background: #fbfcff; }
+    .table tr:hover td{ background:#fbfcff; }
     th.sortable{ cursor:pointer; user-select:none; }
     th.sortable:hover{ text-decoration: underline dotted; }
 
-    /* filtros (painel da direita) com a MESMA tipografia de labels do painel esquerdo */
+    /* Filtros */
     .filters .col{ display:flex; flex-direction:column; min-width:240px; }
     .filters .col > label{ margin-left: var(--cell-pad-x); font-weight:600; color:var(--ink-2); }
     .filters .col > .input{ margin-left: var(--cell-pad-x); }
-    /* checkbox "Tipo" alinhado com o checkbox da tabela */
+    /* Alinhar "Tipo" à coluna Foto */
     #tiposBox{ margin-left: calc(var(--first-col-w) + var(--cell-pad-x)); }
 
     .filters-actions{
@@ -116,10 +72,9 @@
     }
 
     .row{ display:flex; gap:10px; }
-    .row.center{ align-items:center; }
-    .row-actions{ display:flex; gap:10px; margin-top:12px; }
+    .col{ display:flex; flex-direction:column; min-width:240px; }
 
-    .footer{ color:var(--muted); padding:22px 0; text-align:center; }
+    .footer{ color:#7a8797; padding:22px 0; text-align:center; }
   </style>
 </head>
 <body>
@@ -128,155 +83,79 @@
   <div class="container topbar-bar">
     <div class="topbar-left">
       <img class="brand-logo" src="media/cetesb-logo.png" alt="CETESB" onerror="this.style.display='none'">
-      <h1 class="title">CETESB – Administração de Credenciais</h1>
+      <h1 class="title">CETESB – Consulta de Credenciais</h1>
     </div>
     <div class="topbar-right">
-      <a class="btn" href="consulta.html">Consulta</a>
-      <button class="btn" id="btnChangePass">Trocar senha</button>
-      <button class="btn danger" id="btnSair">Sair</button>
+      <a class="btn" href="admin.html">Cadastro</a>
+      <a class="btn" href="index.html">Início</a>
     </div>
   </div>
 </header>
 
 <main class="container" style="padding-top:18px; padding-bottom:18px;">
-  <div class="grid grid-2">
-    <!-- ESQUERDA -->
-    <section class="card pad">
-      <h2 class="card-title">Cadastro</h2>
+  <section class="card pad">
+    <h2 class="card-title">Lista e filtros</h2>
 
-      <form id="formCad" class="form" autocomplete="off">
-        <div class="field">
-          <label for="registro" class="req">Registro</label>
-          <input id="registro" class="input" placeholder="000001" maxlength="6" pattern="[0-9]{6}" required>
+    <div class="filters">
+      <div class="row" style="gap:10px;flex-wrap:wrap;align-items:flex-end">
+        <div class="col">
+          <label for="f_nome">Nome</label>
+          <input id="f_nome" class="input" placeholder="Ex.: MARIA">
         </div>
-
-        <div class="field">
-          <label for="nome" class="req">Nome</label>
-          <input id="nome" class="input" required>
+        <div class="col">
+          <label for="f_reg">Matrícula</label>
+          <input id="f_reg" class="input" placeholder="Ex.: 000123" maxlength="6">
         </div>
-
-        <div class="field">
-          <label for="sigla" class="req">Unidade</label>
-          <select id="sigla" class="input" required></select>
+        <div class="col">
+          <label for="f_numero">Número (credencial)</label>
+          <input id="f_numero" class="input" placeholder="Ex.: 0042" maxlength="4">
         </div>
-
-        <div class="field">
-          <label for="cred_cod" class="req">Tipo</label>
-          <select id="cred_cod" class="input" required></select>
-        </div>
-
-        <div class="field">
-          <label for="cred_num" class="req">Número</label>
-          <input id="cred_num" class="input" maxlength="4" pattern="[0-9]{1,4}" required>
-        </div>
-
-        <div class="field">
-          <label for="validade" class="req">Validade</label>
-          <input id="validade" class="input" type="date" required>
-        </div>
-
-        <div class="field">
-          <label for="status" class="req">Status</label>
-          <select id="status" class="input" required>
-            <option>Em andamento</option>
+        <div class="col">
+          <label for="f_status">Status</label>
+          <select id="f_status" class="input">
+            <option value="">Todos</option>
             <option>Ativo</option>
+            <option>Em andamento</option>
             <option>Inativo</option>
           </select>
         </div>
-
-        <div class="field">
-          <label for="doe">DOE (nº-ano)</label>
-          <input id="doe" class="input" placeholder="12345-2025" pattern="^\\d{1,6}\\-\\d{4}$">
+        <div class="col">
+          <label for="f_sigla">Unidade</label>
+          <select id="f_sigla" class="input"></select>
         </div>
 
-        <div class="field">
-          <label>Foto</label>
-          <div class="row center" style="gap:12px;flex-wrap:wrap">
-            <img id="preview" alt="Prévia da foto" width="120" height="120" style="border:1px solid var(--line);border-radius:12px;object-fit:cover; background:#f2f5fa; margin-left: var(--cell-pad-x);">
-            <div class="row" style="gap:8px;flex-wrap:wrap">
-              <input id="arquivoFoto" type="file" accept="image/*" style="display:none">
-              <button type="button" class="btn" id="btnEscolherArquivo">Selecionar foto</button>
-              <button type="button" class="btn danger" id="btnRemoverFoto">Remover foto</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="row-actions" style="margin-left: var(--cell-pad-x);">
-          <button id="btnNovo" type="button" class="btn">Novo</button>
-          <button id="btnExcluir" type="button" class="btn danger">Excluir</button>
-          <button id="btnQR" type="button" class="btn">Gerar QR</button>
-          <button id="btnSalvar" type="submit" class="btn primary">Salvar</button>
-        </div>
-      </form>
-    </section>
-
-    <!-- DIREITA -->
-    <section class="card pad">
-      <h2 class="card-title">Lista e filtros</h2>
-
-      <div class="filters">
-        <div class="row" style="gap:10px;flex-wrap:wrap;align-items:flex-end">
-          <div class="col">
-            <label for="f_nome">Nome</label>
-            <input id="f_nome" class="input" placeholder="Ex.: MARIA">
-          </div>
-          <div class="col">
-            <label for="f_reg">Matrícula</label>
-            <input id="f_reg" class="input" placeholder="Ex.: 000123" maxlength="6">
-          </div>
-          <div class="col">
-            <label for="f_numero">Número (credencial)</label>
-            <input id="f_numero" class="input" placeholder="Ex.: 0042" maxlength="4">
-          </div>
-          <div class="col">
-            <label for="f_status">Status</label>
-            <select id="f_status" class="input">
-              <option value="">Todos</option>
-              <option>Ativo</option>
-              <option>Em andamento</option>
-              <option>Inativo</option>
-            </select>
-          </div>
-          <div class="col">
-            <label for="f_sigla">Unidade</label>
-            <select id="f_sigla" class="input"></select>
-          </div>
-
-          <div class="col" style="flex:1 1 100%">
-            <label for="tiposBox">Tipo</label>
-            <div id="tiposBox" class="row" style="gap:10px;flex-wrap:wrap"><span class="label-like" style="margin-left: var(--cell-pad-x)">carregando…</span></div>
-          </div>
-        </div>
-
-        <div class="filters-actions">
-          <button id="btnReload" class="btn">Recarregar</button>
-          <button id="btnQrSelecionados" class="btn">QR em lote</button>
+        <div class="col" style="flex:1 1 100%">
+          <label for="tiposBox">Tipo</label>
+          <div id="tiposBox" class="row" style="gap:10px;flex-wrap:wrap"><span style="color:var(--muted-2); margin-left: var(--cell-pad-x)">carregando…</span></div>
         </div>
       </div>
 
-      <div class="scroll">
-        <table class="table" id="tabela">
-          <thead>
-            <tr>
-              <th style="width:var(--first-col-w)"><input id="chkAll" type="checkbox" title="Marcar todos"></th>
-              <th style="width:var(--foto-col-w)">Foto</th>
-              <th class="sortable" data-col="registro">Matrícula</th>
-              <th class="sortable" data-col="nome">Nome</th>
-              <th class="sortable" data-col="sigla">Unidade</th>
-              <th class="sortable" data-col="cred_num">Número</th>
-              <th class="sortable" data-col="cred_cod">Tipo</th>
-              <th class="sortable" data-col="validade">Validade</th>
-              <th class="sortable" data-col="status">Status</th>
-              <th style="width:140px">Ações</th>
-            </tr>
-          </thead>
-          <tbody id="tbody"></tbody>
-        </table>
+      <div class="filters-actions">
+        <button id="btnReload" class="btn">Recarregar</button>
       </div>
+    </div>
 
-      <div id="count" class="label-like" style="padding:8px var(--cell-pad-x);">0 registro(s)</div>
-    </section>
-  </div>
+    <div class="scroll">
+      <table class="table" id="tabela">
+        <thead>
+          <tr>
+            <th style="width:var(--first-col-w)">Foto</th>
+            <th class="sortable" data-col="registro">Matrícula</th>
+            <th class="sortable" data-col="nome">Nome</th>
+            <th class="sortable" data-col="sigla">Unidade</th>
+            <th class="sortable" data-col="cred_num">Número</th>
+            <th class="sortable" data-col="cred_cod">Tipo</th>
+            <th class="sortable" data-col="validade">Validade</th>
+            <th class="sortable" data-col="status">Status</th>
+            <th style="width:120px">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+
+    <div id="count" style="padding:8px var(--cell-pad-x); color:var(--muted);">0 registro(s)</div>
+  </section>
 </main>
 
 <footer class="footer">
@@ -284,15 +163,9 @@
 </footer>
 
 <script type="module">
-  /* === JS (sem mudanças de lógica) === */
-  import QRCode from 'https://esm.sh/qrcode@1.5.3';
-  const supa = await import('https://esm.sh/@supabase/supabase-js@2');
-
   const $=(s)=>document.querySelector(s);
   const fmt=(iso)=>iso?new Date(iso).toLocaleDateString('pt-BR'):'';
-  const PH120="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><rect width='100%25' height='100%25' fill='%23eef2f7' rx='12' ry='12'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='12' fill='%2390a4b8'>sem foto</text></svg>";
   const PH40 ="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect width='100%25' height='100%25' fill='%23eef2f7' rx='8' ry='8'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='16' fill='%2390a4b8'>?</text></svg>";
-  $('#preview').src=PH120;
 
   function normStatus(s){ return String(s ?? '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').trim(); }
   function displayStatus(rec){
@@ -313,46 +186,34 @@
 
   let sortCol='registro'; let sortAsc=true;
 
-  // nav
-  $('#btnSair')?.addEventListener('click',()=>{localStorage.removeItem('sessaoUsuario');location.href='index.html';});
-  $('#btnChangePass')?.addEventListener('click',()=>{location.href='change-password.html';});
-
-  // preview
-  $('#btnEscolherArquivo').addEventListener('click',()=>$('#arquivoFoto').click());
-  $('#arquivoFoto').addEventListener('change',(ev)=>{ const f=ev.target.files?.[0]; $('#preview').src=f?URL.createObjectURL(f):PH120; });
-
-  // config & supabase
-  let cfg;{ const r=await fetch('config.json',{cache:'no-store'}); if(!r.ok){alert('Falha ao carregar config.json');throw new Error('config.json');} cfg=await r.json(); }
+  let cfg;{ const r=await fetch('config.json',{cache:'no-store'}); if(!r.ok){ alert('Falha ao carregar config.json'); throw new Error('config.json'); } cfg=await r.json(); }
+  const supa=await import('https://esm.sh/@supabase/supabase-js@2');
   const supabase=supa.createClient(cfg.supabaseUrl,cfg.supabaseAnonKey);
 
-  // helpers foto
-  const UNITS_MAP=Object.create(null);
-  const normalize=(p)=>String(p||'').replace(/^fotos\//i,'');
   const splitDir=(b)=>{const i=b.lastIndexOf('/');return i===-1?{dir:'',name:b}:{dir:b.slice(0,i),name:b.slice(i+1)};}
   async function objExists(bucket,full){const t=splitDir(full);const r=await supabase.storage.from(bucket).list(t.dir||'',{search:t.name,limit:1});if(r.error)return false;return (r.data||[]).some(x=>x.name===t.name);}
   async function getFotoUrlIfExists(path){const bucket=cfg.storageBucket||'fotos';if(!await objExists(bucket,path))return null;const s=await supabase.storage.from(bucket).createSignedUrl(path,3600);if(s?.data?.signedUrl)return s.data.signedUrl;const p=supabase.storage.from(bucket).getPublicUrl(path);return p?.data?.publicUrl||null;}
-  async function getFotoUrlFlexible(reg,foto_path,{strict=false}={}){const list=[];if(foto_path){list.push(normalize(foto_path));if(!strict){list.push(reg+'.png',reg+'.jpg',reg+'.jpeg')}}else if(!strict){list.push(reg+'.png',reg+'.jpg',reg+'.jpeg')}for(const k of list){const u=await getFotoUrlIfExists(k);if(u)return u}return null;}
-  async function removeOtherExtAfterUpload(reg,keepKey){const keep=normalize(keepKey);const bucket=cfg.storageBucket||'fotos';const all=[reg+'.png',reg+'.jpg',reg+'.jpeg'];const toRemove=all.filter(k=>k!==keep);try{await supabase.storage.from(bucket).remove(toRemove)}catch{}}
-  async function deleteAllKnownPhotos(reg,currentKey){const bucket=cfg.storageBucket||'fotos';const keys=[reg+'.png',reg+'.jpg',reg+'.jpeg'];if(currentKey){const cur=normalize(currentKey);if(!keys.includes(cur))keys.push(cur)}try{await supabase.storage.from(bucket).remove(keys)}catch{}}
-  async function uploadFotoSeHouver(reg){const file=$('#arquivoFoto').files?.[0];if(!file)return null;const ext=(file.name.split('.').pop()||'png').toLowerCase();const key=`${reg}.${ext}`;const bucket=cfg.storageBucket||'fotos';const contentType=file.type||(ext==='png'?'image/png':(ext==='jpg'||ext==='jpeg')?'image/jpeg':'application/octet-stream');const up=await supabase.storage.from(bucket).upload(key,file,{upsert:true,contentType});if(up.error)throw new Error(up.error.message||'Falha no upload da foto');await removeOtherExtAfterUpload(reg,key);return key;}
+  async function getFotoUrlFlexible(reg,foto_path,{strict=false}={}){const list=[];const normalize=(p)=>String(p||'').replace(/^fotos\//i,'');if(foto_path){list.push(normalize(foto_path));if(!strict){list.push(reg+'.png',reg+'.jpg',reg+'.jpeg')}}else if(!strict){list.push(reg+'.png',reg+'.jpg',reg+'.jpeg')}for(const k of list){const u=await getFotoUrlIfExists(k);if(u)return u}return null;}
 
-  // combos
   async function carregarCombos(){
     const [u,c]=await Promise.all([
-      supabase.from('unidades').select('sigla,nome_da_unidade').order('sigla'),
-      supabase.from('credenciais').select('cred_cod,descricao').order('cred_cod')
+      supabase.from('unidades').select('sigla').order('sigla'),
+      supabase.from('credenciais').select('cred_cod').order('cred_cod')
     ]);
     const un=u.data||[], cr=c.data||[];
-    $('#sigla').innerHTML=un.map(x=>{UNITS_MAP[x.sigla]=x.nome_da_unidade||'';return `<option value="${x.sigla}">${x.sigla} – ${x.nome_da_unidade||''}</option>`}).join('');
-    $('#cred_cod').innerHTML=cr.map(x=>`<option value="${x.cred_cod}">${x.cred_cod} – ${x.descricao||''}</option>`).join('');
     $('#f_sigla').innerHTML=`<option value="">Todas</option>`+un.map(x=>`<option value="${x.sigla}">${x.sigla}</option>`).join('');
-    const tipos=$('#tiposBox'); tipos.innerHTML = cr.length ? cr.map(x=>`<label style="display:inline-flex;align-items:center;gap:6px"><input type="checkbox" class="f_tipo" value="${x.cred_cod}"> ${x.cred_cod}</label>`).join('') : `<span class="label-like" style="margin-left: var(--cell-pad-x)">Nenhum tipo cadastrado</span>`;
+    const tipos=$('#tiposBox'); tipos.innerHTML = cr.length
+      ? cr.map(x=>`<label style="display:inline-flex;align-items:center;gap:6px"><input type="checkbox" class="f_tipo" value="${x.cred_cod}"> ${x.cred_cod}</label>`).join('')
+      : `<span style="color:var(--muted-2); margin-left: var(--cell-pad-x)">Nenhum tipo cadastrado</span>`;
   }
   const tiposSelecionados=()=>Array.from(document.querySelectorAll('.f_tipo:checked')).map(el=>el.value);
 
   function bindSortHeaders(){
     document.querySelectorAll('th.sortable').forEach(th=>{
-      th.onclick=()=>{const col=th.getAttribute('data-col');if(!col)return; if(sortCol===col) sortAsc=!sortAsc; else {sortCol=col;sortAsc=true;} carregarLista();}
+      th.onclick=()=>{const col=th.getAttribute('data-col'); if(!col)return;
+        if (sortCol===col) sortAsc=!sortAsc; else { sortCol=col; sortAsc=true; }
+        carregarLista();
+      };
     });
   }
 
@@ -366,20 +227,20 @@
     let query=supabase.from('empregados').select('registro,nome,sigla,cred_num,cred_cod,validade,status,foto_path');
     if(nome) query=query.ilike('nome',`%${nome}%`);
     if(fSig) query=query.eq('sigla',fSig);
-    if(fTipos.length) query=query.in('cred_cod', fTipos.map(Number));
+    if(fTipos.length) query=query.in('cred_cod',fTipos.map(Number));
 
-    if (sortCol !== 'status') { query = query.order(sortCol,{ascending:sortAsc}); }
+    if (sortCol !== 'status') query = query.order(sortCol,{ascending:sortAsc});
     query = query.order('registro',{ascending:true});
 
     const res=await query;
-    if(res.error){console.error(res.error);alert('Erro ao carregar lista');return;}
+    if(res.error){ console.error(res.error); alert('Erro ao carregar lista'); return; }
     let data=res.data||[];
 
     const fs = ($('#f_status').value||'').trim();
     if (fs) data = data.filter(r => displayStatus(r) === fs);
 
-    if(regPart) data=data.filter(x=>String(x.registro||'').includes(regPart));
-    if(numPart) data=data.filter(x=>String(x.cred_num||'').includes(numPart));
+    if (regPart) data = data.filter(x => String(x.registro||'').includes(regPart));
+    if (numPart) data = data.filter(x => String(x.cred_num||'').includes(numPart));
 
     if (sortCol === 'status') {
       data.sort((a,b)=>{ const sa=displayStatus(a), sb=displayStatus(b); const cmp=sa.localeCompare(sb,'pt-BR'); return sortAsc?cmp:-cmp; });
@@ -388,9 +249,8 @@
     const linhas=await Promise.all(data.map(async x=>{
       const url=await getFotoUrlFlexible(x.registro,x.foto_path,{strict:!x.foto_path});
       const avatar=url||PH40;
-      const chip = statusChip(displayStatus(x));
-      return `<tr data-reg="${x.registro}">
-        <td><input type="checkbox" class="chkRow" value="${x.registro}"></td>
+      const chip=statusChip(displayStatus(x));
+      return `<tr>
         <td><img src="${avatar}" width="40" height="40" style="border-radius:10px;object-fit:cover;border:1px solid var(--line);background:#f2f5fa" onerror="this.src='${PH40}'"></td>
         <td>${x.registro}</td>
         <td>${x.nome||''}</td>
@@ -399,71 +259,25 @@
         <td>${x.cred_cod||''}</td>
         <td>${fmt(x.validade)}</td>
         <td>${chip}</td>
-        <td><button class="btn sm" data-acao="editar">Editar</button> <a class="btn sm" target="_blank" href="public.html?reg=${x.registro}">Público</a></td>
+        <td><a class="btn sm" target="_blank" href="public.html?reg=${x.registro}">Público</a></td>
       </tr>`;
     }));
-    $('#tbody').innerHTML=linhas.join('')||'<tr><td colspan="10" class="label-like">Nenhum registro</td></tr>';
-    $('#count').textContent=String(data.length)+' registro(s)';
-
-    $('#chkAll').checked=false;
-    $('#chkAll').onchange=(ev)=>{document.querySelectorAll('.chkRow').forEach(ch=>ch.checked=ev.target.checked);};
+    $('#tbody').innerHTML = linhas.join('') || '<tr><td colspan="9" style="color:var(--muted); padding:10px var(--cell-pad-x)">Nenhum registro</td></tr>';
+    $('#count').textContent = String(data.length)+' registro(s)';
   }
 
-  // editar linha
-  $('#tbody').addEventListener('click',async (ev)=>{
-    const btn=ev.target.closest?.('[data-acao="editar"]'); const tr=ev.target.closest('tr');
-    const reg=tr?.getAttribute('data-reg'); if(!tr||!btn) return;
-    const res=await supabase.from('empregados').select('*').eq('registro',reg).maybeSingle();
-    if(res.error){alert('Erro ao carregar registro');return;}
-    const d=res.data||{};
-    $('#registro').value=d.registro||'';$('#nome').value=d.nome||'';$('#sigla').value=d.sigla||'';
-    $('#cred_cod').value=d.cred_cod||'';$('#cred_num').value=d.cred_num||'';$('#validade').value=d.validade?String(d.validade).slice(0,10):'';
-    $('#status').value=d.status||'Em andamento';$('#doe').value=d.doe||'';
-    const url=await getFotoUrlFlexible(d.registro,d.foto_path,{strict:!d.foto_path});
-    $('#preview').src=url||PH120;$('#arquivoFoto').value='';
+  $('#btnReload')?.addEventListener('click', carregarLista);
+  $('#f_sigla').addEventListener('change', carregarLista);
+  $('#f_status').addEventListener('change', carregarLista);
+  ['f_numero','f_reg','f_nome'].forEach(id=>{
+    $('#'+id).addEventListener('input', ()=>{
+      clearTimeout(window['_deb'+id]);
+      window['_deb'+id]=setTimeout(carregarLista,250);
+    });
   });
+  document.addEventListener('change',(e)=>{ if (e.target?.classList?.contains('f_tipo')) carregarLista(); });
 
-  $('#btnNovo').addEventListener('click',()=>{$('#formCad').reset();$('#preview').src=PH120;$('#arquivoFoto').value='';$('#status').value='Em andamento';$('#registro').focus();});
-
-  $('#btnRemoverFoto').addEventListener('click',async()=>{
-    const reg=$('#registro').value.trim(); if(!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).');
-    const cur=await supabase.from('empregados').select('foto_path').eq('registro',reg).maybeSingle();
-    await deleteAllKnownPhotos(reg,cur.data?.foto_path||null);
-    await supabase.from('empregados').update({foto_path:null}).eq('registro',reg);
-    $('#arquivoFoto').value='';$('#preview').src=PH120;await carregarLista();
-  });
-
-  async function nomeUnidade(sig){ if(UNITS_MAP[sig]!=null)return UNITS_MAP[sig]; const ru=await supabase.from('unidades').select('nome_da_unidade').eq('sigla',sig).maybeSingle(); const v=ru?.data?.nome_da_unidade||''; UNITS_MAP[sig]=v; return v; }
-
-  $('#formCad').addEventListener('submit',async(ev)=>{
-    ev.preventDefault();
-    const reg=$('#registro').value.trim(); if(!/^\d{6}$/.test(reg)) return alert('Registro inválido (6 dígitos).');
-    const sig=$('#sigla').value;
-    const payload={registro:reg,nome:$('#nome').value.trim(),sigla:sig,nome_da_unidade:await nomeUnidade(sig),
-      cred_cod:Number($('#cred_cod').value),cred_num:$('#cred_num').value.trim(),validade:$('#validade').value,
-      status:$('#status').value,doe:$('#doe').value.trim()||null};
-    try{
-      const fotoKey=await uploadFotoSeHouver(reg); if(fotoKey) payload.foto_path=fotoKey;
-      const resp=await supabase.from('empregados').upsert(payload,{onConflict:'registro'}); if(resp.error) throw new Error(resp.error.message||'Erro ao salvar');
-      const url=await getFotoUrlFlexible(reg,fotoKey||null,{strict:!fotoKey});$('#preview').src=url||PH120;$('#arquivoFoto').value='';
-      await carregarLista();alert('Registro salvo com sucesso.');
-    }catch(err){console.error(err);alert('Falha ao salvar: '+(err?.message||String(err))); }
-  });
-
-  function publicUrlFor(reg){const base=new URL('public.html',location.href);base.searchParams.set('reg',reg);return base.href;}
-  async function gerarQrDataUrl(reg,size=512){const {default:QRCode}=await import('https://esm.sh/qrcode@1.5.3');return await QRCode.toDataURL(publicUrlFor(reg),{width:size,margin:2,errorCorrectionLevel:'M'});}
-  function downloadDataUrl(u,fn){const a=document.createElement('a');a.href=u;a.download=fn;document.body.appendChild(a);a.click();a.remove();}
-  $('#btnQR').addEventListener('click',async()=>{try{const reg=$('#registro').value.trim();if(!/^\d{6}$/.test(reg))return alert('Informe um registro válido (6 dígitos).');downloadDataUrl(await gerarQrDataUrl(reg,512),`QR_${reg}.png`);}catch(e){console.error(e);alert('Falha ao gerar QR.');}});
-  $('#btnQrSelecionados').addEventListener('click',async()=>{const regs=Array.from(document.querySelectorAll('.chkRow:checked')).map(ch=>ch.value);if(!regs.length)return alert('Selecione ao menos um registro.');for(const r of regs){try{downloadDataUrl(await gerarQrDataUrl(r,512),`QR_${r}.png`);}catch(e){console.error('QR falhou para',r,e);}}});
-
-  $('#btnReload').addEventListener('click',carregarLista);
-  $('#f_sigla').addEventListener('change',carregarLista);
-  $('#f_status').addEventListener('change',carregarLista);
-  ['f_numero','f_reg','f_nome'].forEach(id=>$('#'+id).addEventListener('input',()=>{clearTimeout(window['_deb'+id]);window['_deb'+id]=setTimeout(carregarLista,250);} ));
-  document.addEventListener('change',(e)=>{if(e.target?.classList?.contains('f_tipo'))carregarLista();});
-
-  function bindSortHeaders2(){ document.querySelectorAll('th.sortable').forEach(th=>{ th.onclick=()=>{const col=th.getAttribute('data-col'); if(!col)return; if(sortCol===col) sortAsc=!sortAsc; else {sortCol=col;sortAsc=true;} carregarLista();}; }); }
-  bindSortHeaders2();
+  bindSortHeaders();
   await carregarCombos();
   await carregarLista();
 </script>
