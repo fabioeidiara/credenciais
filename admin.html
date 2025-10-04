@@ -372,24 +372,55 @@
     const { error } = await supabase.from('empregados').upsert(payload, { onConflict:'registro' });
     if (error){ console.error(error); toast('Erro ao salvar','error'); return; }
 
-    // Upload da foto (opcional)
+    // Upload da foto (opcional) — PATCH DIAGNÓSTICO
     const file = $('#fotoInput').files?.[0];
     if (file) {
       const ext = (file.name.split('.').pop()||'jpg').toLowerCase();
       const bucket = (cfg.storageBucket || 'fotos');
-      const path = `${registro}.${ext}`; // SEM prefixo “fotos/”
-
-      console.log('Uploading to bucket:', bucket, 'path:', path, 'file:', file && file.name);
-      try { await supabase.storage.from(bucket).remove([`${registro}.jpg`, `${registro}.png`]); } catch(e){}
-
-      const up = await supabase.storage.from(bucket)
-        .upload(path, file, { upsert:true, cacheControl:'3600', contentType:file.type||'image/jpeg' });
-
-      console.log('Upload response:', up);
-      if (up.error) {
-        console.error(up.error);
-        toast('Erro ao subir a foto','error');
-      } else {
+      const path = `${registro}.${ext}`; // sem prefixo "fotos/"
+    
+      // Desliga momentaneamente a prévia “intranet” para não conflitar
+      fotoFonte = 'upload';
+    
+      try {
+        console.log('Uploading to bucket:', bucket, 'path:', path, 'file:', file && file.name);
+    
+        // remove versões antigas (jpg/png) – ignore erro silenciosamente
+        try { await supabase.storage.from(bucket).remove([`${registro}.jpg`, `${registro}.png`]); } catch (e) {
+          console.warn('remove(old) warning:', e);
+        }
+    
+        const up = await supabase.storage.from(bucket)
+          .upload(path, file, { upsert:true, cacheControl:'3600', contentType:file.type||'image/jpeg' });
+    
+        console.log('Upload response:', up);
+    
+        if (up.error) {
+          // Mostra mensagem de erro clara
+          const msg = up.error.message || JSON.stringify(up.error);
+          console.error('UPLOAD ERROR:', up.error);
+          toast(`Erro ao subir a foto: ${msg}`, 'error');
+          // Volta a prévia a um estado neutro
+          $('#preview').src = 'https://via.placeholder.com/120x120?text=pre%CC%81via';
+        } else {
+          // Atualiza o caminho no banco
+          const upd = await supabase.from('empregados').update({ foto_path: path }).eq('registro', registro);
+          if (upd.error) {
+            console.error('DB foto_path update error:', upd.error);
+            toast(`Erro ao salvar caminho da foto: ${upd.error.message}`, 'error');
+          } else {
+            // Gera URL pública oficial
+            const pub = supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+            $('#preview').src = pub;
+            toast(`Foto enviada: ${path}`, 'success');
+          }
+        }
+      } catch (e) {
+        console.error('UPLOAD EXCEPTION:', e);
+        toast(`Falha inesperada no upload: ${e.message||e}`, 'error');
+        $('#preview').src = 'https://via.placeholder.com/120x120?text=pre%CC%81via';
+      }
+    } else {
         await supabase.from('empregados').update({ foto_path: path }).eq('registro', registro);
         const pub = supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
         $('#preview').src = pub;
