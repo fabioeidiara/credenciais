@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>Credencial do Agente – CETESB</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link href="style.css?v=233" rel="stylesheet">
+  <link href="style.css?v=240" rel="stylesheet">
   <meta name="color-scheme" content="light">
 </head>
 <body>
@@ -21,17 +21,16 @@
   </div>
 </header>
 
-<main class="container">
-  <!-- CARD -->
+<main class="container public-center">
   <div id="card" class="card pad hidden">
-    <div class="grid grid-2">
-      <div class="col photo-col">
+    <div class="grid grid-2" style="grid-template-columns:160px 1fr">
+      <div class="col">
         <img id="foto" alt="Foto do agente" width="120" height="120"
              style="border-radius:8px;object-fit:cover;border:1px solid #ddd">
       </div>
       <div class="col">
         <h2 id="nome">—</h2>
-        <div class="row" style="gap:8px;align-items:center">
+        <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap">
           <div class="muted">Registro:</div>
           <div id="registro">—</div>
           <div id="chipStatus" class="chip">—</div>
@@ -45,104 +44,81 @@
     </div>
   </div>
 
-  <!-- ALERTAS -->
   <div id="loading" class="alert"><div><strong>Carregando…</strong> Aguarde um instante.</div></div>
   <div id="notfound" class="alert error hidden"><div><strong>Registro não encontrado.</strong> Verifique o número ou entre em contato com a CETESB.</div></div>
 
-  <p class="footer">
-    Confirme o domínio: <strong>*.github.io</strong> (piloto) ou <strong>*.cetesb.sp.gov.br</strong> (produção).
-  </p>
+  <p class="footer">Confirme o domínio: <strong>*.github.io</strong> (piloto) ou <strong>*.cetesb.sp.gov.br</strong> (produção).</p>
 </main>
 
 <script type="module">
 (async () => {
   const $  = (s)=>document.querySelector(s);
-  const qs = (key)=> new URL(location.href).searchParams.get(key);
-
+  const qs = (k)=> new URL(location.href).searchParams.get(k);
   const show = (el, on)=> el?.classList[on ? 'remove' : 'add']('hidden');
   const formatData = (iso)=> iso ? new Date(iso).toLocaleDateString('pt-BR') : '';
 
-  // Placeholders embutidos
+  // Placeholder embutido
   const PH120 = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><rect width='100%25' height='100%25' fill='%23e5e7eb'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='12' fill='%2364748b'>sem foto</text></svg>";
-  $('#foto').src = PH120; // define um default imediato, sem depender de onerror
+  $('#foto').src = PH120;
 
-  // 1) Lê parametro ?reg=000001
+  // ?reg=000001
   const reg = qs('reg');
-  if (!/^\d{6}$/.test(reg||'')) {
-    $('#loading').innerHTML = '<div><strong>Parâmetro inválido.</strong> Use ?reg=000001</div>';
-    return;
-  }
+  if(!/^\d{6}$/.test(reg||'')){ $('#loading').innerHTML='<div><strong>Parâmetro inválido.</strong> Use ?reg=000001</div>'; return; }
 
-  // 2) Carrega config de forma robusta
+  // Config
   let cfg;
-  try {
-    const res = await fetch('config.json', { cache: 'no-store' });
-    if (!res.ok) throw new Error(`config.json HTTP ${res.status}`);
+  try{
+    const res = await fetch('config.json',{cache:'no-store'});
+    if(!res.ok) throw new Error(`config.json HTTP ${res.status}`);
     const txt = await res.text();
-    try { cfg = JSON.parse(txt); }
-    catch(e){ console.error('config.json inválido:', txt); alert('config.json inválido'); throw e; }
-  } catch (e) {
-    console.error('Falha ao carregar config.json', e);
-    alert('Falha ao carregar config.json');
-    return;
-  }
+    try{ cfg = JSON.parse(txt); } catch(e){ console.error('config.json inválido:', txt); alert('config.json inválido'); return; }
+  }catch(e){ console.error('Falha ao carregar config.json', e); alert('Falha ao carregar config.json'); return; }
 
-  // 3) Supabase
+  // Supabase
   import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
   const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
-  // helpers de foto
   const normalizeFotoPath = (p)=> String(p||'').replace(/^fotos\//i,'');
-  const buildFotoUrl = (foto_path)=>{
-    if (!foto_path) return null;
+  const buildFotoUrl = (fp)=>{
+    if(!fp) return null;
     const bucket = (cfg.storageBucket || 'fotos');
-    const path = normalizeFotoPath(foto_path);
+    const path = normalizeFotoPath(fp);
     const { data } = supabase.storage.from(bucket).getPublicUrl(path);
     return data?.publicUrl || null;
   };
 
-  // 4) Consulta o empregado e a descrição da credencial
+  // Dados
   const empQ = supabase.from('empregados')
     .select('registro,nome,sigla,nome_da_unidade,cred_cod,cred_num,validade,status,foto_path')
     .eq('registro', reg).maybeSingle();
 
   const crQ  = supabase.from('credenciais').select('cred_cod,descricao');
 
-  const [{ data: emp, error: eEmp }, { data: catCred, error: eCr }] = await Promise.all([empQ, crQ]);
+  const [{ data: emp, error: eEmp }, { data: catCred }] = await Promise.all([empQ, crQ]);
 
-  if (eEmp) { console.error(eEmp); $('#loading').innerHTML = '<div>Erro ao carregar dados.</div>'; return; }
-  if (!emp) { show($('#loading'), false); show($('#notfound'), true); return; }
+  if(eEmp){ console.error(eEmp); $('#loading').innerHTML='<div>Erro ao carregar dados.</div>'; return; }
+  if(!emp){ show($('#loading'), false); show($('#notfound'), true); return; }
 
-  // mapa de credenciais
   const mapCred = Object.fromEntries((catCred||[]).map(x=>[String(x.cred_cod), x.descricao]));
   const credDesc = mapCred[String(emp.cred_cod)] || `Tipo ${emp.cred_cod}`;
 
-  // 5) Preenche campos
-  $('#nome').textContent     = emp.nome || '—';
+  $('#nome').textContent = emp.nome || '—';
   $('#registro').textContent = emp.registro || '—';
   $('#credencial').textContent = `${credDesc}${emp.cred_num ? ' • Nº ' + emp.cred_num : ''}`;
   $('#validade').textContent = formatData(emp.validade);
   $('#unidade').textContent  = emp.nome_da_unidade ? `${emp.sigla} – ${emp.nome_da_unidade}` : (emp.sigla || '—');
 
-  // status derivado
   const chip = $('#chipStatus');
   const hoje0 = new Date(); hoje0.setHours(0,0,0,0);
-  let cls = 'chip';
-  let label = '—';
-  if (emp.status === 'Em andamento') { cls += ' warn'; label = 'Em andamento'; }
-  else if (emp.status === 'Ativo' && emp.validade && new Date(emp.validade) >= hoje0) { cls += ' success'; label = 'Ativo'; }
-  else { cls += ' danger'; label = 'Inativo/Vencido'; }
+  let cls = 'chip', label = '—';
+  if (emp.status==='Em andamento'){ cls+=' warn'; label='Em andamento'; }
+  else if (emp.status==='Ativo' && emp.validade && new Date(emp.validade) >= hoje0){ cls+=' success'; label='Ativo'; }
+  else { cls+=' danger'; label='Inativo/Vencido'; }
   chip.className = cls; chip.textContent = label;
 
-  // 6) Foto
-  if (emp.foto_path){
-    const url = buildFotoUrl(emp.foto_path);
-    $('#foto').src = url || PH120;
-  } else {
-    $('#foto').src = PH120;
-  }
+  const url = buildFotoUrl(emp.foto_path);
+  $('#foto').src = url || PH120;
 
-  // exibe cartão
   show($('#loading'), false);
   show($('#card'), true);
 })();
