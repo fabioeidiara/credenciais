@@ -107,7 +107,10 @@
   const fotoEl = $('#foto');
   if (emp.foto_path){
     const bucket = (cfg.storageBucket || 'fotos');
-    const pub = supabase.storage.from(bucket).getPublicUrl(emp.foto_path).data.publicUrl;
+    // normaliza: remove qualquer prefixo "fotos/" que tenha vindo no DB
+    const path = String(emp.foto_path || '').replace(/^fotos\//i, '');
+    const pub  = supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+
     fotoEl.onerror = ()=>{ fotoEl.src='https://via.placeholder.com/120x120?text=sem+foto'; };
     fotoEl.src = pub;
   } else {
