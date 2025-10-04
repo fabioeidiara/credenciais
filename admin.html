@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>Admin – CETESB Credenciais</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link href="style.css?v=232" rel="stylesheet">
+  <link href="style.css?v=233" rel="stylesheet">
   <meta name="color-scheme" content="light">
 </head>
 <body>
@@ -16,8 +16,8 @@
     </div>
     <div class="actions">
       <a class="btn" href="consulta.html">Consulta</a>
-      <a class="btn" href="change-password.html">Senha</a>
-      <button id="btnSair" class="btn danger">Sair</button>
+      <button class="btn" id="btnChangePass">Trocar senha</button>
+      <button class="btn danger" id="btnSair">Sair</button>
     </div>
   </div>
 </header>
@@ -34,68 +34,63 @@
           <input id="registro" class="input" placeholder="000001" maxlength="6" pattern="[0-9]{6}" required>
         </div>
 
-        <div class="row">
-          <div class="field">
-            <label for="cred_num" class="req">Nº da credencial</label>
-            <input id="cred_num" class="input" placeholder="1234" pattern="[0-9]{4}" required>
-          </div>
-          <div class="field">
-            <label for="status" class="req">Status</label>
-            <select id="status" class="select" required>
-              <option value="Ativo">Ativo</option>
-              <option value="Em andamento">Em andamento</option>
-            </select>
-          </div>
-        </div>
-
         <div class="field">
           <label for="nome" class="req">Nome</label>
           <input id="nome" class="input" required>
         </div>
 
-        <div class="row">
-          <div class="field">
-            <label for="sigla" class="req">Sigla da unidade</label>
-            <select id="sigla" class="select" required>
-              <option value="">Selecione…</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="validade" class="req">Validade da credencial</label>
-            <input id="validade" class="input" type="date" required>
-          </div>
+        <div class="field">
+          <label for="sigla" class="req">Sigla da unidade</label>
+          <select id="sigla" class="input" required></select>
         </div>
 
         <div class="field">
-          <label for="nome_da_unidade">Nome da unidade</label>
-          <input id="nome_da_unidade" class="input" placeholder="Preenchido pela sigla" readonly>
+          <label for="cred_cod" class="req">Tipo de credencial</label>
+          <select id="cred_cod" class="input" required></select>
         </div>
 
         <div class="field">
-          <label for="doe">Diário Oficial do Estado (DOE)</label>
-          <input id="doe" class="input" placeholder="Nº/ano (opcional)">
+          <label for="cred_num">Nº da credencial (4 dígitos)</label>
+          <input id="cred_num" class="input" maxlength="4" pattern="[0-9]{0,4}">
         </div>
 
         <div class="field">
-          <label for="cred_cod" class="req">Código da credencial</label>
-          <select id="cred_cod" class="select" required></select>
+          <label for="validade" class="req">Validade</label>
+          <input id="validade" class="input" type="date" required>
         </div>
 
-        <div class="row row-media">
-          <div class="field">
-            <label for="fotoInput">Foto (upload)</label>
-            <input id="fotoInput" type="file" accept=".jpg,.jpeg,.png">
-          </div>
-          <div class="field media-preview">
+        <div class="field">
+          <label for="status" class="req">Status</label>
+          <select id="status" class="input" required>
+            <option>Em andamento</option>
+            <option>Ativo</option>
+            <option>Inativo</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="doe">DOE (Nº/ano)</label>
+          <input id="doe" class="input" placeholder="12345/2025" pattern="^\\d{1,6}\\/\\d{4}$">
+          <small class="muted">Formato sugerido: 12345/2025</small>
+        </div>
+
+        <div class="field">
+          <label>Foto</label>
+          <div class="row" style="gap:12px;align-items:center">
+            <img id="preview" alt="Prévia da foto" width="120" height="120" style="border-radius:8px;object-fit:cover;border:1px solid #ddd"
+                 src="https://via.placeholder.com/120x120?text=sem+foto">
             <div>
-              <label>Pré-visualização</label>
-              <img id="preview" class="avatar" alt="Prévia"
-                   src="https://via.placeholder.com/120x120?text=pre%CC%81via">
+              <input id="arquivoFoto" type="file" accept="image/*">
+              <div class="row" style="gap:8px;margin-top:8px">
+                <button type="button" class="btn" id="btnUploadFoto">Enviar/Atualizar foto</button>
+                <button type="button" class="btn danger" id="btnRemoverFoto">Remover foto</button>
+              </div>
+              <small class="muted">O nome do arquivo no Storage será &lt;registro&gt;.jpg/.png</small>
             </div>
           </div>
         </div>
 
-        <div class="row-actions">
+        <div class="row" style="gap:8px;flex-wrap:wrap">
           <button id="btnNovo" type="button" class="btn">Novo</button>
           <button id="btnExcluir" type="button" class="btn danger">Excluir</button>
           <button id="btnQR" type="button" class="btn">Gerar QR</button>
@@ -109,355 +104,274 @@
       <h2 class="card-title">Lista e filtros</h2>
 
       <div class="row" style="gap:10px;align-items:center;flex-wrap:wrap">
-        <input id="q" class="input" style="flex:1 1 auto" placeholder="Buscar por nome, registro...">
-        <select id="f_sigla" class="select"><option value="">— Sigla —</option></select>
-        <select id="f_status" class="select">
-          <option value="">— Status —</option>
-          <option value="Ativo">Ativo</option>
-          <option value="Em andamento">Em andamento</option>
-          <option value="Inativo">Inativo</option>
+        <input id="q" class="input" style="flex:1 1 auto" placeholder="Buscar por nome, registro ou sigla">
+        <select id="f_sigla" class="input" style="min-width:140px"></select>
+        <select id="f_status" class="input" style="min-width:140px">
+          <option value="">Todos</option>
+          <option>Ativo</option>
+          <option>Em andamento</option>
+          <option>Inativo</option>
         </select>
         <button id="btnReload" class="btn">Recarregar</button>
       </div>
 
-      <div class="table-wrap mt-12">
-        <table>
+      <div class="scroll">
+        <table class="table">
           <thead>
             <tr>
+              <th style="width:56px">Foto</th>
               <th>Registro</th>
               <th>Nome</th>
               <th>Sigla</th>
               <th>Validade</th>
               <th>Status</th>
-              <th class="right">Ações</th>
+              <th style="width:120px">Ações</th>
             </tr>
           </thead>
           <tbody id="tbody"></tbody>
         </table>
       </div>
 
-      <div id="count" class="small muted mt-16">0 registro(s)</div>
+      <div class="muted" id="count">0 registro(s)</div>
     </section>
   </div>
-
-  <div id="toast" class="toast hidden alert success"><div id="toastMsg">OK</div></div>
 </main>
+
+<footer class="footer"><div class="container">Piloto – CETESB</div></footer>
 
 <script type="module">
   // Utilidades
-  const $ = (s)=>document.querySelector(s);
-  const toast = (t, kind='success')=>{
-    const el = $('#toast'); const m = $('#toastMsg');
-    el.className = 'toast alert '+(kind==='error'?'error':kind==='warn'?'warn':'success');
-    m.textContent = t; el.classList.remove('hidden'); setTimeout(()=>el.classList.add('hidden'), 2200);
-  };
+  const $  = (s)=>document.querySelector(s);
+  const $$ = (s)=>Array.from(document.querySelectorAll(s));
+  const toast = (msg)=>{ console.log(msg); };
 
-  // Sessão
-  const sess = JSON.parse(localStorage.getItem('sessaoUsuario')||'null');
-  if(!sess){ location.href = 'index.html'; throw new Error('sem sessão'); }
-
-  // Config + Supabase
-  let cfg;
-  try{
-    const res = await fetch('config.json', { cache:'no-store' });
-    if(!res.ok) throw new Error('config.json '+res.status);
-    cfg = await res.json();
-  }catch(e){ alert('Falha ao carregar config.json'); throw e; }
-
-  const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
-  const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
-
-  // Sair
-  $('#btnSair').addEventListener('click', ()=>{
+  // Sair: registra IMEDIATAMENTE (mesmo que o resto quebre)
+  document.getElementById('btnSair')?.addEventListener('click', ()=>{
     localStorage.removeItem('sessaoUsuario');
     location.href = 'index.html';
   });
-
-  // Datas/Status
-  const todayZero = ()=>{ const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); };
-  const isVigente = (iso)=>{ if(!iso) return false; const [y,m,d]=iso.split('-').map(Number); return new Date(y,m-1,d) >= todayZero(); };
-  const statusDerivado = (row)=>{
-    if (row.status==='Em andamento') return {label:'Em andamento', cls:'andamento'};
-    if (row.status==='Ativo' && isVigente(row.validade)) return {label:'Ativo', cls:'ativo'};
-    return {label:'Inativo', cls:'inativo'};
-  };
-  const fmtBR = (iso)=> !iso ? '—' : (()=>{const [y,m,d]=iso.split('-');return `${d}/${m}/${y}`})();
-
-  // Combos: unidades
-  const unidadesMap = new Map();
-  (async ()=>{
-    const { data, error } = await supabase.from('unidades').select('sigla,nome_da_unidade').order('sigla');
-    if (error){ console.error(error); return; }
-    if (data){
-      $('#sigla').innerHTML = '<option value="">Selecione…</option>'+ data.map(u=>`<option value="${u.sigla}">${u.sigla}</option>`).join('');
-      $('#f_sigla').innerHTML = '<option value="">— Sigla —</option>'+ data.map(u=>`<option value="${u.sigla}">${u.sigla}</option>`).join('');
-      data.forEach(u=>unidadesMap.set((u.sigla||'').toUpperCase(), u));
-      $('#sigla').addEventListener('change', ()=>{
-        const u = unidadesMap.get(($('#sigla').value||'').toUpperCase());
-        $('#nome_da_unidade').value = u ? (u.nome_da_unidade||'') : '';
-      });
-    }
-  })();
-
-  // Combos: códigos de credencial
-  (async ()=>{
-    const { data, error } = await supabase.from('credenciais').select('cred_cod,descricao').order('cred_cod');
-    if (error){ console.error(error); return; }
-    if (data){ $('#cred_cod').innerHTML = data.map(c=>`<option value="${c.cred_cod}">${c.cred_cod} — ${c.descricao}</option>`).join(''); }
-  })();
-
-  // Pré-visualização automática (intranet) a partir do registro
-  let fotoFonte = 'placeholder';
-  function regToEmpr4(reg6){
-    const n = Math.max(0, parseInt((reg6||'').replace(/\D/g,''),10) || 0);
-    return String(n).padStart(4,'0');
-  }
-  function updatePreviewByRegistro(){
-    const reg = $('#registro').value.trim();
-    const fileSel = $('#fotoInput').files?.length > 0;
-    if (fileSel || fotoFonte === 'storage') return;
-    const img = $('#preview');
-    if (/^[0-9]{6}$/.test(reg)){
-      fotoFonte='intranet';
-      const url = `http://sistemasintra01/QuemQuem/fotos/empr-${regToEmpr4(reg)}.jpg`;
-      img.onerror = ()=>{ if(fotoFonte==='intranet'){ img.src='https://via.placeholder.com/120x120?text=pre%CC%81via'; fotoFonte='placeholder'; } };
-      img.src = url;
-    } else {
-      fotoFonte='placeholder'; img.src='https://via.placeholder.com/120x120?text=pre%CC%81via';
-    }
-  }
-  $('#registro').addEventListener('input', updatePreviewByRegistro);
-  $('#registro').addEventListener('blur', updatePreviewByRegistro);
-
-  // Pré-visualização a partir de upload
-  $('#fotoInput').addEventListener('change', ev=>{
-    const f = ev.target.files?.[0]; const img = $('#preview');
-    if (!f){ updatePreviewByRegistro(); return; }
-    const url = URL.createObjectURL(f);
-    fotoFonte='upload';
-    img.onerror = ()=>{ img.src='https://via.placeholder.com/120x120?text=pre%CC%81via'; fotoFonte='placeholder'; };
-    img.src = url;
+  document.getElementById('btnChangePass')?.addEventListener('click', ()=>{
+    location.href = 'change-password.html';
   });
 
-  // LISTA + FILTROS (com erro detalhado)
+  // Carrega config com diagnóstico robusto
+  let cfg;
+  try {
+    const res = await fetch('config.json', { cache:'no-store' });
+    if (!res.ok) throw new Error(`config.json HTTP ${res.status}`);
+    const txt = await res.text();
+    try { cfg = JSON.parse(txt); }
+    catch(e){ console.error('config.json inválido:', txt); alert('config.json inválido'); throw e; }
+  } catch (e) {
+    console.error('Falha ao carregar config.json', e);
+    alert('Falha ao carregar config.json');
+    throw e;
+  }
+
+  // Supabase
+  import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+  const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+
+  // Helpers
+  const normalizeFotoPath = (p)=> String(p||'').replace(/^fotos\//i,'');
+  const buildFotoUrl = (foto_path)=>{
+    if (!foto_path) return null;
+    const bucket = (cfg.storageBucket || 'fotos');
+    const path = normalizeFotoPath(foto_path);
+    const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+    return data?.publicUrl || null;
+  };
+  const formatData = (iso)=> iso ? new Date(iso).toLocaleDateString('pt-BR') : '';
+
+  // Preenche combos
+  async function carregarCombos(){
+    const [u, c] = await Promise.all([
+      supabase.from('unidades').select('sigla,nome_da_unidade').order('sigla'),
+      supabase.from('credenciais').select('cred_cod,descricao').order('cred_cod')
+    ]);
+    $('#sigla').innerHTML = (u.data||[]).map(x=>`<option value="${x.sigla}">${x.sigla} – ${x.nome_da_unidade||''}</option>`).join('');
+    $('#cred_cod').innerHTML = (c.data||[]).map(x=>`<option value="${x.cred_cod}">${x.cred_cod} – ${x.descricao||''}</option>`).join('');
+    // filtros
+    $('#f_sigla').innerHTML = `<option value="">Todas</option>` + (u.data||[]).map(x=>`<option value="${x.sigla}">${x.sigla}</option>`).join('');
+  }
+
+  // Lista
   async function carregarLista(){
-    try {
-      const q = ($('#q').value||'').trim().toLowerCase();
-      const fSigla = $('#f_sigla').value||''; 
-      const fStatus = $('#f_status').value||'';
+    const q = $('#q').value.trim();
+    const fs = $('#f_status').value;
+    const fSig = $('#f_sigla').value;
 
-      let query = supabase
-        .from('empregados')
-        .select('registro,nome,sigla,validade,status', { count:'exact' })
-        .order('registro', { ascending:true });
+    let query = supabase.from('empregados').select('registro,nome,sigla,validade,status,foto_path').order('registro');
 
-      if (fSigla) query = query.eq('sigla', fSigla);
-      if (q)     query = query.or(`nome.ilike.%${q}%,registro.ilike.%${q}%`);
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error('ERRO SELECT empregados:', error);
-        toast('Erro ao carregar lista: ' + (error.message || JSON.stringify(error)), 'error');
-        $('#tbody').innerHTML = '';
-        $('#count').textContent = '0 registro(s)';
-        return;
-      }
-
-      let rows = data||[];
-      if (fStatus) rows = rows.filter(r=> statusDerivado(r).label === fStatus);
-
-      const tbody = $('#tbody');
-      tbody.innerHTML = rows.map(r=>{
-        const sd = statusDerivado(r);
-        return `<tr>
-          <td>${r.registro}</td>
-          <td>${r.nome||'—'}</td>
-          <td>${r.sigla||'—'}</td>
-          <td>${fmtBR(r.validade)||'—'}</td>
-          <td><span class="chip ${sd.cls}">${sd.label}</span></td>
-          <td class="right table-actions">
-            <button class="btn" data-edit="${r.registro}">Editar</button>
-            <a class="btn" target="_blank" rel="noopener" href="public.html?reg=${r.registro}">Abrir</a>
-          </td>
-        </tr>`;
-      }).join('');
-
-      tbody.querySelectorAll('button[data-edit]').forEach(btn=>{
-        btn.addEventListener('click', ()=> editar(btn.getAttribute('data-edit')));
-      });
-
-      $('#count').textContent = `${rows.length} registro(s)`;
-
-    } catch (e) {
-      console.error('EXCEPTION carregarLista:', e);
-      toast('Falha inesperada ao listar: ' + (e.message||e), 'error');
+    if (q){
+      // busca por nome (ilike), registro ou sigla
+      const isNum = /^\d+$/.test(q);
+      if (isNum) query = query.or(`registro.eq.${q},cred_num.eq.${q}`);
+      else query = query.ilike('nome', `%${q}%`);
     }
+    if (fs)  query = query.eq('status', fs);
+    if (fSig) query = query.eq('sigla', fSig);
+
+    const { data, error } = await query;
+    if (error) { console.error(error); alert('Erro ao carregar lista'); return; }
+
+    const rows = (data||[]).map(x=>{
+      const foto = buildFotoUrl(x.foto_path) || 'https://via.placeholder.com/40?text=%F0%9F%92%AC';
+      const statusChip =
+        (x.status==='Ativo' && new Date(x.validade) >= new Date().setHours(0,0,0,0)) ? `<span class="chip success">Ativo</span>` :
+        (x.status==='Em andamento') ? `<span class="chip warn">Em andamento</span>` :
+        `<span class="chip danger">Inativo/Vencido</span>`;
+
+      return `<tr data-reg="${x.registro}">
+        <td><img src="${foto}" alt="foto" width="40" height="40" style="border-radius:6px;object-fit:cover;border:1px solid #ddd" onerror="this.src='https://via.placeholder.com/40?text=%3F'"></td>
+        <td>${x.registro}</td>
+        <td>${x.nome||''}</td>
+        <td>${x.sigla||''}</td>
+        <td>${formatData(x.validade)}</td>
+        <td>${statusChip}</td>
+        <td>
+          <button class="btn sm" data-acao="editar">Editar</button>
+          <a class="btn sm" target="_blank" href="public.html?reg=${x.registro}">Público</a>
+        </td>
+      </tr>`;
+    }).join('');
+
+    $('#tbody').innerHTML = rows || `<tr><td colspan="7" class="muted">Nenhum registro</td></tr>`;
+    $('#count').textContent = `${data?.length||0} registro(s)`;
   }
 
-  async function editar(registro){
-    const { data, error } = await supabase.from('empregados')
-      .select('registro,cred_num,cred_cod,status,nome,sigla,nome_da_unidade,validade,doe,foto_path')
-      .eq('registro', registro).maybeSingle();
-    if (error || !data){ toast('Erro ao abrir: '+(error?.message||'registro não encontrado'),'error'); return; }
+  // Click na tabela → carrega no form
+  $('#tbody').addEventListener('click', async (ev)=>{
+    const btn = ev.target.closest('[data-acao="editar"]');
+    if (!btn) return;
+    const tr = ev.target.closest('tr');
+    const reg = tr?.getAttribute('data-reg');
+    if (!reg) return;
 
-    $('#formCad').reset();
-    $('#registro').value = data.registro||'';
-    $('#cred_num').value = data.cred_num||'';
-    $('#status').value = data.status||'Ativo';
-    $('#nome').value = data.nome||'';
-    $('#sigla').value = data.sigla||'';
-    $('#validade').value = data.validade||'';
-    $('#nome_da_unidade').value = data.nome_da_unidade||'';
-    $('#doe').value = data.doe||'';
-    $('#cred_cod').value = String(data.cred_cod||'');
+    const { data, error } = await supabase.from('empregados').select('*').eq('registro', reg).maybeSingle();
+    if (error) { alert('Erro ao carregar registro'); return; }
 
-    const img = $('#preview');
-    if (data.foto_path){
-      fotoFonte='storage';
-      const bucket = (cfg.storageBucket || 'fotos');
-      const path = String(data.foto_path || '').replace(/^fotos\//i,'');
-      const pub  = supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
-      img.src = pub;
-      const pub = supabase.storage.from(bucket).getPublicUrl(data.foto_path).data.publicUrl;
-      img.onerror = ()=>{ if(fotoFonte==='storage'){ img.src='https://via.placeholder.com/120x120?text=pre%CC%81via'; fotoFonte='placeholder'; } };
-      img.src = pub;
-    } else {
-      fotoFonte='placeholder'; updatePreviewByRegistro();
-    }
-    toast('Registro carregado');
-  }
+    $('#registro').value  = data.registro || '';
+    $('#nome').value      = data.nome || '';
+    $('#sigla').value     = data.sigla || '';
+    $('#cred_cod').value  = data.cred_cod || '';
+    $('#cred_num').value  = data.cred_num || '';
+    $('#validade').value  = data.validade ? String(data.validade).slice(0,10) : '';
+    $('#status').value    = data.status || 'Em andamento';
+    $('#doe').value       = data.doe || '';
 
-  // Filtros
+    // atualiza prévia
+    const url = buildFotoUrl(data.foto_path);
+    $('#preview').src = url || 'https://via.placeholder.com/120x120?text=sem+foto';
+  });
+
+  // Botões
   $('#btnReload').addEventListener('click', carregarLista);
-  $('#q').addEventListener('input', ()=>{ clearTimeout(window._t); window._t=setTimeout(carregarLista,350); });
-  $('#f_sigla').addEventListener('change', carregarLista);
-  $('#f_status').addEventListener('change', carregarLista);
-
-  // Novo
   $('#btnNovo').addEventListener('click', ()=>{
     $('#formCad').reset();
-    fotoFonte='placeholder';
-    $('#preview').src='https://via.placeholder.com/120x120?text=pre%CC%81via';
-    toast('Cadastro limpo');
+    $('#preview').src = 'https://via.placeholder.com/120x120?text=sem+foto';
   });
 
-  // Excluir
   $('#btnExcluir').addEventListener('click', async ()=>{
     const reg = $('#registro').value.trim();
-    if(!/^[0-9]{6}$/.test(reg)){ alert('Registro inválido'); return; }
-    if(!confirm(`Excluir ${reg}?`)) return;
+    if (!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).');
+    if (!confirm(`Excluir ${reg}?`)) return;
 
     const { error } = await supabase.from('empregados').delete().eq('registro', reg);
-    if(error){ console.error(error); toast('Erro ao excluir: '+error.message,'error'); return; }
-
-    try{
-      const bucket = (cfg.storageBucket || 'fotos');
-      await supabase.storage.from(bucket).remove([`${reg}.jpg`, `${reg}.png`]);
-    }catch(e){ console.warn('remover fotos (warning):', e); }
-
-    $('#btnNovo').click();
+    if (error) { alert('Erro ao excluir'); return; }
+    toast('Excluído');
     carregarLista();
-    toast('Excluído.');
   });
 
-  // QR
   $('#btnQR').addEventListener('click', ()=>{
     const reg = $('#registro').value.trim();
-    if(!/^[0-9]{6}$/.test(reg)){ alert('Informe um registro válido.'); return; }
-    const url = `${cfg.BASE_URL.replace(/\/$/,'')}/${cfg.publicPage||'public.html'}?reg=${reg}`;
-    window.open(`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}`,'_blank','noopener');
+    if (!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).');
+    const url = new URL(location.href);
+    url.pathname = url.pathname.replace(/admin\.html$/,'public.html');
+    url.search = `?reg=${reg}`;
+    window.open(`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url.href)}`,'_blank');
   });
 
-  // Salvar (com fallback se não houver índice único para onConflict)
+  // Upload de foto (preview imediato)
+  $('#arquivoFoto').addEventListener('change', (ev)=>{
+    const file = ev.target.files?.[0];
+    if (file){
+      const objUrl = URL.createObjectURL(file);
+      $('#preview').src = objUrl;
+    }
+  });
+
+  $('#btnUploadFoto').addEventListener('click', async ()=>{
+    const reg = $('#registro').value.trim();
+    if (!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).');
+    const file = $('#arquivoFoto').files?.[0];
+    if (!file) return alert('Selecione um arquivo de imagem.');
+
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const key = `${reg}.${ext}`;
+    const bucket = (cfg.storageBucket || 'fotos');
+
+    // sobe com upsert
+    const { error: upErr } = await supabase.storage.from(bucket).upload(key, file, { upsert:true, contentType:file.type });
+    if (upErr) { console.error(upErr); return alert('Falha no upload'); }
+
+    // grava no DB (apenas nome do arquivo!)
+    const { error: dbErr } = await supabase.from('empregados').update({ foto_path: key }).eq('registro', reg);
+    if (dbErr) { console.error(dbErr); return alert('Falha ao gravar foto no banco'); }
+
+    // atualiza preview a partir do Storage (URL pública)
+    const url = buildFotoUrl(key);
+    $('#preview').src = url || 'https://via.placeholder.com/120x120?text=sem+foto';
+    toast('Foto atualizada.');
+  });
+
+  $('#btnRemoverFoto').addEventListener('click', async ()=>{
+    const reg = $('#registro').value.trim();
+    if (!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).');
+
+    // busca registro atual para descobrir nome do arquivo
+    const { data } = await supabase.from('empregados').select('foto_path').eq('registro', reg).maybeSingle();
+    const key = normalizeFotoPath(data?.foto_path);
+    const bucket = (cfg.storageBucket || 'fotos');
+
+    if (key){
+      await supabase.storage.from(bucket).remove([key]).catch(()=>{});
+    }
+    await supabase.from('empregados').update({ foto_path: null }).eq('registro', reg);
+
+    $('#preview').src = 'https://via.placeholder.com/120x120?text=sem+foto';
+    $('#arquivoFoto').value = '';
+    toast('Foto removida.');
+  });
+
+  // Salvar
   $('#formCad').addEventListener('submit', async (ev)=>{
     ev.preventDefault();
+    const reg = $('#registro').value.trim();
+    if (!/^\d{6}$/.test(reg)) return alert('Registro inválido.');
 
-    const registro = $('#registro').value.trim();
-    const cred_num = $('#cred_num').value.trim();
-    const status   = $('#status').value.trim();
-    const nome     = $('#nome').value.trim();
-    const sigla    = $('#sigla').value.trim().toUpperCase();
-    const validade = $('#validade').value || null;
-    const nome_da_unidade = $('#nome_da_unidade').value.trim();
-    const doe      = ($('#doe').value||'').trim() || null;
-    const cred_cod = parseInt($('#cred_cod').value||'0',10) || null;
+    const payload = {
+      registro: reg,
+      nome: $('#nome').value.trim(),
+      sigla: $('#sigla').value,
+      cred_cod: Number($('#cred_cod').value),
+      cred_num: $('#cred_num').value.trim() || null,
+      validade: $('#validade').value,
+      status: $('#status').value,
+      doe: $('#doe').value.trim() || null
+    };
 
-    if (!/^[0-9]{6}$/.test(registro)){ alert('Registro deve ter 6 dígitos.'); return; }
-    if (!/^[0-9]{4}$/.test(cred_num)){ alert('Nº da credencial deve ter 4 dígitos.'); return; }
-    if (!nome || !sigla || !cred_cod){ alert('Preencha Nome, Sigla e Código da credencial.'); return; }
-
-    const payload = { registro, cred_num, cred_cod, status, nome, sigla, nome_da_unidade, validade, doe };
-
-    // Tenta upsert com onConflict; se o esquema não tiver índice único, cai no fallback
-    let upErr = null;
-    {
-      const { error } = await supabase.from('empregados').upsert(payload, { onConflict:'registro' });
-      if (error) upErr = error;
-    }
-    if (upErr) {
-      console.warn('UPSERT onConflict falhou:', upErr.message || upErr);
-      // Fallback: decide por update/insert manual
-      const { data:ex } = await supabase.from('empregados').select('registro').eq('registro', registro).maybeSingle();
-      if (ex) {
-        const { error:e2 } = await supabase.from('empregados').update(payload).eq('registro', registro);
-        if (e2){ console.error('UPDATE error:', e2); toast('Erro ao salvar: '+(e2.message||'update'), 'error'); return; }
-      } else {
-        const { error:e3 } = await supabase.from('empregados').insert(payload);
-        if (e3){ console.error('INSERT error:', e3); toast('Erro ao salvar: '+(e3.message||'insert'), 'error'); return; }
-      }
-    }
-
-    // Upload da foto (opcional) — com diagnóstico
-    const file = $('#fotoInput').files?.[0];
-    if (file) {
-      const ext = (file.name.split('.').pop()||'jpg').toLowerCase();
-      const bucket = (cfg.storageBucket || 'fotos');
-      const path = `${registro}.${ext}`; // SEM prefixo “fotos/”
-
-      fotoFonte = 'upload';
-      try {
-        console.log('Uploading to bucket:', bucket, 'path:', path, 'file:', file && file.name);
-
-        try { await supabase.storage.from(bucket).remove([`${registro}.jpg`, `${registro}.png`]); } catch (e) {
-          console.warn('remove(old) warning:', e);
-        }
-
-        const up = await supabase.storage.from(bucket)
-          .upload(path, file, { upsert:true, cacheControl:'3600', contentType:file.type||'image/jpeg' });
-
-        console.log('Upload response:', up);
-
-        if (up.error) {
-          const msg = up.error.message || JSON.stringify(up.error);
-          console.error('UPLOAD ERROR:', up.error);
-          toast(`Erro ao subir a foto: ${msg}`, 'error');
-          $('#preview').src = 'https://via.placeholder.com/120x120?text=pre%CC%81via';
-        } else {
-          const upd = await supabase.from('empregados').update({ foto_path: path }).eq('registro', registro);
-          if (upd.error) {
-            console.error('DB foto_path update error:', upd.error);
-            toast(`Erro ao salvar caminho da foto: ${upd.error.message}`, 'error');
-          } else {
-            const pub = supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
-            $('#preview').src = pub;
-            toast(`Foto enviada: ${path}`, 'success');
-          }
-        }
-      } catch (e) {
-        console.error('UPLOAD EXCEPTION:', e);
-        toast(`Falha inesperada no upload: ${e.message||e}`, 'error');
-        $('#preview').src = 'https://via.placeholder.com/120x120?text=pre%CC%81via';
-      }
-    }
+    // upsert por registro
+    const { error } = await supabase.from('empregados').upsert(payload, { onConflict:'registro' });
+    if (error) { console.error(error); return alert('Erro ao salvar'); }
 
     toast('Salvo com sucesso.');
     carregarLista();
   });
 
-  // Start
-  updatePreviewByRegistro();
-  carregarLista();
+  // Inicialização
+  await carregarCombos();
+  await carregarLista();
 </script>
 </body>
 </html>
