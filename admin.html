@@ -7,14 +7,15 @@
   <link href="style.css" rel="stylesheet">
   <meta name="color-scheme" content="light">
   <link rel="icon" href="data:,">
-
   <style>
-    /* correção do logo gigante (sem tocar no seu grid) */
+    /* Correção do logo gigante (sem tocar no grid/base do seu style.css) */
     .brand-logo{ max-height:28px; width:auto; display:block; }
-    /* cabeçalhos clicáveis p/ ordenar */
+
+    /* Cabeçalhos clicáveis p/ ordenar (sem ícones) */
     th.sortable{ cursor:pointer; user-select:none }
     th.sortable:hover{ text-decoration: underline dotted }
-    /* textos auxiliares */
+
+    /* Placeholders e microtexto */
     .label-like{ font-size:12px; color:#64748b }
     .input::placeholder{ color:#a8b3c0; opacity:1 }
   </style>
@@ -188,7 +189,27 @@
   const PH40 ="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect width='100%25' height='100%25' fill='%23eef2f7' rx='8' ry='8'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='16' fill='%2390a4b8'>?</text></svg>";
   $('#preview').src=PH120;
 
-  // ordenação (definido já no início)
+  /* ---------- Status exibido (única fonte da verdade p/ filtro e ordenação) ---------- */
+  function normStatus(s){
+    return String(s ?? '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').trim();
+  }
+  function displayStatus(rec){
+    const raw = normStatus(rec.status);
+    const hoje = new Date(new Date().toDateString());
+    if (raw === 'ativo') {
+      const ok = rec.validade && new Date(rec.validade) >= hoje;
+      return ok ? 'Ativo' : 'Inativo';
+    }
+    if (raw === 'em andamento') return 'Em andamento';
+    return 'Inativo';
+  }
+  function statusChip(label){
+    if (label === 'Ativo') return '<span class="chip success">Ativo</span>';
+    if (label === 'Em andamento') return '<span class="chip warn">Em andamento</span>';
+    return '<span class="chip danger">Inativo</span>';
+  }
+
+  // ordenação atual
   let sortCol='registro';
   let sortAsc=true;
 
@@ -243,45 +264,53 @@
     });
   }
 
-  // LISTA (status filtrado no SERVIDOR)
+  /* ------------------------- LISTA ------------------------- */
   async function carregarLista(){
     const nome=$('#f_nome').value.trim();
     const regPart=$('#f_reg').value.trim();
     const numPart=$('#f_numero').value.trim();
     const fSig=$('#f_sigla').value;
     const fTipos=tiposSelecionados();
-    const fsRaw=($('#f_status').value||'').trim();
 
     let query=supabase.from('empregados').select('registro,nome,sigla,cred_num,cred_cod,validade,status,foto_path');
-
     if(nome) query=query.ilike('nome',`%${nome}%`);
     if(fSig) query=query.eq('sigla',fSig);
     if(fTipos.length) query=query.in('cred_cod', fTipos.map(Number));
 
-    if(fsRaw){
-      const variants = fsRaw==='Ativo'
-        ? ['Ativo','ATIVO','ativo']
-        : fsRaw==='Inativo'
-          ? ['Inativo','INATIVO','inativo','Inativo/Vencido','INATIVO/VENCIDO','inativo/vencido']
-          : ['Em andamento','EM ANDAMENTO','em andamento'];
-      query = query.in('status', variants);
+    // Se o usuário pediu ordenação por status, NÃO deixo o servidor ordenar por status
+    if (sortCol !== 'status') {
+      query = query.order(sortCol,{ascending:sortAsc});
     }
-
-    query=query.order(sortCol,{ascending:sortAsc}).order('registro',{ascending:true});
+    // ordenação estável secundária
+    query = query.order('registro',{ascending:true});
 
     const res=await query;
     if(res.error){console.error(res.error);alert('Erro ao carregar lista');return;}
     let data=res.data||[];
 
-    // buscas parciais locais
+    // Filtro de status (com base no status exibido)
+    const fs = ($('#f_status').value||'').trim();
+    if (fs) data = data.filter(r => displayStatus(r) === fs);
+
+    // Buscas parciais locais
     if(regPart) data=data.filter(x=>String(x.registro||'').includes(regPart));
     if(numPart) data=data.filter(x=>String(x.cred_num||'').includes(numPart));
+
+    // Ordenação por status (client-side) quando solicitado
+    if (sortCol === 'status') {
+      data.sort((a,b)=>{
+        const sa = displayStatus(a);
+        const sb = displayStatus(b);
+        const cmp = sa.localeCompare(sb,'pt-BR');
+        return sortAsc ? cmp : -cmp;
+      });
+    }
 
     const linhas=await Promise.all(data.map(async x=>{
       const url=await getFotoUrlFlexible(x.registro,x.foto_path,{strict:!x.foto_path});
       const avatar=url||PH40;
-      const ok=(x.status==='Ativo' && x.validade && new Date(x.validade)>=new Date(new Date().toDateString()));
-      const chip= ok?'<span class="chip success">Ativo</span>':(x.status==='Em andamento'?'<span class="chip warn">Em andamento</span>':'<span class="chip danger">Inativo</span>');
+      const dlabel = displayStatus(x);
+      const chip = statusChip(dlabel);
       return `<tr data-reg="${x.registro}">
         <td><input type="checkbox" class="chkRow" value="${x.registro}"></td>
         <td><img src="${avatar}" width="40" height="40" style="border-radius:6px;object-fit:cover;border:1px solid #ddd" onerror="this.src='${PH40}'"></td>
@@ -360,7 +389,12 @@
   document.addEventListener('change',(e)=>{if(e.target?.classList?.contains('f_tipo'))carregarLista();});
 
   // init
-  (function bindSort(){document.querySelectorAll('th.sortable').forEach(th=>{th.onclick=()=>{const c=th.getAttribute('data-col');if(!c)return;if(sortCol===c)sortAsc=!sortAsc;else{sortCol=c;sortAsc=true;}carregarLista();};});})();
+  (function bindSortHeaders(){
+    document.querySelectorAll('th.sortable').forEach(th=>{
+      th.onclick=()=>{const col=th.getAttribute('data-col');if(!col)return; if(sortCol===col) sortAsc=!sortAsc; else {sortCol=col;sortAsc=true;} carregarLista();}
+    });
+  })();
+
   await carregarCombos();
   await carregarLista();
 </script>
