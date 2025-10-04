@@ -8,13 +8,18 @@
   <meta name="color-scheme" content="light">
   <link rel="icon" href="data:,">
   <style>
-    /* trava o logo (evita “logo gigante”) sem mexer no seu grid base */
+    /* Cabeçalho: logo, título e botões */
     .brand-logo{ max-height:28px; width:auto; display:block; }
+    .title{ font-size:22px; line-height:1.25; margin:0; }
+    .topbar-bar{ display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+    .topbar-left{ display:flex; align-items:center; gap:10px; }
+    .topbar-right{ display:flex; align-items:center; gap:10px; }
 
-    /* ordenar sem ícones */
+    /* Ordenação por cabeçalho (sem ícones) */
     th.sortable{ cursor:pointer; user-select:none }
     th.sortable:hover{ text-decoration: underline dotted }
 
+    /* Placeholders/microtexto */
     .label-like{ font-size:12px; color:#64748b }
     .input::placeholder{ color:#a8b3c0; opacity:1 }
   </style>
@@ -22,12 +27,12 @@
 <body>
 
 <header class="topbar">
-  <div class="container row between center">
-    <div class="row center" style="gap:10px">
+  <div class="container topbar-bar">
+    <div class="topbar-left">
       <img class="brand-logo" src="media/cetesb-logo.png" alt="CETESB" onerror="this.style.display='none'">
       <h1 class="title">CETESB – Consulta de Credenciais</h1>
     </div>
-    <div class="row" style="gap:10px">
+    <div class="topbar-right">
       <a class="btn" href="admin.html">Cadastro</a>
       <a class="btn" href="index.html">Início</a>
     </div>
@@ -67,7 +72,9 @@
 
       <div class="col" style="flex:1 1 100%">
         <span class="label-like">Tipo</span>
-        <div id="tiposBox" class="row" style="gap:10px;flex-wrap:wrap"><span class="label-like">carregando…</span></div>
+        <div id="tiposBox" class="row" style="gap:10px;flex-wrap:wrap">
+          <span class="label-like">carregando…</span>
+        </div>
       </div>
 
       <div class="row" style="gap:12px;width:100%;justify-content:center">
@@ -103,14 +110,14 @@
 </footer>
 
 <script type="module">
-  // utilidade básica
+  // utilidade
   const $=(s)=>document.querySelector(s);
   const fmt=(iso)=>iso?new Date(iso).toLocaleDateString('pt-BR'):'';
 
-  // placeholders locais (sem via.placeholder.com)
+  // placeholder local (sem via.placeholder.com)
   const PH40="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect width='100%25' height='100%25' fill='%23eef2f7' rx='8' ry='8'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='16' fill='%2390a4b8'>?</text></svg>";
 
-  // --- Status exibido (mesma regra do admin) ---
+  /* ---------- Status exibido: fonte da verdade p/ filtro e ordenação ---------- */
   function normStatus(s){
     return String(s ?? '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'').trim();
   }
@@ -135,8 +142,7 @@
   let sortAsc=true;
 
   // config + supabase
-  let cfg;
-  {
+  let cfg;{
     const r=await fetch('config.json',{cache:'no-store'});
     if(!r.ok){ alert('Falha ao carregar config.json'); throw new Error('config.json HTTP '+r.status); }
     cfg=await r.json();
@@ -144,7 +150,7 @@
   const supa=await import('https://esm.sh/@supabase/supabase-js@2');
   const supabase=supa.createClient(cfg.supabaseUrl,cfg.supabaseAnonKey);
 
-  // fotos (reaproveita a lógica resiliente)
+  // fotos (mesma lógica resiliente do admin)
   const splitDir=(b)=>{const i=b.lastIndexOf('/');return i===-1?{dir:'',name:b}:{dir:b.slice(0,i),name:b.slice(i+1)};}
   async function objExists(bucket,full){const t=splitDir(full);const r=await supabase.storage.from(bucket).list(t.dir||'',{search:t.name,limit:1});if(r.error)return false;return (r.data||[]).some(x=>x.name===t.name);}
   async function getFotoUrlIfExists(path){const bucket=cfg.storageBucket||'fotos';if(!await objExists(bucket,path))return null;const s=await supabase.storage.from(bucket).createSignedUrl(path,3600);if(s?.data?.signedUrl)return s.data.signedUrl;const p=supabase.storage.from(bucket).getPublicUrl(path);return p?.data?.publicUrl||null;}
@@ -158,14 +164,13 @@
     ]);
     const un=u.data||[], cr=c.data||[];
     $('#f_sigla').innerHTML=`<option value="">Todas</option>`+un.map(x=>`<option value="${x.sigla}">${x.sigla}</option>`).join('');
-    const tipos=$('#tiposBox');
-    tipos.innerHTML = cr.length
+    const tipos=$('#tiposBox'); tipos.innerHTML = cr.length
       ? cr.map(x=>`<label class="label-like" style="display:inline-flex;align-items:center;gap:6px"><input type="checkbox" class="f_tipo" value="${x.cred_cod}"> ${x.cred_cod}</label>`).join('')
       : `<span class="label-like">Nenhum tipo cadastrado</span>`;
   }
   const tiposSelecionados=()=>Array.from(document.querySelectorAll('.f_tipo:checked')).map(el=>el.value);
 
-  // ordenar pelos cabeçalhos
+  // sort pelos cabeçalhos
   function bindSortHeaders(){
     document.querySelectorAll('th.sortable').forEach(th=>{
       th.onclick=()=>{const col=th.getAttribute('data-col'); if(!col)return;
@@ -175,51 +180,49 @@
     });
   }
 
-  // LISTA (filtro/ordenação por status com base no “displayStatus”, igual ao admin)
+  // LISTA
   async function carregarLista(){
-    const nome = $('#f_nome').value.trim();
-    const regPart = $('#f_reg').value.trim();
-    const numPart = $('#f_numero').value.trim();
-    const fSig = $('#f_sigla').value;
-    const fTipos = tiposSelecionados();
+    const nome=$('#f_nome').value.trim();
+    const regPart=$('#f_reg').value.trim();
+    const numPart=$('#f_numero').value.trim();
+    const fSig=$('#f_sigla').value;
+    const fTipos=tiposSelecionados();
 
-    let query = supabase
-      .from('empregados')
+    let query=supabase.from('empregados')
       .select('registro,nome,sigla,cred_num,cred_cod,validade,status,foto_path');
 
-    if (nome) query = query.ilike('nome', `%${nome}%`);
-    if (fSig) query = query.eq('sigla', fSig);
-    if (fTipos.length) query = query.in('cred_cod', fTipos.map(Number));
+    if (nome) query=query.ilike('nome',`%${nome}%`);
+    if (fSig)  query=query.eq('sigla',fSig);
+    if (fTipos.length) query=query.in('cred_cod',fTipos.map(Number));
 
-    // Se ordena por status, não peço ao servidor (faço client-side com displayStatus)
     if (sortCol !== 'status') {
-      query = query.order(sortCol, { ascending: sortAsc });
+      query = query.order(sortCol,{ascending:sortAsc});
     }
-    query = query.order('registro', { ascending: true }); // estável
+    query = query.order('registro',{ascending:true}); // ordem estável
 
-    const res = await query;
-    if (res.error){ console.error(res.error); alert('Erro ao carregar lista'); return; }
-    let data = res.data || [];
+    const res=await query;
+    if(res.error){ console.error(res.error); alert('Erro ao carregar lista'); return; }
+    let data=res.data||[];
 
-    // Filtro de status pelo rótulo exibido
-    const fs = ($('#f_status').value || '').trim();
+    // filtro de status pelo rótulo exibido
+    const fs = ($('#f_status').value||'').trim();
     if (fs) data = data.filter(r => displayStatus(r) === fs);
 
-    // Buscas parciais
+    // buscas parciais
     if (regPart) data = data.filter(x => String(x.registro||'').includes(regPart));
     if (numPart) data = data.filter(x => String(x.cred_num||'').includes(numPart));
 
-    // Ordenação por status (client-side)
+    // ordenação por status no client
     if (sortCol === 'status') {
       data.sort((a,b)=>{
         const sa=displayStatus(a), sb=displayStatus(b);
-        const cmp = sa.localeCompare(sb, 'pt-BR');
+        const cmp = sa.localeCompare(sb,'pt-BR');
         return sortAsc ? cmp : -cmp;
       });
     }
 
     const linhas = await Promise.all(data.map(async x=>{
-      const url = await getFotoUrlFlexible(x.registro, x.foto_path, {strict:!x.foto_path});
+      const url = await getFotoUrlFlexible(x.registro,x.foto_path,{strict:!x.foto_path});
       const avatar = url || PH40;
       const dlabel = displayStatus(x);
       const chip = statusChip(dlabel);
@@ -250,7 +253,7 @@
       window['_deb'+id]=setTimeout(carregarLista,250);
     });
   });
-  document.addEventListener('change', (e)=>{
+  document.addEventListener('change',(e)=>{
     if (e.target?.classList?.contains('f_tipo')) carregarLista();
   });
 
