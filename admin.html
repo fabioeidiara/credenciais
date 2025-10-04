@@ -4,25 +4,34 @@
   <meta charset="utf-8">
   <title>Admin – CETESB Credenciais</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link href="style.css?v=250" rel="stylesheet">
+  <link href="style.css?v=251" rel="stylesheet">
   <meta name="color-scheme" content="light">
   <link rel="icon" href="data:,">
   <style>
     .label-like{ font-size:12px; color:#64748b; }
     .file-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap }
     .file-row .btn{ margin:0 }
+
+    /* Filtros organizados e responsivos */
     .filters{ display:grid; grid-template-columns: 1fr 150px 160px 180px; gap:10px; align-items:end }
     .filters .w-full{ grid-column: 1 / -1 }
     .filters .stack{ display:flex; flex-direction:column; gap:6px }
     .tags{ display:flex; gap:10px; flex-wrap:wrap; padding:8px 10px; border-radius:10px; border:1px solid #e5e7eb; }
-    .tbl-check{ width: 34px }
+
+    /* Botões com largura conforme o texto (evita corte/overflow) */
+    .filters .btn{ width:auto; white-space:nowrap; min-width:max-content }
+
+    /* Checagem na tabela */
+    .tbl-check{ width:34px }
+
+    /* Placeholders mais claros para não confundir com texto real */
+    .input::placeholder{ color:#a8b3c0; opacity:1 }
+
     .muted{ color:#6b7280 }
     @media (max-width: 900px){
       .filters{ grid-template-columns: 1fr 1fr; }
     }
   </style>
-  <!-- QR code lib (gera PNG local, sem API externa) -->
-  <script defer src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 </head>
 <body>
 <header class="header">
@@ -118,12 +127,12 @@
       <div class="filters">
         <div class="stack w-full">
           <label class="label-like" for="q">Buscar (nome / matrícula / número-credencial)</label>
-          <input id="q" class="input" placeholder="Ex.: MARIA / 000123 / 42">
+          <input id="q" class="input" placeholder="Ex.: MARIA / 000123 / 0042">
         </div>
 
         <div class="stack">
           <label class="label-like" for="f_numero">Número (credencial)</label>
-          <input id="f_numero" class="input" placeholder="Ex.: 42">
+          <input id="f_numero" class="input" placeholder="Ex.: 0042">
         </div>
 
         <div class="stack">
@@ -153,7 +162,7 @@
 
         <div class="stack">
           <label class="label-like">&nbsp;</label>
-          <button id="btnQrSelecionados" class="btn">Baixar QR selecionados</button>
+          <button id="btnQrSelecionados" class="btn">QR em lote</button>
         </div>
       </div>
 
@@ -170,7 +179,7 @@
               <th>Tipo</th>
               <th>Validade</th>
               <th>Status</th>
-              <th style="width:180px">Ações</th>
+              <th style="width:140px">Ações</th>
             </tr>
           </thead>
           <tbody id="tbody"></tbody>
@@ -185,6 +194,9 @@
 <footer class="footer"><div class="container">Piloto – CETESB</div></footer>
 
 <script type="module">
+  // ===== Imports (inclui QRCode como ESM para evitar “Falha ao gerar QR”) =====
+  import QRCode from 'https://esm.sh/qrcode@1.5.3';
+
   // ===== Helpers =====
   const $  = (s)=>document.querySelector(s);
   const fmt = (iso)=> iso ? new Date(iso).toLocaleDateString('pt-BR') : '';
@@ -216,8 +228,7 @@
 
   // ===== Supabase =====
   const supa = await import('https://esm.sh/@supabase/supabase-js@2');
-  const createClient = supa.createClient;
-  const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+  const supabase = supa.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
   // === fotos: helpers ===
   const normalizeFotoPath = (p)=> String(p||'').replace(/^fotos\//i,'');
@@ -296,7 +307,6 @@
     $('#cred_cod').innerHTML = cr.map(x=>`<option value="${x.cred_cod}">${x.cred_cod} – ${x.descricao||''}</option>`).join('');
     $('#f_sigla').innerHTML  = `<option value="">Todas</option>` + un.map(x=>`<option value="${x.sigla}">${x.sigla}</option>`).join('');
 
-    // Corrige bug: usar 'cr' (não c.data) para renderizar checkboxes
     const tipos = $('#tiposBox');
     if(cr.length){
       tipos.innerHTML = cr.map(x=>`
@@ -333,7 +343,7 @@
     const data = res.data || [];
 
     const linhas = await Promise.all(data.map(async (x)=>{
-      const strict = !x.foto_path; // sem fallback no admin quando não há foto_path
+      const strict = !x.foto_path;
       const fotoUrl = await getFotoUrlFlexible(x.registro, x.foto_path, {strict});
       const avatar = fotoUrl || PH40;
 
@@ -355,7 +365,6 @@
         <td>
           <button class="btn sm" data-acao="editar">Editar</button>
           <a class="btn sm" target="_blank" href="public.html?reg=${x.registro}">Público</a>
-          <button class="btn sm" data-acao="qr">QR</button>
         </td>
       </tr>`;
     }));
@@ -372,16 +381,9 @@
 
   // === Editar → form
   $('#tbody').addEventListener('click', async (ev)=>{
-    const qrBtn = ev.target.closest && ev.target.closest('[data-acao="qr"]');
     const editBtn = ev.target.closest && ev.target.closest('[data-acao="editar"]');
-    const tr = ev.target.closest('tr'); const reg = tr && tr.getAttribute('data-reg'); if(!tr) return;
+    const tr = ev.target.closest('tr'); const reg = tr && tr.getAttribute('data-reg'); if(!tr || !editBtn) return;
 
-    if(qrBtn){
-      gerarQrDownload(reg);
-      return;
-    }
-
-    if(!editBtn) return;
     const res = await supabase.from('empregados').select('*').eq('registro', reg).maybeSingle();
     if(res.error){ alert('Erro ao carregar registro'); return; }
     const d = res.data || {};
@@ -398,6 +400,15 @@
     const url = await getFotoUrlFlexible(d.registro, d.foto_path, {strict: !d.foto_path});
     $('#preview').src = url || PH120;
     $('#arquivoFoto').value='';
+  });
+
+  // === Botão “Novo” (agora funcionando)
+  $('#btnNovo').addEventListener('click', ()=>{
+    $('#formCad').reset();
+    $('#preview').src = PH120;
+    $('#arquivoFoto').value='';
+    $('#status').value = 'Em andamento';
+    $('#registro').focus();
   });
 
   // === Remover foto
@@ -417,6 +428,7 @@
   });
 
   // === Salvar (com upload da foto se houver)
+  const UNITS_MAP = Object.create(null);
   async function nomeUnidade(sig){
     if(UNITS_MAP[sig]!=null) return UNITS_MAP[sig];
     const ru = await supabase.from('unidades').select('nome_da_unidade').eq('sigla', sig).maybeSingle();
@@ -473,7 +485,7 @@
     return await QRCode.toDataURL(url, {
       width: size,
       margin: 2,
-      errorCorrectionLevel: 'M' // suficiente para impressão clara
+      errorCorrectionLevel: 'M'
     });
   }
   function downloadDataUrl(dataUrl, filename){
@@ -485,23 +497,23 @@
     a.remove();
   }
   async function gerarQrDownload(reg){
+    const png = await gerarQrDataUrl(reg, 512);
+    downloadDataUrl(png, `QR_${reg}.png`);
+  }
+
+  // Botão “Gerar QR” (lado do form)
+  $('#btnQR').addEventListener('click', async ()=>{
     try{
-      const png = await gerarQrDataUrl(reg, 512);
-      downloadDataUrl(png, `QR_${reg}.png`);
+      const reg = $('#registro').value.trim();
+      if(!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).');
+      await gerarQrDownload(reg);
     }catch(e){
       console.error(e);
       alert('Falha ao gerar QR.');
     }
-  }
-
-  // Botão “Gerar QR” (lado do form) — usa o valor digitado
-  $('#btnQR').addEventListener('click', async ()=>{
-    const reg = $('#registro').value.trim();
-    if(!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).');
-    await gerarQrDownload(reg);
   });
 
-  // Baixar QR selecionados (em lote)
+  // QR em lote
   $('#btnQrSelecionados').addEventListener('click', async ()=>{
     const regs = Array.from(document.querySelectorAll('.chkRow:checked')).map(ch=>ch.value);
     if(!regs.length) return alert('Selecione ao menos um registro.');
