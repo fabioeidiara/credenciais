@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>Consulta – CETESB Credenciais</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link href="style.css?v=233" rel="stylesheet">
+  <link href="style.css?v=240" rel="stylesheet">
 </head>
 <body>
 <header class="header">
@@ -63,37 +63,29 @@
   const $  = (s)=>document.querySelector(s);
   const formatData = (iso)=> iso ? new Date(iso).toLocaleDateString('pt-BR') : '';
 
-  // Placeholders embutidos
+  // Placeholder embutido
   const PH40  = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect width='100%25' height='100%25' fill='%23e5e7eb'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='16' fill='%2364748b'>?</text></svg>";
 
-  // Sair imediato
-  document.getElementById('btnSair')?.addEventListener('click', ()=>{
-    localStorage.removeItem('sessaoUsuario');
-    location.href = 'index.html';
-  });
+  // Sair
+  document.getElementById('btnSair')?.addEventListener('click', ()=>{ localStorage.removeItem('sessaoUsuario'); location.href='index.html'; });
 
-  // Config robusta
+  // Config
   let cfg;
-  try {
-    const res = await fetch('config.json', { cache:'no-store' });
-    if (!res.ok) throw new Error(`config.json HTTP ${res.status}`);
+  try{
+    const res = await fetch('config.json', {cache:'no-store'});
+    if(!res.ok) throw new Error(`config.json HTTP ${res.status}`);
     const txt = await res.text();
-    try { cfg = JSON.parse(txt); }
-    catch(e){ console.error('config.json inválido:', txt); alert('config.json inválido'); throw e; }
-  } catch (e) {
-    console.error('Falha ao carregar config.json', e);
-    alert('Falha ao carregar config.json');
-    throw e;
-  }
+    try{ cfg = JSON.parse(txt); } catch(e){ console.error('config.json inválido:', txt); alert('config.json inválido'); throw e; }
+  }catch(e){ console.error('Falha ao carregar config.json', e); alert('Falha ao carregar config.json'); throw e; }
 
   // Supabase
   import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
   const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
   const normalizeFotoPath = (p)=> String(p||'').replace(/^fotos\//i,'');
-  const buildFotoUrl = (foto_path)=>{
-    if (!foto_path) return null;
+  const buildFotoUrl = (fp)=>{
+    if(!fp) return null;
     const bucket = (cfg.storageBucket || 'fotos');
-    const path = normalizeFotoPath(foto_path);
+    const path = normalizeFotoPath(fp);
     const { data } = supabase.storage.from(bucket).getPublicUrl(path);
     return data?.publicUrl || null;
   };
@@ -112,16 +104,16 @@
 
     let query = supabase.from('empregados').select('registro,nome,sigla,validade,status,foto_path').order('registro');
 
-    if (q){
+    if(q){
       const isNum = /^\d+$/.test(q);
       if (isNum) query = query.or(`registro.eq.${q},cred_num.eq.${q}`);
       else query = query.ilike('nome', `%${q}%`);
     }
-    if (fs)  query = query.eq('status', fs);
-    if (fSig) query = query.eq('sigla', fSig);
+    if(fs)  query = query.eq('status', fs);
+    if(fSig)query = query.eq('sigla', fSig);
 
     const { data, error } = await query;
-    if (error) { console.error(error); alert('Erro ao carregar'); return; }
+    if(error){ console.error(error); alert('Erro ao carregar'); return; }
 
     const rows = (data||[]).map(x=>{
       const foto = buildFotoUrl(x.foto_path) || PH40;
@@ -137,9 +129,7 @@
         <td>${x.sigla||''}</td>
         <td>${formatData(x.validade)}</td>
         <td>${statusChip}</td>
-        <td>
-          <a class="btn sm" target="_blank" href="public.html?reg=${x.registro}">Público</a>
-        </td>
+        <td><a class="btn sm" target="_blank" href="public.html?reg=${x.registro}">Público</a></td>
       </tr>`;
     }).join('');
 
