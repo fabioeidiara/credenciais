@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>Admin – CETESB Credenciais</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link href="style.css?v=216" rel="stylesheet">
+  <link href="style.css?v=224" rel="stylesheet">
   <meta name="color-scheme" content="light">
 </head>
 <body>
@@ -15,7 +15,7 @@
       <h1>CETESB – Administração de Credenciais</h1>
     </div>
     <div class="actions">
-      <a class="btn" href="consulta.html">Consulta</a>
+      <a class="btn" href="consulta.html">Cadastro</a>
       <a class="btn" href="change-password.html">Senha</a>
       <button id="btnSair" class="btn danger">Sair</button>
     </div>
@@ -24,7 +24,7 @@
 
 <main class="container">
   <div class="grid grid-2">
-    <!-- COLUNA ESQUERDA: FORMULÁRIO -->
+    <!-- ESQUERDA: FORM -->
     <section class="card pad">
       <h2 class="card-title">Cadastro</h2>
 
@@ -56,7 +56,9 @@
         <div class="row">
           <div class="field">
             <label for="sigla" class="req">Sigla da unidade</label>
-            <select id="sigla" class="select" required><option value="">Selecione…</option></select>
+            <select id="sigla" class="select" required>
+              <option value="">Selecione…</option>
+            </select>
           </div>
           <div class="field">
             <label for="validade" class="req">Validade da credencial</label>
@@ -101,7 +103,7 @@
       </form>
     </section>
 
-    <!-- COLUNA DIREITA: LISTA -->
+    <!-- DIREITA: LISTA -->
     <section class="card pad">
       <h2 class="card-title">Lista e filtros</h2>
 
@@ -141,6 +143,7 @@
 </main>
 
 <script type="module">
+  // Utilidades
   const $ = (s)=>document.querySelector(s);
   const toast = (t, kind='success')=>{
     const el = $('#toast'); const m = $('#toastMsg');
@@ -153,11 +156,13 @@
   if(!sess){ location.href = 'index.html'; throw new Error('sem sessão'); }
 
   // Config + Supabase
-  let cfg; {
+  let cfg;
+  try{
     const res = await fetch('config.json', { cache:'no-store' });
-    if(!res.ok) { alert('Falha ao carregar config.json'); throw new Error(); }
+    if(!res.ok) throw new Error('config.json '+res.status);
     cfg = await res.json();
-  }
+  }catch(e){ alert('Falha ao carregar config.json'); throw e; }
+
   const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
   const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
@@ -167,7 +172,7 @@
     location.href = 'index.html';
   });
 
-  // Helpers de data/status
+  // Datas/Status
   const todayZero = ()=>{ const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); };
   const isVigente = (iso)=>{ if(!iso) return false; const [y,m,d]=iso.split('-').map(Number); return new Date(y,m-1,d) >= todayZero(); };
   const statusDerivado = (row)=>{
@@ -200,7 +205,7 @@
     if (data){ $('#cred_cod').innerHTML = data.map(c=>`<option value="${c.cred_cod}">${c.cred_cod} — ${c.descricao}</option>`).join(''); }
   })();
 
-  // Pré-visualização automática (intranet) quando digita registro
+  // Pré-visualização automática (intranet) a partir do registro
   let fotoFonte = 'placeholder';
   function regToEmpr4(reg6){
     const n = Math.max(0, parseInt((reg6||'').replace(/\D/g,''),10) || 0);
@@ -302,7 +307,7 @@
     toast('Registro carregado');
   }
 
-  // Botões topo lista
+  // Filtros
   $('#btnReload').addEventListener('click', carregarLista);
   $('#q').addEventListener('input', ()=>{ clearTimeout(window._t); window._t=setTimeout(carregarLista,350); });
   $('#f_sigla').addEventListener('change', carregarLista);
@@ -363,7 +368,7 @@
 
     const payload = { registro, cred_num, cred_cod, status, nome, sigla, nome_da_unidade, validade, doe };
 
-    // Upsert sem tocar no foto_path
+    // Upsert (não toca no foto_path se não enviar arquivo)
     const { error } = await supabase.from('empregados').upsert(payload, { onConflict:'registro' });
     if (error){ console.error(error); toast('Erro ao salvar','error'); return; }
 
@@ -372,13 +377,15 @@
     if (file) {
       const ext = (file.name.split('.').pop()||'jpg').toLowerCase();
       const bucket = (cfg.storageBucket || 'fotos');
-      const path = `${registro}.${ext}`; // SEM prefixo "fotos/"
+      const path = `${registro}.${ext}`; // SEM prefixo “fotos/”
 
+      console.log('Uploading to bucket:', bucket, 'path:', path, 'file:', file && file.name);
       try { await supabase.storage.from(bucket).remove([`${registro}.jpg`, `${registro}.png`]); } catch(e){}
 
       const up = await supabase.storage.from(bucket)
         .upload(path, file, { upsert:true, cacheControl:'3600', contentType:file.type||'image/jpeg' });
 
+      console.log('Upload response:', up);
       if (up.error) {
         console.error(up.error);
         toast('Erro ao subir a foto','error');
