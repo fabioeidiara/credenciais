@@ -316,6 +316,9 @@
     if (data.foto_path){
       fotoFonte='storage';
       const bucket = (cfg.storageBucket || 'fotos');
+      const path = String(data.foto_path || '').replace(/^fotos\//i,'');
+      const pub  = supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+      img.src = pub;
       const pub = supabase.storage.from(bucket).getPublicUrl(data.foto_path).data.publicUrl;
       img.onerror = ()=>{ if(fotoFonte==='storage'){ img.src='https://via.placeholder.com/120x120?text=pre%CC%81via'; fotoFonte='placeholder'; } };
       img.src = pub;
