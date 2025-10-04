@@ -4,15 +4,23 @@
   <meta charset="utf-8">
   <title>Credencial do Agente – CETESB</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link href="style.css?v=242" rel="stylesheet">
+  <link href="style.css?v=243" rel="stylesheet">
   <meta name="color-scheme" content="light">
   <link rel="icon" href="data:,">
   <style>
-    /* Polimento: rótulo x valor bem distintos */
-    .kv { display:grid; grid-template-columns:120px 1fr; gap:6px 12px; align-items:center; }
-    .kv .k { color:#64748b; font-weight:700; }
-    .kv .v { color:#1e293b; font-weight:700; }
-    @media (max-width:560px){ .kv{grid-template-columns:1fr} .kv .k{margin-top:8px} }
+    /* Layout do cartão público – rótulos e valores com boa hierarquia */
+    .kv { display:grid; grid-template-columns:140px 1fr; gap:10px 14px; align-items:center; }
+    .kv .k{ color:#6b7280; font-weight:700; }
+    .kv .v{ color:#111827; font-weight:400; } /* valores sem negrito */
+    .kv .v .mono{ font-variant-numeric: tabular-nums; }
+    .card-head{ display:flex; align-items:flex-start; gap:18px; }
+    .fotoBox{ width:120px; height:120px; border:1px solid #e5e7eb; border-radius:12px; display:flex; align-items:center; justify-content:center; background:#eef2f7; overflow:hidden; }
+    .fotoBox img{ width:120px; height:120px; object-fit:cover; }
+    @media (max-width:640px){
+      .kv{ grid-template-columns:1fr; }
+      .kv .k{ margin-top:8px; }
+      .card-head{ flex-direction:column; align-items:center; text-align:center; }
+    }
   </style>
 </head>
 <body>
@@ -31,23 +39,27 @@
 
 <main class="container public-center">
   <div id="card" class="card pad hidden">
-    <div class="grid grid-2" style="grid-template-columns:160px 1fr">
-      <div class="col">
-        <img id="foto" alt="Foto do agente" width="120" height="120"
-             style="border-radius:8px;object-fit:cover;border:1px solid #ddd">
-      </div>
-      <div class="col">
+    <div class="card-head">
+      <div class="fotoBox"><img id="foto" alt="Foto do agente"></div>
+      <div style="flex:1 1 auto">
         <h2 id="nome" style="margin:0 0 6px">—</h2>
         <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
-          <span class="k muted">Registro</span>
-          <span id="registro" class="v">—</span>
+          <span class="k">Registro</span>
+          <span id="registro" class="v mono">—</span>
           <span id="chipStatus" class="chip">—</span>
         </div>
-
         <div class="kv">
-          <div class="k">Credencial</div><div id="credencial" class="v">—</div>
-          <div class="k">Validade</div><div id="validade" class="v">—</div>
-          <div class="k">Unidade</div><div id="unidade" class="v">—</div>
+          <div class="k">Credencial</div>
+          <div id="credencial" class="v">—</div>
+
+          <div class="k">Número</div>
+          <div id="numero" class="v mono">—</div>
+
+          <div class="k">Validade</div>
+          <div id="validade" class="v">—</div>
+
+          <div class="k">Unidade</div>
+          <div id="unidade" class="v">—</div>
         </div>
       </div>
     </div>
@@ -67,7 +79,7 @@
   function fmt(iso){ return iso ? new Date(iso).toLocaleDateString('pt-BR') : ''; }
 
   // Placeholder embutido
-  var PH120 = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><rect width='100%25' height='100%25' fill='%23e5e7eb'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='12' fill='%2364748b'>sem foto</text></svg>";
+  var PH120 = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><rect width='100%25' height='100%25' fill='%23eef2f7' rx='12' ry='12'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='12' fill='%2390a4b8'>sem foto</text></svg>";
   $('#foto').src = PH120;
 
   // ?reg=
@@ -96,17 +108,21 @@
   var supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
   function normalizeFotoPath(p){ return String(p||'').replace(/^fotos\//i,''); }
-  async function getFotoUrl(fp){
-    if(!fp) return null;
+  async function getFotoUrlFlexible(reg, foto_path){
     var bucket = cfg.storageBucket || 'fotos';
-    var path = normalizeFotoPath(fp);
+    var candidates = [];
+    if (foto_path) candidates.push(normalizeFotoPath(foto_path));
+    candidates.push(reg + '.png', reg + '.jpg', reg + '.jpeg');
 
-    var signed = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
-    if(signed && !signed.error && signed.data && signed.data.signedUrl) return signed.data.signedUrl;
-
-    var pub = supabase.storage.from(bucket).getPublicUrl(path);
-    if(pub && pub.data && pub.data.publicUrl) return pub.data.publicUrl;
-
+    for (var i=0;i<candidates.length;i++){
+      var path = candidates[i];
+      try{
+        var s = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
+        if (s && !s.error && s.data && s.data.signedUrl) return s.data.signedUrl;
+        var p = supabase.storage.from(bucket).getPublicUrl(path);
+        if (p && p.data && p.data.publicUrl) return p.data.publicUrl;
+      }catch(_){}
+    }
     return null;
   }
 
@@ -121,26 +137,19 @@
   var emp = arr[0].data, eEmp = arr[0].error;
   var catCred = arr[1].data;
 
-  if(eEmp){
-    console.error(eEmp);
-    $('#loading').innerHTML = '<div>Erro ao carregar dados.</div>';
-    return;
-  }
-  if(!emp){
-    show($('#loading'), false);
-    show($('#notfound'), true);
-    return;
-  }
+  if(eEmp){ console.error(eEmp); $('#loading').innerHTML = '<div>Erro ao carregar dados.</div>'; return; }
+  if(!emp){ show($('#loading'), false); show($('#notfound'), true); return; }
 
   // Mapa de credenciais
   var mapCred = {};
   (catCred||[]).forEach(function(x){ mapCred[String(x.cred_cod)] = x.descricao; });
   var credDesc = mapCred[String(emp.cred_cod)] || ('Tipo '+emp.cred_cod);
 
-  // Preenche
+  // Preenche (valores sem negrito; número separado)
   $('#nome').textContent      = emp.nome || '—';
   $('#registro').textContent  = emp.registro || '—';
-  $('#credencial').textContent= credDesc + (emp.cred_num ? ' • Nº '+emp.cred_num : '');
+  $('#credencial').textContent= credDesc || '—';
+  $('#numero').textContent    = emp.cred_num ? String(emp.cred_num) : '—';
   $('#validade').textContent  = fmt(emp.validade);
   $('#unidade').textContent   = emp.nome_da_unidade ? (emp.sigla+' – '+emp.nome_da_unidade) : (emp.sigla || '—');
 
@@ -151,8 +160,8 @@
   chip.className = 'chip ' + (emp.status==='Em andamento' ? 'warn' : (ativoValido ? 'success' : 'danger'));
   chip.textContent = (emp.status==='Em andamento' ? 'Em andamento' : (ativoValido ? 'Ativo' : 'Inativo/Vencido'));
 
-  // Foto (pública/assinada)
-  var url = await getFotoUrl(emp.foto_path);
+  // Foto (pública/assinada) – tenta por foto_path; senão, tenta 000001.png/.jpg/.jpeg
+  var url = await getFotoUrlFlexible(emp.registro, emp.foto_path);
   $('#foto').src = url || PH120;
 
   // Mostrar
