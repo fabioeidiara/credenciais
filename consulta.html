@@ -2,34 +2,52 @@
 <html lang="pt-br">
 <head>
   <meta charset="utf-8">
-  <title>Consulta – CETESB Credenciais</title>
+  <title>Admin – CETESB Credenciais</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link href="style.css?v=257" rel="stylesheet">
+  <link href="style.css?v=258" rel="stylesheet">
   <meta name="color-scheme" content="light">
   <link rel="icon" href="data:,">
   <style>
-    /* usar a mesma .container para header e conteúdo */
+    /* Usar a MESMA .container do seu style.css no header e no conteúdo */
     .header { border-bottom:1px solid #eef2f7; background:#fbfdff; }
-    .header .container { display:flex; align-items:center; justify-content:space-between; height:64px; }
+    .header .container { display:flex; align-items:center; height:64px; }
+    .header .actions { margin-left:auto; display:flex; gap:10px; }
     .brand{display:flex; align-items:center; gap:10px}
     .brand h1{font-size:18px; margin:0}
-    .actions{display:flex; gap:10px}
 
+    /* Complementos estáveis */
     .label-like{ font-size:12px; color:#64748b }
     .muted{ color:#6b7280 }
+    .input::placeholder{ color:#a8b3c0; opacity:1 }
+
+    /* Tabela e rolagem */
+    .table { table-layout: fixed; }
+    .scroll { overflow-x: auto; }
+
+    /* Filtros: manter 1ª linha estável em telas largas */
     .filters-row{ display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end }
     .filters-row .stack{ display:flex; flex-direction:column; gap:6px }
-    /* manter 1ª linha estável */
-    #f_nome{ min-width:240px }
-    #f_reg{ min-width:160px }
-    #f_numero{ min-width:160px }
-    #f_status{ min-width:140px }
+    .filters-row .grow{ flex:1 1 240px }
     .tags{ display:flex; gap:10px; flex-wrap:wrap; padding:8px 10px; border-radius:10px; border:1px solid #e5e7eb }
     .filters-actions{ width:100%; display:flex; justify-content:center; gap:12px; margin-top:6px }
     .filters-actions .btn{ width:auto; white-space:nowrap; min-width:max-content }
 
+    .file-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap }
+    .file-row .btn{ margin:0 }
+    .tbl-check{ width:34px }
+
+    /* Ordenação: sem ícones */
     th.sortable{ cursor:pointer; user-select:none }
     th.sortable:hover{ text-decoration: underline dotted }
+
+    @media (min-width: 992px){
+      .filters-row{ flex-wrap: nowrap; }
+      .filters-row .stack{ flex: 0 0 auto; }
+      #f_nome{ width:280px; min-width:280px; }
+      #f_reg, #f_numero{ width:180px; min-width:180px; }
+      #f_status{ width:160px; min-width:160px; }
+      #f_sigla{ width:160px; min-width:160px; }
+    }
   </style>
 </head>
 <body>
@@ -37,153 +55,234 @@
   <div class="container">
     <div class="brand">
       <img src="media/cetesb-logo.png" alt="CETESB" onerror="this.style.display='none'">
-      <h1>CETESB – Consulta de Credenciais</h1>
+      <h1>CETESB – Administração de Credenciais</h1>
     </div>
     <div class="actions">
-      <a class="btn" href="admin.html">Cadastro</a>
-      <a class="btn" href="index.html">Início</a>
+      <a class="btn" href="consulta.html">Consulta</a>
+      <button class="btn" id="btnChangePass">Trocar senha</button>
+      <button class="btn danger" id="btnSair">Sair</button>
     </div>
   </div>
 </header>
 
 <main>
   <div class="container">
-    <section class="card pad">
-      <h2 class="card-title">Lista e filtros</h2>
+    <div class="grid grid-2">
+      <!-- ESQUERDA -->
+      <section class="card pad">
+        <h2 class="card-title">Cadastro</h2>
 
-      <div class="filters-row">
-        <div class="stack">
-          <label class="label-like" for="f_nome">Nome</label>
-          <input id="f_nome" class="input" placeholder="Ex.: MARIA">
+        <form class="form" id="formCad" autocomplete="off">
+          <div class="field">
+            <label for="registro" class="req">Registro</label>
+            <input id="registro" class="input" placeholder="000001" maxlength="6" pattern="[0-9]{6}" required>
+          </div>
+
+          <div class="field">
+            <label for="nome" class="req">Nome</label>
+            <input id="nome" class="input" required>
+          </div>
+
+          <div class="field">
+            <label for="sigla" class="req">Unidade</label>
+            <select id="sigla" class="input" required></select>
+          </div>
+
+          <div class="field">
+            <label for="cred_cod" class="req">Tipo</label>
+            <select id="cred_cod" class="input" required></select>
+          </div>
+
+          <div class="field">
+            <label for="cred_num" class="req">Número</label>
+            <input id="cred_num" class="input" maxlength="4" pattern="[0-9]{1,4}" required>
+          </div>
+
+          <div class="field">
+            <label for="validade" class="req">Validade</label>
+            <input id="validade" class="input" type="date" required>
+          </div>
+
+          <div class="field">
+            <label for="status" class="req">Status</label>
+            <select id="status" class="input" required>
+              <option>Em andamento</option>
+              <option>Ativo</option>
+              <option>Inativo</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="doe">DOE (nº-ano)</label>
+            <input id="doe" class="input" placeholder="12345-2025" pattern="^\\d{1,6}\\-\\d{4}$">
+          </div>
+
+          <div class="field">
+            <label>Foto</label>
+            <div class="row" style="gap:12px;align-items:center;flex-wrap:wrap">
+              <img id="preview" alt="Prévia da foto" width="120" height="120" style="border-radius:8px;object-fit:cover;border:1px solid #ddd">
+              <div class="file-row">
+                <input id="arquivoFoto" type="file" accept="image/*" style="display:none">
+                <button type="button" class="btn" id="btnEscolherArquivo">Selecionar foto</button>
+                <button type="button" class="btn danger" id="btnRemoverFoto">Remover foto</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="row-actions">
+            <button id="btnNovo" type="button" class="btn">Novo</button>
+            <button id="btnExcluir" type="button" class="btn danger">Excluir</button>
+            <button id="btnQR" type="button" class="btn">Gerar QR</button>
+            <button id="btnSalvar" type="submit" class="btn primary">Salvar</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- DIREITA -->
+      <section class="card pad">
+        <h2 class="card-title">Lista e filtros</h2>
+
+        <div class="filters-row">
+          <div class="stack grow">
+            <label class="label-like" for="f_nome">Nome</label>
+            <input id="f_nome" class="input" placeholder="Ex.: MARIA">
+          </div>
+
+          <div class="stack">
+            <label class="label-like" for="f_reg">Matrícula</label>
+            <input id="f_reg" class="input" placeholder="Ex.: 000123" maxlength="6">
+          </div>
+
+          <div class="stack">
+            <label class="label-like" for="f_numero">Número (credencial)</label>
+            <input id="f_numero" class="input" placeholder="Ex.: 0042" maxlength="4">
+          </div>
+
+          <div class="stack">
+            <label class="label-like" for="f_status">Status</label>
+            <select id="f_status" class="input">
+              <option value="">Todos</option>
+              <option>Ativo</option>
+              <option>Em andamento</option>
+              <option>Inativo</option>
+            </select>
+          </div>
+
+          <div class="stack">
+            <label class="label-like" for="f_sigla">Unidade</label>
+            <select id="f_sigla" class="input"></select>
+          </div>
+
+          <div class="stack" style="flex:1 1 100%">
+            <span class="label-like">Tipo</span>
+            <div id="tiposBox" class="tags"><span class="muted">carregando…</span></div>
+          </div>
+
+          <div class="filters-actions">
+            <button id="btnReload" class="btn">Recarregar</button>
+            <button id="btnQrSelecionados" class="btn">QR em lote</button>
+          </div>
         </div>
 
-        <div class="stack">
-          <label class="label-like" for="f_reg">Matrícula</label>
-          <input id="f_reg" class="input" placeholder="Ex.: 000123" maxlength="6">
+        <div class="scroll">
+          <table class="table" id="tabela">
+            <thead>
+              <tr>
+                <th class="tbl-check"><input id="chkAll" type="checkbox" title="Marcar todos"></th>
+                <th style="width:56px">Foto</th>
+                <th class="sortable" data-col="registro">Matrícula</th>
+                <th class="sortable" data-col="nome">Nome</th>
+                <th class="sortable" data-col="sigla">Unidade</th>
+                <th class="sortable" data-col="cred_num">Número</th>
+                <th class="sortable" data-col="cred_cod">Tipo</th>
+                <th class="sortable" data-col="validade">Validade</th>
+                <th class="sortable" data-col="status">Status</th>
+                <th style="width:140px">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
         </div>
 
-        <div class="stack">
-          <label class="label-like" for="f_numero">Número (credencial)</label>
-          <input id="f_numero" class="input" placeholder="Ex.: 0042" maxlength="4">
-        </div>
-
-        <div class="stack">
-          <label class="label-like" for="f_status">Status</label>
-          <select id="f_status" class="input">
-            <option value="">Todos</option>
-            <option>Ativo</option>
-            <option>Em andamento</option>
-            <option>Inativo</option>
-          </select>
-        </div>
-
-        <div class="stack">
-          <label class="label-like" for="f_sigla">Unidade</label>
-          <select id="f_sigla" class="input"></select>
-        </div>
-
-        <div class="stack" style="flex:1 1 100%">
-          <span class="label-like">Tipo</span>
-          <div id="tiposBox" class="tags"><span class="muted">carregando…</span></div>
-        </div>
-
-        <div class="filters-actions">
-          <button id="btnReload" class="btn">Recarregar</button>
-        </div>
-      </div>
-
-      <div class="scroll">
-        <table class="table" id="tabela">
-          <thead>
-            <tr>
-              <th style="width:56px">Foto</th>
-              <th class="sortable" data-col="registro">Matrícula</th>
-              <th class="sortable" data-col="nome">Nome</th>
-              <th class="sortable" data-col="sigla">Unidade</th>
-              <th class="sortable" data-col="cred_num">Número</th>
-              <th class="sortable" data-col="cred_cod">Tipo</th>
-              <th class="sortable" data-col="validade">Validade</th>
-              <th class="sortable" data-col="status">Status</th>
-              <th style="width:120px">Ações</th>
-            </tr>
-          </thead>
-          <tbody id="tbody"></tbody>
-        </table>
-      </div>
-
-      <div id="count" class="label-like">0 registro(s)</div>
-    </section>
+        <div id="count" class="label-like">0 registro(s)</div>
+      </section>
+    </div>
   </div>
 </main>
 
 <footer class="footer"><div class="container">Piloto – CETESB</div></footer>
 
 <script type="module">
+  import QRCode from 'https://esm.sh/qrcode@1.5.3';
+  const supa = await import('https://esm.sh/@supabase/supabase-js@2');
+
   const $  = (s)=>document.querySelector(s);
   const fmt = (iso)=> iso ? new Date(iso).toLocaleDateString('pt-BR') : '';
+  const PH120 = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><rect width='100%25' height='100%25' fill='%23eef2f7' rx='12' ry='12'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='12' fill='%2390a4b8'>sem foto</text></svg>";
   const PH40  = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect width='100%25' height='100%25' fill='%23eef2f7' rx='8' ry='8'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='16' fill='%2390a4b8'>?</text></svg>";
+  $('#preview').src = PH120;
+
+  // navegação
+  $('#btnSair')?.addEventListener('click', ()=>{ localStorage.removeItem('sessaoUsuario'); location.href='index.html'; });
+  $('#btnChangePass')?.addEventListener('click', ()=>{ location.href='change-password.html'; });
+
+  // arquivo → preview
+  $('#btnEscolherArquivo').addEventListener('click', ()=> $('#arquivoFoto').click());
+  $('#arquivoFoto').addEventListener('change', (ev)=>{
+    const f = ev.target.files && ev.target.files[0];
+    $('#preview').src = f ? URL.createObjectURL(f) : PH120;
+  });
 
   // config
   let cfg; { const r=await fetch('config.json',{cache:'no-store'}); if(!r.ok){ alert('Falha ao carregar config.json'); throw new Error('config.json HTTP '+r.status);} cfg=JSON.parse(await r.text()); }
 
   // supabase
-  const supa = await import('https://esm.sh/@supabase/supabase-js@2');
   const supabase = supa.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
-  // foto utils
+  /* foto utils */
+  const UNITS_MAP = Object.create(null);
+  const normalizeFotoPath = (p)=> String(p||'').replace(/^fotos\//i,'');
   const splitDir=(b)=>{const i=b.lastIndexOf('/');return i===-1?{dir:'',name:b}:{dir:b.slice(0,i),name:b.slice(i+1)};}
   async function objectExists(bucket, fullpath){const t=splitDir(fullpath);const r=await supabase.storage.from(bucket).list(t.dir||'',{search:t.name,limit:1});if(r.error)return false;return (r.data||[]).some(x=>x.name===t.name);}
   async function getFotoUrlIfExists(path){const bucket=cfg.storageBucket||'fotos';if(!await objectExists(bucket,path))return null;const s=await supabase.storage.from(bucket).createSignedUrl(path,3600);if(s?.data?.signedUrl)return s.data.signedUrl;const p=supabase.storage.from(bucket).getPublicUrl(path);return p?.data?.publicUrl||null;}
-  async function getFotoUrl(reg, foto_path){const list=[];if(foto_path)list.push(foto_path);list.push(reg+'.png',reg+'.jpg',reg+'.jpeg');for(const k of list){const u=await getFotoUrlIfExists(k);if(u)return u}return null;}
+  async function getFotoUrlFlexible(reg,foto_path,{strict=false}={}){const list=[];if(foto_path){list.push(normalizeFotoPath(foto_path));if(!strict){list.push(reg+'.png',reg+'.jpg',reg+'.jpeg')}}else if(!strict){list.push(reg+'.png',reg+'.jpg',reg+'.jpeg')}for(const k of list){const u=await getFotoUrlIfExists(k);if(u)return u}return null;}
+  async function removeOtherExtAfterUpload(reg, keepKey){const keep=normalizeFotoPath(keepKey);const bucket=cfg.storageBucket||'fotos';const all=[reg+'.png',reg+'.jpg',reg+'.jpeg'];const toRemove=all.filter(k=>k!==keep);try{await supabase.storage.from(bucket).remove(toRemove)}catch{}}
+  async function deleteAllKnownPhotos(reg,currentKey){const bucket=cfg.storageBucket||'fotos';const keys=[reg+'.png',reg+'.jpg',reg+'.jpeg'];if(currentKey){const cur=normalizeFotoPath(currentKey);if(!keys.includes(cur))keys.push(cur)}try{await supabase.storage.from(bucket).remove(keys)}catch{}}
+  async function uploadFotoSeHouver(reg){const file=$('#arquivoFoto').files?.[0];if(!file)return null;const ext=(file.name.split('.').pop()||'png').toLowerCase();const key=`${reg}.${ext}`;const bucket=cfg.storageBucket||'fotos';const contentType=file.type|| (ext==='png'?'image/png':(ext==='jpg'||ext==='jpeg')?'image/jpeg':'application/octet-stream');const up=await supabase.storage.from(bucket).upload(key,file,{upsert:true,contentType});if(up.error)throw new Error(up.error.message||'Falha no upload da foto');await removeOtherExtAfterUpload(reg,key);return key;}
 
-  // combos
+  /* combos */
   async function carregarCombos(){
     const [u,c]=await Promise.all([
-      supabase.from('unidades').select('sigla').order('sigla'),
-      supabase.from('credenciais').select('cred_cod').order('cred_cod')
+      supabase.from('unidades').select('sigla,nome_da_unidade').order('sigla'),
+      supabase.from('credenciais').select('cred_cod,descricao').order('cred_cod')
     ]);
     const un=u.data||[], cr=c.data||[];
+    $('#sigla').innerHTML=un.map(x=>{UNITS_MAP[x.sigla]=x.nome_da_unidade||'';return `<option value="${x.sigla}">${x.sigla} – ${x.nome_da_unidade||''}</option>`}).join('');
+    $('#cred_cod').innerHTML=cr.map(x=>`<option value="${x.cred_cod}">${x.cred_cod} – ${x.descricao||''}</option>`).join('');
     $('#f_sigla').innerHTML=`<option value="">Todas</option>`+un.map(x=>`<option value="${x.sigla}">${x.sigla}</option>`).join('');
     const tipos=$('#tiposBox'); tipos.innerHTML = cr.length ? cr.map(x=>`<label class="label-like" style="display:inline-flex;align-items:center;gap:6px"><input type="checkbox" class="f_tipo" value="${x.cred_cod}"> ${x.cred_cod}</label>`).join('') : `<span class="muted">Nenhum tipo cadastrado</span>`;
   }
   const tiposSelecionados=()=>Array.from(document.querySelectorAll('.f_tipo:checked')).map(el=>el.value);
 
-  // ordenação
+  /* ordenação */
   let sortCol='registro', sortAsc=true;
   function bindSortHeaders(){
     document.querySelectorAll('th.sortable').forEach(th=>{
-      th.addEventListener('click', ()=>{
-        const col=th.getAttribute('data-col'); if(!col) return;
-        if(sortCol===col) sortAsc=!sortAsc; else { sortCol=col; sortAsc=true; }
-        carregarLista();
-      });
+      th.onclick=()=>{const col=th.getAttribute('data-col'); if(!col)return; if(sortCol===col)sortAsc=!sortAsc; else{sortCol=col;sortAsc=true;} carregarLista();}
     });
   }
 
-  // filtro robusto status
-  function applyStatusFilter(query, fs) {
-    if (!fs) return query;
-    const map = {
-      'Ativo': ['Ativo','ATIVO','ativo'],
-      'Inativo': ['Inativo','INATIVO','inativo','Inativo/Vencido','INATIVO/VENCIDO','inativo/vencido'],
-      'Em andamento': ['Em andamento','EM ANDAMENTO','em andamento']
-    };
-    return query.in('status', map[fs] || [fs]);
-  }
-
-  // lista
+  /* LISTA */
   async function carregarLista(){
     const nome=$('#f_nome').value.trim();
     const regPart=$('#f_reg').value.trim();
     const numPart=$('#f_numero').value.trim();
-    const fs=$('#f_status').value;
     const fSig=$('#f_sigla').value;
     const fTipos=tiposSelecionados();
 
     let query = supabase.from('empregados').select('registro,nome,sigla,cred_num,cred_cod,validade,status,foto_path');
 
     if(nome) query = query.ilike('nome', `%${nome}%`);
-    query = applyStatusFilter(query, fs);
     if(fSig) query = query.eq('sigla', fSig);
     if(fTipos.length) query = query.in('cred_cod', fTipos.map(Number));
 
@@ -193,16 +292,31 @@
     if(res.error){ console.error(res.error); alert('Erro ao carregar lista'); return; }
     let data = res.data || [];
 
+    /* Filtro de status robusto – client-side */
+    const fs = $('#f_status').value;
+    if (fs) {
+      const MAP = {
+        'Ativo': new Set(['Ativo','ATIVO','ativo']),
+        'Inativo': new Set(['Inativo','INATIVO','inativo','Inativo/Vencido','INATIVO/VENCIDO','inativo/vencido']),
+        'Em andamento': new Set(['Em andamento','EM ANDAMENTO','em andamento'])
+      };
+      const wanted = MAP[fs] || new Set([fs]);
+      data = data.filter(r => wanted.has(String(r.status || '').trim()));
+    }
+
+    // busca parcial local
     if(regPart) data = data.filter(x => String(x.registro||'').includes(regPart));
     if(numPart) data = data.filter(x => String(x.cred_num||'').includes(numPart));
 
     const linhas = await Promise.all(data.map(async x=>{
-      const url = await getFotoUrl(x.registro, x.foto_path);
+      const strict=!x.foto_path;
+      const url = await getFotoUrlFlexible(x.registro,x.foto_path,{strict});
       const avatar = url || PH40;
       const ok=(x.status==='Ativo' && x.validade && new Date(x.validade) >= new Date(new Date().toDateString()));
       const chip = ok ? '<span class="chip success">Ativo</span>' :
                 (x.status==='Em andamento' ? '<span class="chip warn">Em andamento</span>' : '<span class="chip danger">Inativo</span>');
-      return `<tr>
+      return `<tr data-reg="${x.registro}">
+        <td class="tbl-check"><input type="checkbox" class="chkRow" value="${x.registro}"></td>
         <td><img src="${avatar}" alt="foto" width="40" height="40" style="border-radius:6px;object-fit:cover;border:1px solid #ddd" onerror="this.src='${PH40}'"></td>
         <td>${x.registro}</td>
         <td>${x.nome||''}</td>
@@ -211,23 +325,82 @@
         <td>${x.cred_cod||''}</td>
         <td>${fmt(x.validade)}</td>
         <td>${chip}</td>
-        <td><a class="btn sm" target="_blank" href="public.html?reg=${x.registro}">Público</a></td>
+        <td><button class="btn sm" data-acao="editar">Editar</button> <a class="btn sm" target="_blank" href="public.html?reg=${x.registro}">Público</a></td>
       </tr>`;
     }));
 
-    $('#tbody').innerHTML = linhas.join('') || '<tr><td colspan="9" class="muted">Nenhum registro</td></tr>';
+    $('#tbody').innerHTML = linhas.join('') || '<tr><td colspan="10" class="muted">Nenhum registro</td></tr>';
     $('#count').textContent = String(data.length)+' registro(s)';
+
+    $('#chkAll').checked=false;
+    $('#chkAll').onchange=(ev)=>{ document.querySelectorAll('.chkRow').forEach(ch=> ch.checked=ev.target.checked); };
   }
 
-  // eventos
+  // editar
+  $('#tbody').addEventListener('click', async (ev)=>{
+    const btn=ev.target.closest?.('[data-acao="editar"]'); const tr=ev.target.closest('tr');
+    const reg=tr?.getAttribute('data-reg'); if(!tr||!btn) return;
+    const res=await supabase.from('empregados').select('*').eq('registro',reg).maybeSingle();
+    if(res.error){ alert('Erro ao carregar registro'); return; }
+    const d=res.data||{};
+    $('#registro').value=d.registro||''; $('#nome').value=d.nome||''; $('#sigla').value=d.sigla||'';
+    $('#cred_cod').value=d.cred_cod||''; $('#cred_num').value=d.cred_num||''; $('#validade').value=d.validade?String(d.validade).slice(0,10):'';
+    $('#status').value=d.status||'Em andamento'; $('#doe').value=d.doe||'';
+    const url=await getFotoUrlFlexible(d.registro,d.foto_path,{strict:!d.foto_path});
+    $('#preview').src=url||PH120; $('#arquivoFoto').value='';
+  });
+
+  // novo
+  $('#btnNovo').addEventListener('click', ()=>{ $('#formCad').reset(); $('#preview').src=PH120; $('#arquivoFoto').value=''; $('#status').value='Em andamento'; $('#registro').focus(); });
+
+  // remover foto
+  $('#btnRemoverFoto').addEventListener('click', async ()=>{
+    const reg=$('#registro').value.trim(); if(!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).');
+    const cur=await supabase.from('empregados').select('foto_path').eq('registro',reg).maybeSingle();
+    await deleteAllKnownPhotos(reg, cur.data?.foto_path||null);
+    await supabase.from('empregados').update({ foto_path:null }).eq('registro',reg);
+    $('#arquivoFoto').value=''; $('#preview').src=PH120; await carregarLista();
+  });
+
+  // salvar
+  async function nomeUnidade(sig){ if(UNITS_MAP[sig]!=null) return UNITS_MAP[sig]; const ru=await supabase.from('unidades').select('nome_da_unidade').eq('sigla',sig).maybeSingle(); const v=ru?.data?.nome_da_unidade||''; UNITS_MAP[sig]=v; return v;}
+  $('#formCad').addEventListener('submit', async (ev)=>{
+    ev.preventDefault();
+    const reg=$('#registro').value.trim(); if(!/^\d{6}$/.test(reg)) return alert('Registro inválido (6 dígitos).');
+    const sig=$('#sigla').value;
+    const payload={ registro:reg, nome:$('#nome').value.trim(), sigla:sig, nome_da_unidade:await nomeUnidade(sig),
+      cred_cod:Number($('#cred_cod').value), cred_num:$('#cred_num').value.trim(), validade:$('#validade').value,
+      status:$('#status').value, doe:$('#doe').value.trim()||null };
+    try{
+      const fotoKey=await uploadFotoSeHouver(reg); if(fotoKey) payload.foto_path=fotoKey;
+      const resp=await supabase.from('empregados').upsert(payload,{onConflict:'registro'}); if(resp.error) throw new Error(resp.error.message||'Erro ao salvar');
+      const url=await getFotoUrlFlexible(reg,fotoKey||null,{strict:!fotoKey}); $('#preview').src=url||PH120; $('#arquivoFoto').value='';
+      await carregarLista(); alert('Registro salvo com sucesso.');
+    }catch(err){ console.error(err); alert('Falha ao salvar: '+(err?.message||String(err))); }
+  });
+
+  // QR
+  function publicUrlFor(reg){ const base=new URL('public.html',location.href); base.searchParams.set('reg',reg); return base.href; }
+  async function gerarQrDataUrl(reg,size=512){ return await QRCode.toDataURL(publicUrlFor(reg),{width:size,margin:2,errorCorrectionLevel:'M'}); }
+  function downloadDataUrl(dataUrl,filename){ const a=document.createElement('a'); a.href=dataUrl; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); }
+  $('#btnQR').addEventListener('click', async ()=>{ try{ const reg=$('#registro').value.trim(); if(!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).'); downloadDataUrl(await gerarQrDataUrl(reg,512),`QR_${reg}.png`);}catch(e){ console.error(e); alert('Falha ao gerar QR.'); } });
+  $('#btnQrSelecionados').addEventListener('click', async ()=>{ const regs=Array.from(document.querySelectorAll('.chkRow:checked')).map(ch=>ch.value); if(!regs.length) return alert('Selecione ao menos um registro.'); for(const r of regs){ try{ downloadDataUrl(await gerarQrDataUrl(r,512),`QR_${r}.png`);}catch(e){console.error('QR falhou para',r,e);} } });
+
+  // eventos init
   $('#btnReload').addEventListener('click', carregarLista);
   $('#f_sigla').addEventListener('change', carregarLista);
   $('#f_status').addEventListener('change', carregarLista);
-  ['f_numero','f_reg','f_nome'].forEach(id=> $('#'+id).addEventListener('input', ()=>{ clearTimeout(window['_d'+id]); window['_d'+id]=setTimeout(carregarLista,250); }));
+  ['f_numero','f_reg','f_nome'].forEach(id=> $('#'+id).addEventListener('input', ()=>{ clearTimeout(window['_deb'+id]); window['_deb'+id]=setTimeout(carregarLista,250); }));
   $('#tiposBox').addEventListener('change', carregarLista);
 
-  // init
-  bindSortHeaders();
+  // ordenar
+  (function bindSortHeaders(){
+    document.querySelectorAll('th.sortable').forEach(th=>{
+      th.onclick=()=>{const col=th.getAttribute('data-col'); if(!col)return; if(sortCol===col)sortAsc=!sortAsc; else{sortCol=col;sortAsc=true;} carregarLista();}
+    });
+  })();
+  var sortCol='registro', sortAsc=true;
+
   await carregarCombos();
   await carregarLista();
 </script>
