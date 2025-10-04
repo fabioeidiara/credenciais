@@ -8,10 +8,11 @@
   <meta name="color-scheme" content="light">
   <link rel="icon" href="data:,">
   <style>
-    th.sortable{cursor:pointer;user-select:none}
-    th.sortable:hover{text-decoration:underline dotted}
-    .label-like{font-size:12px;color:#64748b}
-    .input::placeholder{color:#a8b3c0;opacity:1}
+    .brand-logo{ max-height:28px; width:auto; display:block; }
+    th.sortable{ cursor:pointer; user-select:none }
+    th.sortable:hover{ text-decoration: underline dotted }
+    .label-like{ font-size:12px; color:#64748b }
+    .input::placeholder{ color:#a8b3c0; opacity:1 }
   </style>
 </head>
 <body>
@@ -19,7 +20,7 @@
 <header class="topbar">
   <div class="container row between center">
     <div class="row center" style="gap:10px">
-      <img src="media/cetesb-logo.png" alt="CETESB" onerror="this.style.display='none'">
+      <img class="brand-logo" src="media/cetesb-logo.png" alt="CETESB" onerror="this.style.display='none'">
       <h1 class="title">CETESB – Consulta de Credenciais</h1>
     </div>
     <div class="row" style="gap:10px">
@@ -102,16 +103,15 @@
   const fmt=(iso)=>iso?new Date(iso).toLocaleDateString('pt-BR'):'';
   const PH40 ="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect width='100%25' height='100%25' fill='%23eef2f7' rx='8' ry='8'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='16' fill='%2390a4b8'>?</text></svg>";
 
-  // ordenação
   let sortCol='registro';
   let sortAsc=true;
 
-  // config + supabase
+  // config & supabase
   let cfg;{const r=await fetch('config.json',{cache:'no-store'});if(!r.ok){alert('Falha ao carregar config.json');throw new Error('config.json HTTP '+r.status);}cfg=await r.json();}
   const supa=await import('https://esm.sh/@supabase/supabase-js@2');
   const supabase=supa.createClient(cfg.supabaseUrl,cfg.supabaseAnonKey);
 
-  // foto utils
+  // fotos
   const splitDir=(b)=>{const i=b.lastIndexOf('/');return i===-1?{dir:'',name:b}:{dir:b.slice(0,i),name:b.slice(i+1)};}
   async function objExists(bucket,full){const t=splitDir(full);const r=await supabase.storage.from(bucket).list(t.dir||'',{search:t.name,limit:1});if(r.error)return false;return (r.data||[]).some(x=>x.name===t.name);}
   async function getFotoUrlIfExists(path){const bucket=cfg.storageBucket||'fotos';if(!await objExists(bucket,path))return null;const s=await supabase.storage.from(bucket).createSignedUrl(path,3600);if(s?.data?.signedUrl)return s.data.signedUrl;const p=supabase.storage.from(bucket).getPublicUrl(path);return p?.data?.publicUrl||null;}
@@ -129,41 +129,40 @@
   }
   const tiposSelecionados=()=>Array.from(document.querySelectorAll('.f_tipo:checked')).map(el=>el.value);
 
-  // bind ordenação
   function bindSortHeaders(){
     document.querySelectorAll('th.sortable').forEach(th=>{
-      th.onclick=()=>{const col=th.getAttribute('data-col');if(!col)return;if(sortCol===col)sortAsc=!sortAsc;else{sortCol=col;sortAsc=true;}carregarLista();}
+      th.onclick=()=>{const c=th.getAttribute('data-col');if(!c)return;if(sortCol===c)sortAsc=!sortAsc;else{sortCol=c;sortAsc=true;}carregarLista();}
     });
   }
 
-  // lista (status no client-side)
+  // LISTA (status filtrado no SERVIDOR)
   async function carregarLista(){
     const nome=$('#f_nome').value.trim();
     const regPart=$('#f_reg').value.trim();
     const numPart=$('#f_numero').value.trim();
     const fSig=$('#f_sigla').value;
     const fTipos=tiposSelecionados();
+    const fsRaw=($('#f_status').value||'').trim();
 
     let query=supabase.from('empregados').select('registro,nome,sigla,cred_num,cred_cod,validade,status,foto_path');
     if(nome) query=query.ilike('nome',`%${nome}%`);
     if(fSig) query=query.eq('sigla',fSig);
     if(fTipos.length) query=query.in('cred_cod',fTipos.map(Number));
+
+    if(fsRaw){
+      const variants = fsRaw==='Ativo'
+        ? ['Ativo','ATIVO','ativo']
+        : fsRaw==='Inativo'
+          ? ['Inativo','INATIVO','inativo','Inativo/Vencido','INATIVO/VENCIDO','inativo/vencido']
+          : ['Em andamento','EM ANDAMENTO','em andamento'];
+      query = query.in('status', variants);
+    }
+
     query=query.order(sortCol,{ascending:sortAsc}).order('registro',{ascending:true});
 
     const res=await query;
     if(res.error){console.error(res.error);alert('Erro ao carregar lista');return;}
     let data=res.data||[];
-
-    const fs=$('#f_status').value;
-    if(fs){
-      const MAP={
-        'Ativo':new Set(['Ativo','ATIVO','ativo']),
-        'Inativo':new Set(['Inativo','INATIVO','inativo','Inativo/Vencido','INATIVO/VENCIDO','inativo/vencido']),
-        'Em andamento':new Set(['Em andamento','EM ANDAMENTO','em andamento'])
-      };
-      const want=MAP[fs]||new Set([fs]);
-      data=data.filter(r=>want.has(String(r.status||'').trim()));
-    }
 
     if(regPart) data=data.filter(x=>String(x.registro||'').includes(regPart));
     if(numPart) data=data.filter(x=>String(x.cred_num||'').includes(numPart));
