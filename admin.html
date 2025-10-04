@@ -4,27 +4,32 @@
   <meta charset="utf-8">
   <title>Admin – CETESB Credenciais</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link href="style.css?v=256" rel="stylesheet">
+  <link href="style.css?v=257" rel="stylesheet">
   <meta name="color-scheme" content="light">
   <link rel="icon" href="data:,">
   <style>
-    /* --- Contêiner único para alinhar header e conteúdo --- */
-    .wrap{max-width:1200px;margin:0 auto;padding:0 24px}
-    .header{border-bottom:1px solid #eef2f7;background:#fbfdff}
-    .header .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
-    .brand{display:flex;align-items:center;gap:10px}
-    .brand h1{font-size:18px;margin:0}
-    .actions{display:flex;gap:10px}
+    /* usar a MESMA .container do seu style.css para header e conteúdo */
+    .header { border-bottom:1px solid #eef2f7; background:#fbfdff; }
+    .header .container { display:flex; align-items:center; justify-content:space-between; height:64px; }
+    .brand{display:flex; align-items:center; gap:10px}
+    .brand h1{font-size:18px; margin:0}
+    .actions{display:flex; gap:10px}
 
-    /* Complementos mínimos ao seu CSS estável */
-    .label-like{ font-size:12px; color:#64748b; }
+    /* complementos estáveis */
+    .label-like{ font-size:12px; color:#64748b }
     .muted{ color:#6b7280 }
     .input::placeholder{ color:#a8b3c0; opacity:1 }
 
+    /* filtros: manter 1ª linha estável, sem pular de linha por texto longo */
     .filters-row{ display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end }
     .filters-row .stack{ display:flex; flex-direction:column; gap:6px }
-    .filters-row .grow{ flex:1 1 220px }
-    .tags{ display:flex; gap:10px; flex-wrap:wrap; padding:8px 10px; border-radius:10px; border:1px solid #e5e7eb; }
+    /* bases estáveis por coluna da 1ª linha */
+    #f_nome{ min-width:240px; }
+    #f_reg{ min-width:160px; }
+    #f_numero{ min-width:160px; }
+    #f_status{ min-width:140px; }
+    .filters-row .grow{ flex:1 1 240px }
+    .tags{ display:flex; gap:10px; flex-wrap:wrap; padding:8px 10px; border-radius:10px; border:1px solid #e5e7eb }
     .filters-actions{ width:100%; display:flex; justify-content:center; gap:12px; margin-top:6px }
     .filters-actions .btn{ width:auto; white-space:nowrap; min-width:max-content }
 
@@ -32,14 +37,14 @@
     .file-row .btn{ margin:0 }
     .tbl-check{ width:34px }
 
-    /* Cabeçalhos ordenáveis, sem setas visuais */
+    /* ordenação sem ícones */
     th.sortable{ cursor:pointer; user-select:none }
     th.sortable:hover{ text-decoration: underline dotted }
   </style>
 </head>
 <body>
 <header class="header">
-  <div class="wrap">
+  <div class="container">
     <div class="brand">
       <img src="media/cetesb-logo.png" alt="CETESB" onerror="this.style.display='none'">
       <h1>CETESB – Administração de Credenciais</h1>
@@ -53,9 +58,9 @@
 </header>
 
 <main>
-  <div class="wrap">
+  <div class="container">
     <div class="grid grid-2">
-      <!-- ESQUERDA: FORM -->
+      <!-- ESQUERDA -->
       <section class="card pad">
         <h2 class="card-title">Cadastro</h2>
 
@@ -125,7 +130,7 @@
         </form>
       </section>
 
-      <!-- DIREITA: LISTA -->
+      <!-- DIREITA -->
       <section class="card pad">
         <h2 class="card-title">Lista e filtros</h2>
 
@@ -197,7 +202,7 @@
   </div>
 </main>
 
-<footer class="footer"><div class="wrap">Piloto – CETESB</div></footer>
+<footer class="footer"><div class="container">Piloto – CETESB</div></footer>
 
 <script type="module">
   import QRCode from 'https://esm.sh/qrcode@1.5.3';
@@ -209,28 +214,24 @@
   const PH40  = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect width='100%25' height='100%25' fill='%23eef2f7' rx='8' ry='8'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='16' fill='%2390a4b8'>?</text></svg>";
   $('#preview').src = PH120;
 
-  // Navegação
+  // navegação
   $('#btnSair')?.addEventListener('click', ()=>{ localStorage.removeItem('sessaoUsuario'); location.href='index.html'; });
   $('#btnChangePass')?.addEventListener('click', ()=>{ location.href='change-password.html'; });
 
-  // Arquivo
+  // arquivo → preview
   $('#btnEscolherArquivo').addEventListener('click', ()=> $('#arquivoFoto').click());
   $('#arquivoFoto').addEventListener('change', (ev)=>{
     const f = ev.target.files && ev.target.files[0];
     $('#preview').src = f ? URL.createObjectURL(f) : PH120;
   });
 
-  // Config
-  let cfg;
-  {
-    const r = await fetch('config.json', { cache:'no-store' });
-    if(!r.ok){ alert('Falha ao carregar config.json'); throw new Error('config.json HTTP '+r.status); }
-    cfg = JSON.parse(await r.text());
-  }
+  // config
+  let cfg; { const r=await fetch('config.json',{cache:'no-store'}); if(!r.ok){ alert('Falha ao carregar config.json'); throw new Error('config.json HTTP '+r.status);} cfg=JSON.parse(await r.text()); }
 
+  // supabase
   const supabase = supa.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
-  /* Foto utils */
+  /* foto utils */
   const UNITS_MAP = Object.create(null);
   const normalizeFotoPath = (p)=> String(p||'').replace(/^fotos\//i,'');
   const splitDir=(b)=>{const i=b.lastIndexOf('/');return i===-1?{dir:'',name:b}:{dir:b.slice(0,i),name:b.slice(i+1)};}
@@ -241,7 +242,7 @@
   async function deleteAllKnownPhotos(reg,currentKey){const bucket=cfg.storageBucket||'fotos';const keys=[reg+'.png',reg+'.jpg',reg+'.jpeg'];if(currentKey){const cur=normalizeFotoPath(currentKey);if(!keys.includes(cur))keys.push(cur)}try{await supabase.storage.from(bucket).remove(keys)}catch{}}
   async function uploadFotoSeHouver(reg){const file=$('#arquivoFoto').files?.[0];if(!file)return null;const ext=(file.name.split('.').pop()||'png').toLowerCase();const key=`${reg}.${ext}`;const bucket=cfg.storageBucket||'fotos';const contentType=file.type|| (ext==='png'?'image/png':(ext==='jpg'||ext==='jpeg')?'image/jpeg':'application/octet-stream');const up=await supabase.storage.from(bucket).upload(key,file,{upsert:true,contentType});if(up.error)throw new Error(up.error.message||'Falha no upload da foto');await removeOtherExtAfterUpload(reg,key);return key;}
 
-  /* Combos/Filtros */
+  /* combos */
   async function carregarCombos(){
     const [u,c]=await Promise.all([
       supabase.from('unidades').select('sigla,nome_da_unidade').order('sigla'),
@@ -255,15 +256,19 @@
   }
   const tiposSelecionados=()=>Array.from(document.querySelectorAll('.f_tipo:checked')).map(el=>el.value);
 
-  /* Ordenação */
+  /* ordenação */
   let sortCol='registro', sortAsc=true;
   function bindSortHeaders(){
     document.querySelectorAll('th.sortable').forEach(th=>{
-      th.onclick=()=>{const col=th.getAttribute('data-col'); if(!col)return; if(sortCol===col)sortAsc=!sortAsc; else{sortCol=col;sortAsc=true;} carregarLista();}
+      th.addEventListener('click', ()=>{
+        const col=th.getAttribute('data-col'); if(!col) return;
+        if(sortCol===col) sortAsc=!sortAsc; else { sortCol=col; sortAsc=true; }
+        carregarLista();
+      });
     });
   }
 
-  /* Filtro robusto de status (variações) */
+  /* filtro robusto de status */
   function applyStatusFilter(query, fs) {
     if (!fs) return query;
     const map = {
@@ -275,7 +280,7 @@
     return query.in('status', variants);
   }
 
-  /* Lista – com busca parcial p/ matrícula e número */
+  /* lista */
   async function carregarLista(){
     const nome=$('#f_nome').value.trim();
     const regPart=$('#f_reg').value.trim();
@@ -323,14 +328,15 @@
 
     $('#tbody').innerHTML = linhas.join('') || '<tr><td colspan="10" class="muted">Nenhum registro</td></tr>';
     $('#count').textContent = String(data.length)+' registro(s)';
+
     $('#chkAll').checked=false;
     $('#chkAll').onchange=(ev)=>{ document.querySelectorAll('.chkRow').forEach(ch=> ch.checked=ev.target.checked); };
   }
 
-  // Editar
+  // editar
   $('#tbody').addEventListener('click', async (ev)=>{
-    const editBtn=ev.target.closest?.('[data-acao="editar"]');
-    const tr=ev.target.closest('tr'); const reg=tr?.getAttribute('data-reg'); if(!tr||!editBtn) return;
+    const btn=ev.target.closest?.('[data-acao="editar"]'); const tr=ev.target.closest('tr');
+    const reg=tr?.getAttribute('data-reg'); if(!tr||!btn) return;
     const res=await supabase.from('empregados').select('*').eq('registro',reg).maybeSingle();
     if(res.error){ alert('Erro ao carregar registro'); return; }
     const d=res.data||{};
@@ -341,10 +347,10 @@
     $('#preview').src=url||PH120; $('#arquivoFoto').value='';
   });
 
-  // Novo
+  // novo
   $('#btnNovo').addEventListener('click', ()=>{ $('#formCad').reset(); $('#preview').src=PH120; $('#arquivoFoto').value=''; $('#status').value='Em andamento'; $('#registro').focus(); });
 
-  // Remover foto
+  // remover foto
   $('#btnRemoverFoto').addEventListener('click', async ()=>{
     const reg=$('#registro').value.trim(); if(!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).');
     const cur=await supabase.from('empregados').select('foto_path').eq('registro',reg).maybeSingle();
@@ -353,7 +359,7 @@
     $('#arquivoFoto').value=''; $('#preview').src=PH120; await carregarLista();
   });
 
-  // Salvar
+  // salvar
   async function nomeUnidade(sig){ if(UNITS_MAP[sig]!=null) return UNITS_MAP[sig]; const ru=await supabase.from('unidades').select('nome_da_unidade').eq('sigla',sig).maybeSingle(); const v=ru?.data?.nome_da_unidade||''; UNITS_MAP[sig]=v; return v;}
   $('#formCad').addEventListener('submit', async (ev)=>{
     ev.preventDefault();
@@ -377,7 +383,7 @@
   $('#btnQR').addEventListener('click', async ()=>{ try{ const reg=$('#registro').value.trim(); if(!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).'); downloadDataUrl(await gerarQrDataUrl(reg,512),`QR_${reg}.png`);}catch(e){ console.error(e); alert('Falha ao gerar QR.'); } });
   $('#btnQrSelecionados').addEventListener('click', async ()=>{ const regs=Array.from(document.querySelectorAll('.chkRow:checked')).map(ch=>ch.value); if(!regs.length) return alert('Selecione ao menos um registro.'); for(const r of regs){ try{ downloadDataUrl(await gerarQrDataUrl(r,512),`QR_${r}.png`);}catch(e){console.error('QR falhou para',r,e);} } });
 
-  // Filtros/init
+  // init
   $('#btnReload').addEventListener('click', carregarLista);
   $('#f_sigla').addEventListener('change', carregarLista);
   $('#f_status').addEventListener('change', carregarLista);
