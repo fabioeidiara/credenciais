@@ -9,17 +9,15 @@
   <link rel="icon" href="data:,">
   <style>
     :root{
-      /* tamanhos/cores padronizados p/ TODOS os títulos e labels */
       --title-size: 16px;
       --title-weight: 700;
       --title-color: #3f4b5a;
       --label-size: 13px;
       --label-weight: 600;
       --label-color: #6b7787;
-      /* layout já usado anteriormente */
       --cell-pad-x: 14px;
-      --first-col-w: 34px;      /* coluna checkbox */
-      --foto-col-w: 56px;       /* coluna foto  */
+      --first-col-w: 34px;
+      --foto-col-w: 56px;
       --radius-xl: 16px;
       --line: #e5e9f1;
       --muted: #64748b;
@@ -142,10 +140,10 @@
 
         <div class="field">
           <label for="status" class="req">Status</label>
+          <!-- Somente os dois valores aceitos pela CHECK -->
           <select id="status" class="input" required>
-            <option>Em andamento</option>
-            <option>Ativo</option>
-            <option>Inativo</option>
+            <option value="Em andamento">Em andamento</option>
+            <option value="Ativo">Ativo</option>
           </select>
         </div>
 
@@ -269,6 +267,13 @@
                          label==='Em andamento' ? '<span class="chip warn">Em andamento</span>' :
                          '<span class="chip danger">Inativo</span>';
 
+  function normalizeStatus(s){
+    const m = norm(s);
+    if (m === 'ativo') return 'Ativo';
+    if (m === 'em andamento' || m === 'emandamento' || m === 'em-andamento') return 'Em andamento';
+    return 'Em andamento';
+  }
+
   let sortCol='registro', sortAsc=true;
 
   /* navegação */
@@ -290,15 +295,28 @@
   const supa = await import('https://esm.sh/@supabase/supabase-js@2');
   const supabase = supa.createClient(cfg.supabaseUrl,cfg.supabaseAnonKey);
 
-  /* helpers foto (compat com caminho antigo em Storage) */
+  /* helpers foto (compat Storage legado) */
   const UNITS_MAP=Object.create(null);
-  const normalize=(p)=>String(p||'').replace(/^fotos\//i,'');
+  const normalizePath=(p)=>String(p||'').replace(/^fotos\//i,'');
   const splitDir=(b)=>{const i=b.lastIndexOf('/');return i===-1?{dir:'',name:b}:{dir:b.slice(0,i),name:b.slice(i+1)};}
   async function objExists(bucket,full){const t=splitDir(full);const r=await supabase.storage.from(bucket).list(t.dir||'',{search:t.name,limit:1});if(r.error)return false;return (r.data||[]).some(x=>x.name===t.name);}
-  async function getFotoUrlIfExists(path){const bucket=cfg.storageBucket||'fotos';if(!await objExists(bucket,path))return null;const s=await supabase.storage.from(bucket).createSignedUrl(path,3600);if(s?.data?.signedUrl)return s.data.signedUrl;const p=supabase.storage.from(bucket).getPublicUrl(path);return p?.data?.publicUrl||null;}
-  async function getFotoUrlFlexible(reg,foto_path,{strict=false}={}){const list=[];if(foto_path){list.push(normalize(foto_path));if(!strict){list.push(reg+'.png',reg+'.jpg',reg+'.jpeg')}}else if(!strict){list.push(reg+'.png',reg+'.jpg',reg+'.jpeg')}for(const k of list){const u=await getFotoUrlIfExists(k);if(u)return u}return null;}
+  async function getFotoUrlIfExists(path){
+    const bucket=cfg.storageBucket||'fotos';
+    if(!await objExists(bucket,path)) return null;
+    const s=await supabase.storage.from(bucket).createSignedUrl(path,3600);
+    if(s?.data?.signedUrl) return s.data.signedUrl;
+    const p=supabase.storage.from(bucket).getPublicUrl(path);
+    return p?.data?.publicUrl||null;
+  }
+  async function getFotoUrlFlexible(reg,foto_path,{strict=false}={}){
+    const list=[];
+    if(foto_path){list.push(normalizePath(foto_path)); if(!strict){list.push(reg+'.png',reg+'.jpg',reg+'.jpeg');}}
+    else if(!strict){list.push(reg+'.png',reg+'.jpg',reg+'.jpeg');}
+    for(const k of list){const u=await getFotoUrlIfExists(k); if(u) return u;}
+    return null;
+  }
 
-  /* (opcional) reduzir foto antes de salvar para economizar espaço */
+  /* otimização da imagem antes de salvar (opcional, melhora size) */
   async function downscale(file, max = 512){
     const img = await new Promise((ok,no)=>{
       const i = new Image();
@@ -314,7 +332,6 @@
   }
 
   async function fileToBase64(file){
-    // reduz para máx 512px e qualidade 0.85 (opcional, melhora espaço em DB)
     const blob = await downscale(file, 512);
     const contentType = blob.type || 'image/png';
     const buf = await blob.arrayBuffer();
@@ -326,8 +343,8 @@
     const file = $('#arquivoFoto').files?.[0];
     if (!file) return null;
     const dataUrl = await fileToBase64(file);
-    $('#preview').src = dataUrl;               // preview imediato
-    return dataUrl;                            // será gravado em foto_b64
+    $('#preview').src = dataUrl;
+    return dataUrl; // gravado em foto_b64
   }
 
   /* combos */
@@ -390,7 +407,7 @@
       const linhas=await Promise.all(data.map(async x=>{
         let avatar = PH40;
         if (x.foto_b64) {
-          avatar = x.foto_b64; // prioridade: DB
+          avatar = x.foto_b64; // prioridade DB
         } else {
           const url=await getFotoUrlFlexible(x.registro,x.foto_path,{strict:!x.foto_path}); // legado
           avatar = url || PH40;
@@ -427,12 +444,12 @@
     const d=res.data||{};
     $('#registro').value=d.registro||'';$('#nome').value=d.nome||'';$('#sigla').value=d.sigla||'';
     $('#cred_cod').value=d.cred_cod||'';$('#cred_num').value=d.cred_num||'';$('#validade').value=d.validade?String(d.validade).slice(0,10):'';
-    $('#status').value=d.status||'Em andamento';$('#doe').value=d.doe||'';
+    $('#status').value=(d.status==='Ativo'?'Ativo':'Em andamento');$('#doe').value=d.doe||'';
 
     if (d.foto_b64) {
-      $('#preview').src = d.foto_b64;                 // prioridade DB
+      $('#preview').src = d.foto_b64;
     } else {
-      const url=await getFotoUrlFlexible(d.registro,d.foto_path,{strict:!d.foto_path}); // legado
+      const url=await getFotoUrlFlexible(d.registro,d.foto_path,{strict:!d.foto_path});
       $('#preview').src=url||PH120;
     }
     $('#arquivoFoto').value='';
@@ -441,25 +458,28 @@
   /* novo */
   $('#btnNovo').addEventListener('click',()=>{$('#formCad').reset();$('#preview').src=PH120;$('#arquivoFoto').value='';$('#status').value='Em andamento';$('#registro').focus();});
 
-  /* remover foto */
+  /* remover foto (apenas foto) */
   $('#btnRemoverFoto').addEventListener('click',async()=>{
     const reg=$('#registro').value.trim(); if(!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).');
-    // remover do Storage (legado), se existir
+    // pega info atual para tentar retirar do Storage legado
     const cur=await supabase.from('empregados').select('foto_path').eq('registro',reg).maybeSingle();
-    try{ await (async()=>{ const p = cur.data?.foto_path||null; if(p){ await supabase.storage.from(cfg.storageBucket||'fotos').remove([p,'${reg}.png','${reg}.jpg','${reg}.jpeg']); } })(); }catch{}
+    const bucket = cfg.storageBucket||'fotos';
+    const keys = [`${reg}.png`,`${reg}.jpg`,`${reg}.jpeg`];
+    if (cur?.data?.foto_path) keys.push(cur.data.foto_path);
+    try{ await supabase.storage.from(bucket).remove(keys); }catch(e){ console.warn('Falha ao remover do Storage (ignorado):', e?.message||e); }
     // zera campos no DB
     await supabase.from('empregados').update({foto_path:null, foto_b64:null}).eq('registro',reg);
     $('#arquivoFoto').value='';$('#preview').src=PH120;await carregarLista();
   });
 
-  /* obter nome da unidade para gravar junto (evita NOT NULL) */
+  /* obter nome da unidade para gravar junto */
   async function nomeUnidade(sig){
     if(UNITS_MAP[sig]!=null)return UNITS_MAP[sig];
     const ru=await supabase.from('unidades').select('nome_da_unidade').eq('sigla',sig).maybeSingle();
     const v=ru?.data?.nome_da_unidade||''; UNITS_MAP[sig]=v; return v;
   }
 
-  /* salvar */
+  /* salvar (upsert) */
   $('#formCad').addEventListener('submit',async(ev)=>{
     ev.preventDefault();
     const reg=$('#registro').value.trim(); if(!/^\d{6}$/.test(reg)) return alert('Registro inválido (6 dígitos).');
@@ -472,25 +492,52 @@
       cred_cod:Number($('#cred_cod').value),
       cred_num:$('#cred_num').value.trim(),
       validade:$('#validade').value,
-      status:$('#status').value,
+      status:normalizeStatus($('#status').value),
       doe:$('#doe').value.trim()||null
     };
     try{
       const fotoB64=await uploadFotoSeHouver(reg);
       if(fotoB64){
-        payload.foto_b64=fotoB64;  // imagem como texto (no DB)
-        payload.foto_path=null;    // descontinua uso de Storage para novos
+        payload.foto_b64=fotoB64;
+        payload.foto_path=null; // descontinua Storage
       }
       const resp=await supabase.from('empregados').upsert(payload,{onConflict:'registro'});
       if(resp.error) throw new Error(resp.error.message||'Erro ao salvar');
 
-      // preview já atualizado em uploadFotoSeHouver; só limpar input e recarregar
       $('#arquivoFoto').value='';
       await carregarLista();
       alert('Registro salvo com sucesso.');
     }catch(err){
       console.error(err);
       alert('Falha ao salvar: '+(err?.message||String(err)));
+    }
+  });
+
+  /* EXCLUIR registro completo (linha + fotos) */
+  $('#btnExcluir').addEventListener('click', async ()=>{
+    const reg = $('#registro').value.trim();
+    if (!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos) para excluir.');
+    if (!confirm(`Confirma excluir a matrícula ${reg}? Esta ação é definitiva.`)) return;
+
+    try{
+      // Busca info atual para tentar remover do Storage
+      const cur = await supabase.from('empregados').select('foto_path').eq('registro',reg).maybeSingle();
+      const bucket = cfg.storageBucket||'fotos';
+      const keys = [`${reg}.png`,`${reg}.jpg`,`${reg}.jpeg`];
+      if (cur?.data?.foto_path) keys.push(cur.data.foto_path);
+      try{ await supabase.storage.from(bucket).remove(keys); }catch(e){ console.warn('Remoção Storage falhou (ignorado):', e?.message||e); }
+
+      // Exclui a linha
+      const del = await supabase.from('empregados').delete().eq('registro', reg);
+      if (del.error) throw new Error(del.error.message||'Erro ao excluir');
+
+      // Limpa UI e recarrega
+      $('#formCad').reset(); $('#preview').src = PH120; $('#arquivoFoto').value='';
+      await carregarLista();
+      alert('Registro excluído com sucesso.');
+    }catch(e){
+      console.error(e);
+      alert('Falha ao excluir: '+(e?.message||String(e)));
     }
   });
 
