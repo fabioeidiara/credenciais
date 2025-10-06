@@ -4,9 +4,11 @@
   <meta charset="utf-8">
   <title>Credencial do Agente – CETESB</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link href="style.css?v=246" rel="stylesheet">
+  <link href="style.css?v=247" rel="stylesheet">
   <meta name="color-scheme" content="light">
   <link rel="icon" href="data:,">
+  <!-- CSP: permite data: em imagens e inline de estilo necessário -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https:; script-src 'self' https: 'unsafe-inline'; connect-src https:;">
   <style>
     .kv { display:grid; grid-template-columns:140px 1fr; gap:10px 14px; align-items:center; }
     .kv .k{ color:#6b7280; font-weight:700; }
@@ -92,34 +94,41 @@
   var supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
   // ------- Helpers de foto (legado Storage) -------
-  function normalizeFotoPath(p){ return String(p||'').replace(/^fotos\//i,''); }
-  function splitDir(basepath){
-    var i = basepath.lastIndexOf('/');
-    return i === -1 ? { dir:'', name:basepath } : { dir:basepath.slice(0,i), name:basepath.slice(i+1) };
+  function getPublicUrl(bucket, path){
+    try{
+      const p = supabase.storage.from(bucket).getPublicUrl(path);
+      return p?.data?.publicUrl || null;
+    }catch(_){ return null; }
   }
-  async function objectExists(bucket, fullpath){
-    var t = splitDir(fullpath);
-    var res = await supabase.storage.from(bucket).list(t.dir || '', { search: t.name, limit: 1 });
-    if(res.error) return false;
-    return (res.data||[]).some(function(x){ return x.name === t.name; });
+
+  async function getSignedUrl(bucket, path){
+    try{
+      const s = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
+      return (s && !s.error && s.data && s.data.signedUrl) ? s.data.signedUrl : null;
+    }catch(_){ return null; }
   }
+
   async function getFotoUrlIfExists(path){
-    var bucket = cfg.storageBucket || 'fotos';
-    var ok = await objectExists(bucket, path);
-    if(!ok) return null;
-    var s = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
-    if(s && !s.error && s.data && s.data.signedUrl) return s.data.signedUrl;
-    var p = supabase.storage.from(bucket).getPublicUrl(path);
-    if(p && p.data && p.data.publicUrl) return p.data.publicUrl;
+    const bucket = cfg.storageBucket || 'fotos';
+    // 1) tenta URL pública direto
+    const pub = getPublicUrl(bucket, path);
+    if (pub) {
+      try { await fetch(pub, { method:'HEAD', mode:'no-cors' }); return pub; } catch(_) {}
+    }
+    // 2) tenta URL assinada
+    const signed = await getSignedUrl(bucket, path);
+    if (signed) return signed;
     return null;
   }
+
   async function getFotoUrlFlexible(reg, foto_path){
-    var candidates = [];
-    if (foto_path) candidates.push(normalizeFotoPath(foto_path));
+    const candidates = [];
+    const norm = (p)=>String(p||'').replace(/^fotos\//i,'');
+    if (foto_path) candidates.push(norm(foto_path));
     candidates.push(reg + '.png', reg + '.jpg', reg + '.jpeg');
-    for (var i=0;i<candidates.length;i++){
-      var url = await getFotoUrlIfExists(candidates[i]);
-      if(url) return url;
+    for (const c of candidates){
+      const url = await getFotoUrlIfExists(c);
+      if (url) return url;
     }
     return null;
   }
@@ -158,9 +167,12 @@
 
   // Foto: prioriza DB (foto_b64); se não tiver, tenta Storage legado
   if (emp.foto_b64) {
+    console.log('[public] usando foto_b64 (len):', emp.foto_b64.length);
     $('#foto').src = emp.foto_b64;
   } else {
+    console.warn('[public] sem foto_b64; tentando Storage (foto_path):', emp.foto_path);
     var url = await getFotoUrlFlexible(emp.registro, emp.foto_path);
+    console.log('[public] url Storage resolvida:', url);
     $('#foto').src = url || PH120;
   }
 
