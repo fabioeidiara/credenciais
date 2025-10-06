@@ -367,7 +367,9 @@
       const fSig=$('#f_sigla').value;
       const fTipos=tiposSelecionados();
 
-      let query=supabase.from('empregados').select('registro,nome,sigla,cred_num,cred_cod,validade,status,foto_path');
+      let query = supabase.from('empregados')
+        .select('registro,nome,sigla,cred_num,cred_cod,validade,status,foto_path,foto_b64');
+
 
       if(nome) query=query.ilike('nome',`%${nome}%`);
       if(fSig) query=query.eq('sigla',fSig);
@@ -391,8 +393,14 @@
       }
 
       const linhas=await Promise.all(data.map(async x=>{
-        const url=await getFotoUrlFlexible(x.registro,x.foto_path,{strict:!x.foto_path});
-        const avatar=url||PH40;
+        let avatar = PH40;
+        if (x.foto_b64) {
+          avatar = x.foto_b64;
+        } else {
+          const url = await getFotoUrlFlexible(x.registro, x.foto_path, { strict: !x.foto_path });
+          avatar = url || PH40;
+        }
+
         const chip = statusChip(displayStatus(x));
         return `<tr data-reg="${x.registro}">
           <td><input type="checkbox" class="chkRow" value="${x.registro}"></td>
@@ -418,14 +426,20 @@
   $('#tbody').addEventListener('click',async (ev)=>{
     const btn=ev.target.closest?.('[data-acao="editar"]'); const tr=ev.target.closest('tr');
     const reg=tr?.getAttribute('data-reg'); if(!tr||!btn) return;
-    const res=await supabase.from('empregados').select('*').eq('registro',reg).maybeSingle();
-    if(res.error){alert('Erro ao carregar registro');return;}
-    const d=res.data||{};
-    $('#registro').value=d.registro||'';$('#nome').value=d.nome||'';$('#sigla').value=d.sigla||'';
-    $('#cred_cod').value=d.cred_cod||'';$('#cred_num').value=d.cred_num||'';$('#validade').value=d.validade?String(d.validade).slice(0,10):'';
-    $('#status').value=d.status||'Em andamento';$('#doe').value=d.doe||'';
-    const url=await getFotoUrlFlexible(d.registro,d.foto_path,{strict:!d.foto_path});
-    $('#preview').src=url||PH120;$('#arquivoFoto').value='';
+    const res = await supabase.from('empregados')
+    .select('registro,nome,sigla,cred_num,cred_cod,validade,status,doe,foto_path,foto_b64')
+    .eq('registro', reg)
+    .maybeSingle();
+  ...
+  // prioridade para a imagem gravada no banco
+  if (d.foto_b64) {
+    $('#preview').src = d.foto_b64;
+  } else {
+    const url = await getFotoUrlFlexible(d.registro, d.foto_path, { strict: !d.foto_path });
+    $('#preview').src = url || PH120;
+  }
+  $('#arquivoFoto').value = '';
+
   });
 
   /* novo */
@@ -435,9 +449,14 @@
   $('#btnRemoverFoto').addEventListener('click',async()=>{
     const reg=$('#registro').value.trim(); if(!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).');
     const cur=await supabase.from('empregados').select('foto_path').eq('registro',reg).maybeSingle();
-    await deleteAllKnownPhotos(reg,cur.data?.foto_path||null);
-    await supabase.from('empregados').update({foto_path:null}).eq('registro',reg);
-    $('#arquivoFoto').value='';$('#preview').src=PH120;await carregarLista();
+    await deleteAllKnownPhotos(reg, cur.data?.foto_path || null); // opcional; pode deixar
+    await supabase.from('empregados')
+      .update({ foto_path: null, foto_b64: null })
+      .eq('registro', reg);
+    $('#arquivoFoto').value = '';
+    $('#preview').src = PH120;
+    await carregarLista();
+
   });
 
   /* obter nome da unidade para gravar junto (evita NOT NULL) */
@@ -448,15 +467,40 @@
     ev.preventDefault();
     const reg=$('#registro').value.trim(); if(!/^\d{6}$/.test(reg)) return alert('Registro inválido (6 dígitos).');
     const sig=$('#sigla').value;
-    const payload={registro:reg,nome:$('#nome').value.trim(),sigla:sig,nome_da_unidade:await nomeUnidade(sig),
-      cred_cod:Number($('#cred_cod').value),cred_num:$('#cred_num').value.trim(),validade:$('#validade').value,
-      status:$('#status').value,doe:$('#doe').value.trim()||null};
-    try{
-      const fotoKey=await uploadFotoSeHouver(reg); if(fotoKey) payload.foto_path=fotoKey;
-      const resp=await supabase.from('empregados').upsert(payload,{onConflict:'registro'}); if(resp.error) throw new Error(resp.error.message||'Erro ao salvar');
-      const url=await getFotoUrlFlexible(reg,fotoKey||null,{strict:!fotoKey});$('#preview').src=url||PH120;$('#arquivoFoto').value='';
-      await carregarLista();alert('Registro salvo com sucesso.');
-    }catch(err){console.error(err);alert('Falha ao salvar: '+(err?.message||String(err))); }
+    const payload = {
+    registro: reg,
+    nome: $('#nome').value.trim(),
+    sigla: sig,
+    nome_da_unidade: await nomeUnidade(sig),
+    cred_cod: Number($('#cred_cod').value),
+    cred_num: $('#cred_num').value.trim(),
+    validade: $('#validade').value,
+    status: $('#status').value,
+    doe: $('#doe').value.trim() || null
+  };
+  
+  try{
+    const fotoB64 = await uploadFotoSeHouver(reg);
+    if (fotoB64) {
+      // gravamos a imagem diretamente no banco
+      payload.foto_b64 = fotoB64;
+      // e, por consistência, garantimos que o caminho do Storage fique nulo
+      payload.foto_path = null;
+    }
+  
+    const resp = await supabase.from('empregados')
+      .upsert(payload, { onConflict: 'registro' });
+    if (resp.error) throw new Error(resp.error.message || 'Erro ao salvar');
+  
+    // preview já atualizado em uploadFotoSeHouver; só limpar input
+    $('#arquivoFoto').value = '';
+    await carregarLista();
+    alert('Registro salvo com sucesso.');
+  }catch(err){
+    console.error(err);
+    alert('Falha ao salvar: ' + (err?.message || String(err)));
+  }
+
   });
 
   /* QR Code */
