@@ -318,18 +318,65 @@
     const ext = (file.name.split('.').pop() || 'png').toLowerCase();
     const key = `${reg}.${ext}`;
     const bucket = cfg.storageBucket || 'fotos';
-    const contentType = file.type || (ext==='png' ? 'image/png' : (ext==='jpg'||ext==='jpeg') ? 'image/jpeg' : 'application/octet-stream');
+    const contentType = file.type || (
+      ext==='png' ? 'image/png' :
+      (ext==='jpg'||ext==='jpeg') ? 'image/jpeg' : 'application/octet-stream'
+    );
   
-    // 1) Tenta INSERT puro
-    const ins = await supabase.storage.from(bucket).upload(key, file, { upsert: false, contentType });
-    if (ins.error) {
-      // 2) Se já existia (ou policy só aceita UPDATE), tenta UPDATE (upsert)
-      const upd = await supabase.storage.from(bucket).upload(key, file, { upsert: true, contentType });
-      if (upd.error) throw new Error(upd.error.message || 'Falha no upload da foto');
+    // 0) logs úteis
+    console.log('[uploadFotoSeHouver] bucket=', bucket, 'key=', key, 'file=', file?.name, 'ext=', ext);
+  
+    // 1) TENTAR SIGNED UPLOAD (opcional) — se você configurar a função Edge
+    //    Para habilitar: em config.json inclua:
+    //    { "edgeFunctionName": "NOME_DA_FUNCAO", "appSecret": "se-tiver-segredo" }
+    const edgeName = (cfg.edgeFunctionName || '').trim();
+    if (edgeName) {
+      try {
+        const resp = await fetch(`${cfg.supabaseUrl}/functions/v1/${edgeName}/sign-upload`, {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            ...(cfg.appSecret ? {'x-app-secret': cfg.appSecret} : {})
+          },
+          body: JSON.stringify({ registro: reg, ext })
+        });
+        const signed = await resp.json().catch(()=> ({}));
+        console.log('[signed-upload] resp.ok=', resp.ok, 'payload=', signed);
+  
+        if (resp.ok && signed?.path && signed?.token) {
+          // sobe com token assinado (ignora RLS de escrita)
+          const up = await supabase.storage.from(bucket)
+            .uploadToSignedUrl(signed.path, signed.token, file, { contentType });
+          console.log('[uploadToSignedUrl] resp=', up);
+          if (up?.error) throw up.error;
+          // limpeza não crítica
+          try { await removeOtherExtAfterUpload(reg, key); } catch(e) { console.warn('Remoção opcional falhou:', e); }
+          return key;
+        } else {
+          console.warn('[signed-upload] indisponível; caindo para fluxo direto. Detalhe:', signed?.error || '(sem detalhe)');
+        }
+      } catch (e) {
+        console.warn('[signed-upload] falhou; caindo para fluxo direto.', e);
+      }
+    } else {
+      console.log('[signed-upload] desabilitado (edgeFunctionName não definido em config.json)');
     }
   
-    // 3) Tenta remover outras extensões, mas NÃO bloqueia o fluxo se falhar
-    try { await removeOtherExtAfterUpload(reg, key); } catch(e) { console.warn('Falha ao remover outras extensões:', e); }
+    // 2) FLUXO DIRETO (RLS do Storage precisa permitir INSERT/UPDATE no bucket)
+    //    Primeiro tenta INSERT puro; se já existir, tenta UPSERT.
+    const ins = await supabase.storage.from(bucket).upload(key, file, { upsert: false, contentType });
+    console.log('[upload direct][INSERT] resp=', ins);
+    if (ins.error) {
+      const upd = await supabase.storage.from(bucket).upload(key, file, { upsert: true, contentType });
+      console.log('[upload direct][UPSERT] resp=', upd);
+      if (upd.error) {
+        console.error('[upload direct] erro final:', upd.error);
+        throw new Error(upd.error.message || 'Falha no upload da foto');
+      }
+    }
+  
+    // 3) Remover outras extensões (não bloqueia o fluxo)
+    try { await removeOtherExtAfterUpload(reg, key); } catch(e) { console.warn('Remoção opcional falhou:', e); }
   
     return key;
   }
