@@ -7,17 +7,15 @@
   <link href="style.css" rel="stylesheet">
   <meta name="color-scheme" content="light">
   <link rel="icon" href="data:,">
-    <style>
+  <style>
     :root{
       /* tamanhos/cores padronizados p/ TODOS os títulos e labels */
-      --title-size: 16px;       /* menor que antes */
+      --title-size: 16px;
       --title-weight: 700;
-      --title-color: #3f4b5a;   /* azul-acinzentado suave (igual vibe do 1º painel) */
-  
-      --label-size: 13px;       /* menor e consistente */
+      --title-color: #3f4b5a;
+      --label-size: 13px;
       --label-weight: 600;
-      --label-color: #6b7787;   /* cinza MAIS CLARO, como você pediu */
-  
+      --label-color: #6b7787;
       /* layout já usado anteriormente */
       --cell-pad-x: 14px;
       --first-col-w: 34px;      /* coluna checkbox */
@@ -27,20 +25,16 @@
       --muted: #64748b;
       --muted-2: #94a3b8;
     }
-  
     .container{ max-width:1200px; margin:0 auto; padding:0 16px; }
     .card{ background:#fff; border:1px solid var(--line); border-radius:var(--radius-xl); }
     .pad{ padding:18px; }
-  
-    /* HEADER seguindo o index.html (apenas garante tamanho) */
+
     .header .brand h1{
       font-size: var(--title-size) !important;
       font-weight: var(--title-weight) !important;
       color: var(--title-color) !important;
       margin: 0;
     }
-  
-    /* TÍTULOS (ESQ e DIR idênticos): */
     .card-title{
       margin:2px 0 14px 0;
       padding-left: var(--cell-pad-x);
@@ -48,25 +42,16 @@
       font-weight: var(--title-weight) !important;
       color: var(--title-color) !important;
     }
-  
-    /* LABELS (ESQ e DIR idênticos): */
-    .form label,
-    .filters label,
-    label{
+    .form label, .filters label, label{
       margin-left: var(--cell-pad-x);
       font-size: var(--label-size) !important;
       font-weight: var(--label-weight) !important;
       color: var(--label-color) !important;
     }
     .req::after{ content:" *"; color:#ef4444; }
-  
-    .input{
-      margin-left: var(--cell-pad-x);
-      border-radius:12px;
-    }
+    .input{ margin-left: var(--cell-pad-x); border-radius:12px; }
     .input::placeholder{ color:var(--muted-2); }
-  
-    /* TABELA – cabeçalho com MESMA tipografia dos labels: */
+
     .scroll{ margin-top:4px; overflow:auto; }
     table{ width:100%; border-collapse:separate; border-spacing:0; }
     thead th{
@@ -81,26 +66,29 @@
     tr:hover td{ background:#fbfcff; }
     th.sortable{ cursor:pointer; user-select:none; }
     th.sortable:hover{ text-decoration: underline dotted; }
-  
-    /* FILTROS – checkbox “Tipo” alinhado com checkbox da tabela */
+
     .filters .col{ display:flex; flex-direction:column; min-width:240px; }
     .filters .col > .input{ margin-left: var(--cell-pad-x); }
     #tiposBox{ margin-left: calc(var(--first-col-w) + var(--cell-pad-x)); }
-  
+
     .filters-actions{ margin:10px 0 14px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
-  
     .row{ display:flex; gap:10px; }
     .row.center{ align-items:center; }
     .row-actions{ display:flex; gap:10px; margin-top:12px; margin-left: var(--cell-pad-x); }
     #count{ color:var(--muted); padding:8px var(--cell-pad-x); }
-  
+
     .grid-2{ display:grid; gap:18px; grid-template-columns: 1fr 1fr; }
     @media (max-width: 980px){ .grid-2{ grid-template-columns: 1fr; } }
+
+    .chip{ display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; }
+    .chip.success{ background:#e8f7ef; color:#147a3f; }
+    .chip.warn{ background:#fff5e6; color:#9a6b00; }
+    .chip.danger{ background:#feecee; color:#b4232a; }
+    .btn.sm{ padding:4px 8px; font-size:12px; }
   </style>
 </head>
 <body>
 
-<!-- HEADER idêntico ao index.html (estrutura/classes) -->
 <header class="header">
   <div class="container">
     <div class="brand">
@@ -302,36 +290,44 @@
   const supa = await import('https://esm.sh/@supabase/supabase-js@2');
   const supabase = supa.createClient(cfg.supabaseUrl,cfg.supabaseAnonKey);
 
-  /* helpers foto */
+  /* helpers foto (compat com caminho antigo em Storage) */
   const UNITS_MAP=Object.create(null);
   const normalize=(p)=>String(p||'').replace(/^fotos\//i,'');
   const splitDir=(b)=>{const i=b.lastIndexOf('/');return i===-1?{dir:'',name:b}:{dir:b.slice(0,i),name:b.slice(i+1)};}
   async function objExists(bucket,full){const t=splitDir(full);const r=await supabase.storage.from(bucket).list(t.dir||'',{search:t.name,limit:1});if(r.error)return false;return (r.data||[]).some(x=>x.name===t.name);}
   async function getFotoUrlIfExists(path){const bucket=cfg.storageBucket||'fotos';if(!await objExists(bucket,path))return null;const s=await supabase.storage.from(bucket).createSignedUrl(path,3600);if(s?.data?.signedUrl)return s.data.signedUrl;const p=supabase.storage.from(bucket).getPublicUrl(path);return p?.data?.publicUrl||null;}
   async function getFotoUrlFlexible(reg,foto_path,{strict=false}={}){const list=[];if(foto_path){list.push(normalize(foto_path));if(!strict){list.push(reg+'.png',reg+'.jpg',reg+'.jpeg')}}else if(!strict){list.push(reg+'.png',reg+'.jpg',reg+'.jpeg')}for(const k of list){const u=await getFotoUrlIfExists(k);if(u)return u}return null;}
-  async function removeOtherExtAfterUpload(reg,keepKey){const keep=normalize(keepKey);const bucket=cfg.storageBucket||'fotos';const all=[reg+'.png',reg+'.jpg',reg+'.jpeg'];const toRemove=all.filter(k=>k!==keep);try{await supabase.storage.from(bucket).remove(toRemove)}catch{}}
-  async function deleteAllKnownPhotos(reg,currentKey){const bucket=cfg.storageBucket||'fotos';const keys=[reg+'.png',reg+'.jpg',reg+'.jpeg'];if(currentKey){const cur=normalize(currentKey);if(!keys.includes(cur))keys.push(cur)}try{await supabase.storage.from(bucket).remove(keys)}catch{}}
+
+  /* (opcional) reduzir foto antes de salvar para economizar espaço */
+  async function downscale(file, max = 512){
+    const img = await new Promise((ok,no)=>{
+      const i = new Image();
+      i.onload=()=>ok(i); i.onerror=no;
+      i.src = URL.createObjectURL(file);
+    });
+    const scale = Math.min(1, max / Math.max(img.width, img.height));
+    const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+    const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, w, h);
+    const mime = (file.type && /image\/(png|jpeg)/.test(file.type)) ? file.type : 'image/png';
+    return await new Promise(res => canvas.toBlob(b => res(b), mime, 0.85));
+  }
+
   async function fileToBase64(file){
-    // retorna "data:<mime>;base64,<dados>"
-    const ext = (file.name.split('.').pop() || 'png').toLowerCase();
-    const contentType = file.type || (
-      ext==='png' ? 'image/png' :
-      (ext==='jpg' || ext==='jpeg') ? 'image/jpeg' : 'application/octet-stream'
-    );
-    const buf = await file.arrayBuffer();
+    // reduz para máx 512px e qualidade 0.85 (opcional, melhora espaço em DB)
+    const blob = await downscale(file, 512);
+    const contentType = blob.type || 'image/png';
+    const buf = await blob.arrayBuffer();
     const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
     return `data:${contentType};base64,${b64}`;
   }
-  
+
   async function uploadFotoSeHouver(reg){
     const file = $('#arquivoFoto').files?.[0];
-    if (!file) return null;           // sem foto nova
-  
-    // converte para Base64 e devolve a string pronta para gravar no banco
+    if (!file) return null;
     const dataUrl = await fileToBase64(file);
-    // atualiza o preview local imediatamente
-    $('#preview').src = dataUrl;
-    return dataUrl; // vamos colocar isso em payload.foto_b64
+    $('#preview').src = dataUrl;               // preview imediato
+    return dataUrl;                            // será gravado em foto_b64
   }
 
   /* combos */
@@ -370,7 +366,6 @@
       let query = supabase.from('empregados')
         .select('registro,nome,sigla,cred_num,cred_cod,validade,status,foto_path,foto_b64');
 
-
       if(nome) query=query.ilike('nome',`%${nome}%`);
       if(fSig) query=query.eq('sigla',fSig);
       if(fTipos.length) query=query.in('cred_cod', fTipos.map(Number));
@@ -395,12 +390,11 @@
       const linhas=await Promise.all(data.map(async x=>{
         let avatar = PH40;
         if (x.foto_b64) {
-          avatar = x.foto_b64;
+          avatar = x.foto_b64; // prioridade: DB
         } else {
-          const url = await getFotoUrlFlexible(x.registro, x.foto_path, { strict: !x.foto_path });
+          const url=await getFotoUrlFlexible(x.registro,x.foto_path,{strict:!x.foto_path}); // legado
           avatar = url || PH40;
         }
-
         const chip = statusChip(displayStatus(x));
         return `<tr data-reg="${x.registro}">
           <td><input type="checkbox" class="chkRow" value="${x.registro}"></td>
@@ -426,20 +420,22 @@
   $('#tbody').addEventListener('click',async (ev)=>{
     const btn=ev.target.closest?.('[data-acao="editar"]'); const tr=ev.target.closest('tr');
     const reg=tr?.getAttribute('data-reg'); if(!tr||!btn) return;
-    const res = await supabase.from('empregados')
-    .select('registro,nome,sigla,cred_num,cred_cod,validade,status,doe,foto_path,foto_b64')
-    .eq('registro', reg)
-    .maybeSingle();
-  ...
-  // prioridade para a imagem gravada no banco
-  if (d.foto_b64) {
-    $('#preview').src = d.foto_b64;
-  } else {
-    const url = await getFotoUrlFlexible(d.registro, d.foto_path, { strict: !d.foto_path });
-    $('#preview').src = url || PH120;
-  }
-  $('#arquivoFoto').value = '';
+    const res=await supabase.from('empregados')
+      .select('registro,nome,sigla,cred_num,cred_cod,validade,status,doe,foto_path,foto_b64')
+      .eq('registro',reg).maybeSingle();
+    if(res.error){alert('Erro ao carregar registro');return;}
+    const d=res.data||{};
+    $('#registro').value=d.registro||'';$('#nome').value=d.nome||'';$('#sigla').value=d.sigla||'';
+    $('#cred_cod').value=d.cred_cod||'';$('#cred_num').value=d.cred_num||'';$('#validade').value=d.validade?String(d.validade).slice(0,10):'';
+    $('#status').value=d.status||'Em andamento';$('#doe').value=d.doe||'';
 
+    if (d.foto_b64) {
+      $('#preview').src = d.foto_b64;                 // prioridade DB
+    } else {
+      const url=await getFotoUrlFlexible(d.registro,d.foto_path,{strict:!d.foto_path}); // legado
+      $('#preview').src=url||PH120;
+    }
+    $('#arquivoFoto').value='';
   });
 
   /* novo */
@@ -448,59 +444,54 @@
   /* remover foto */
   $('#btnRemoverFoto').addEventListener('click',async()=>{
     const reg=$('#registro').value.trim(); if(!/^\d{6}$/.test(reg)) return alert('Informe um registro válido (6 dígitos).');
+    // remover do Storage (legado), se existir
     const cur=await supabase.from('empregados').select('foto_path').eq('registro',reg).maybeSingle();
-    await deleteAllKnownPhotos(reg, cur.data?.foto_path || null); // opcional; pode deixar
-    await supabase.from('empregados')
-      .update({ foto_path: null, foto_b64: null })
-      .eq('registro', reg);
-    $('#arquivoFoto').value = '';
-    $('#preview').src = PH120;
-    await carregarLista();
-
+    try{ await (async()=>{ const p = cur.data?.foto_path||null; if(p){ await supabase.storage.from(cfg.storageBucket||'fotos').remove([p,'${reg}.png','${reg}.jpg','${reg}.jpeg']); } })(); }catch{}
+    // zera campos no DB
+    await supabase.from('empregados').update({foto_path:null, foto_b64:null}).eq('registro',reg);
+    $('#arquivoFoto').value='';$('#preview').src=PH120;await carregarLista();
   });
 
   /* obter nome da unidade para gravar junto (evita NOT NULL) */
-  async function nomeUnidade(sig){ if(UNITS_MAP[sig]!=null)return UNITS_MAP[sig]; const ru=await supabase.from('unidades').select('nome_da_unidade').eq('sigla',sig).maybeSingle(); const v=ru?.data?.nome_da_unidade||''; UNITS_MAP[sig]=v; return v; }
+  async function nomeUnidade(sig){
+    if(UNITS_MAP[sig]!=null)return UNITS_MAP[sig];
+    const ru=await supabase.from('unidades').select('nome_da_unidade').eq('sigla',sig).maybeSingle();
+    const v=ru?.data?.nome_da_unidade||''; UNITS_MAP[sig]=v; return v;
+  }
 
   /* salvar */
   $('#formCad').addEventListener('submit',async(ev)=>{
     ev.preventDefault();
     const reg=$('#registro').value.trim(); if(!/^\d{6}$/.test(reg)) return alert('Registro inválido (6 dígitos).');
     const sig=$('#sigla').value;
-    const payload = {
-    registro: reg,
-    nome: $('#nome').value.trim(),
-    sigla: sig,
-    nome_da_unidade: await nomeUnidade(sig),
-    cred_cod: Number($('#cred_cod').value),
-    cred_num: $('#cred_num').value.trim(),
-    validade: $('#validade').value,
-    status: $('#status').value,
-    doe: $('#doe').value.trim() || null
-  };
-  
-  try{
-    const fotoB64 = await uploadFotoSeHouver(reg);
-    if (fotoB64) {
-      // gravamos a imagem diretamente no banco
-      payload.foto_b64 = fotoB64;
-      // e, por consistência, garantimos que o caminho do Storage fique nulo
-      payload.foto_path = null;
-    }
-  
-    const resp = await supabase.from('empregados')
-      .upsert(payload, { onConflict: 'registro' });
-    if (resp.error) throw new Error(resp.error.message || 'Erro ao salvar');
-  
-    // preview já atualizado em uploadFotoSeHouver; só limpar input
-    $('#arquivoFoto').value = '';
-    await carregarLista();
-    alert('Registro salvo com sucesso.');
-  }catch(err){
-    console.error(err);
-    alert('Falha ao salvar: ' + (err?.message || String(err)));
-  }
+    const payload={
+      registro:reg,
+      nome:$('#nome').value.trim(),
+      sigla:sig,
+      nome_da_unidade:await nomeUnidade(sig),
+      cred_cod:Number($('#cred_cod').value),
+      cred_num:$('#cred_num').value.trim(),
+      validade:$('#validade').value,
+      status:$('#status').value,
+      doe:$('#doe').value.trim()||null
+    };
+    try{
+      const fotoB64=await uploadFotoSeHouver(reg);
+      if(fotoB64){
+        payload.foto_b64=fotoB64;  // imagem como texto (no DB)
+        payload.foto_path=null;    // descontinua uso de Storage para novos
+      }
+      const resp=await supabase.from('empregados').upsert(payload,{onConflict:'registro'});
+      if(resp.error) throw new Error(resp.error.message||'Erro ao salvar');
 
+      // preview já atualizado em uploadFotoSeHouver; só limpar input e recarregar
+      $('#arquivoFoto').value='';
+      await carregarLista();
+      alert('Registro salvo com sucesso.');
+    }catch(err){
+      console.error(err);
+      alert('Falha ao salvar: '+(err?.message||String(err)));
+    }
   });
 
   /* QR Code */
