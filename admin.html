@@ -311,7 +311,28 @@
   async function getFotoUrlFlexible(reg,foto_path,{strict=false}={}){const list=[];if(foto_path){list.push(normalize(foto_path));if(!strict){list.push(reg+'.png',reg+'.jpg',reg+'.jpeg')}}else if(!strict){list.push(reg+'.png',reg+'.jpg',reg+'.jpeg')}for(const k of list){const u=await getFotoUrlIfExists(k);if(u)return u}return null;}
   async function removeOtherExtAfterUpload(reg,keepKey){const keep=normalize(keepKey);const bucket=cfg.storageBucket||'fotos';const all=[reg+'.png',reg+'.jpg',reg+'.jpeg'];const toRemove=all.filter(k=>k!==keep);try{await supabase.storage.from(bucket).remove(toRemove)}catch{}}
   async function deleteAllKnownPhotos(reg,currentKey){const bucket=cfg.storageBucket||'fotos';const keys=[reg+'.png',reg+'.jpg',reg+'.jpeg'];if(currentKey){const cur=normalize(currentKey);if(!keys.includes(cur))keys.push(cur)}try{await supabase.storage.from(bucket).remove(keys)}catch{}}
-  async function uploadFotoSeHouver(reg){const file=$('#arquivoFoto').files?.[0];if(!file)return null;const ext=(file.name.split('.').pop()||'png').toLowerCase();const key=`${reg}.${ext}`;const bucket=cfg.storageBucket||'fotos';const contentType=file.type||(ext==='png'?'image/png':(ext==='jpg'||ext==='jpeg')?'image/jpeg':'application/octet-stream');const up=await supabase.storage.from(bucket).upload(key,file,{upsert:true,contentType});if(up.error)throw new Error(up.error.message||'Falha no upload da foto');await removeOtherExtAfterUpload(reg,key);return key;}
+  async function uploadFotoSeHouver(reg){
+    const file = $('#arquivoFoto').files?.[0];
+    if (!file) return null;
+  
+    const ext = (file.name.split('.').pop() || 'png').toLowerCase();
+    const key = `${reg}.${ext}`;
+    const bucket = cfg.storageBucket || 'fotos';
+    const contentType = file.type || (ext==='png' ? 'image/png' : (ext==='jpg'||ext==='jpeg') ? 'image/jpeg' : 'application/octet-stream');
+  
+    // 1) Tenta INSERT puro
+    const ins = await supabase.storage.from(bucket).upload(key, file, { upsert: false, contentType });
+    if (ins.error) {
+      // 2) Se já existia (ou policy só aceita UPDATE), tenta UPDATE (upsert)
+      const upd = await supabase.storage.from(bucket).upload(key, file, { upsert: true, contentType });
+      if (upd.error) throw new Error(upd.error.message || 'Falha no upload da foto');
+    }
+  
+    // 3) Tenta remover outras extensões, mas NÃO bloqueia o fluxo se falhar
+    try { await removeOtherExtAfterUpload(reg, key); } catch(e) { console.warn('Falha ao remover outras extensões:', e); }
+  
+    return key;
+  }
 
   /* combos */
   async function carregarCombos(){
